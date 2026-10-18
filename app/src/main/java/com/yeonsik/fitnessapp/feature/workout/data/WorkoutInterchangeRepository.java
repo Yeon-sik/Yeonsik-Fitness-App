@@ -43,7 +43,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
 
     private final WorkoutRoomDao workoutDao;
     private final RoomTransactionRunner transactionRunner;
-    private final ExerciseFamilyCatalog familyCatalog;
+    private final Context appContext;
 
     public WorkoutInterchangeRepository(
             FitnessRoomDatabase roomDatabase,
@@ -55,7 +55,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
         }
         this.workoutDao = roomDatabase.workoutRoomDao();
         this.transactionRunner = transactionRunner;
-        this.familyCatalog = ExerciseFamilyCatalog.load(context);
+        this.appContext = context.getApplicationContext();
     }
 
     public WorkoutInterchangeRepository(FitnessRoomDatabase roomDatabase, Context context) {
@@ -224,7 +224,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
                 int fallbackOrder = 1;
                 for (WorkoutTransferCodec.Exercise exercise : session.exercises) {
                     RuntimeExercisePreset preset = presets.get(presetIndex++);
-                    ExerciseFamilyIdentity identity = familyCatalog.identityForPreset(preset);
+                    ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.load(appContext).identityForPreset(preset);
                     String recordType = FitnessRecordContract.normalizeRecordType(
                             preset.recordType
                     );
@@ -339,7 +339,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
 
                 int order = 1;
                 for (FleekCsvImporter.ExerciseData exercise : session.exercises) {
-                    ExerciseFamilyIdentity identity = familyCatalog
+                    ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.load(appContext)
                             .identityForStorageExerciseId(exercise.exerciseId);
                     String workoutExerciseId = newId();
                     String recordType = FitnessRecordContract.normalizeRecordType(
@@ -501,7 +501,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
     }
 
     private RuntimeExercisePreset requireTransferPreset(WorkoutTransferCodec.Exercise exercise) {
-        RuntimeExerciseCatalog catalog = familyCatalog.runtimeCatalog();
+        RuntimeExerciseCatalog catalog = ExerciseFamilyCatalog.load(appContext).runtimeCatalog();
         RuntimeExercisePreset preset = null;
         preset = mergePreset(preset, catalog.presetForStorageExerciseId(exercise.exerciseId));
         preset = mergePreset(preset, catalog.presetForStorageExerciseId(exercise.canonicalExerciseId));
@@ -531,7 +531,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
     private double importedVolume(FleekCsvImporter.SessionData session) {
         double total = 0d;
         for (FleekCsvImporter.ExerciseData exercise : session.exercises) {
-            ExerciseFamilyIdentity identity = familyCatalog
+            ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.load(appContext)
                     .identityForStorageExerciseId(exercise.exerciseId);
             for (FleekCsvImporter.SetData set : exercise.sets) {
                 TransferSetInput input = TransferSetInput.from(set);
@@ -571,7 +571,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
             state = LoadState.EXTERNAL_LOAD;
         }
         if (identity != null && state != null) {
-            RuntimeExerciseFamily family = familyCatalog.runtimeCatalog().family(identity.familyId);
+            RuntimeExerciseFamily family = ExerciseFamilyCatalog.load(appContext).runtimeCatalog().family(identity.familyId);
             if (family != null
                     && !family.allowedLoadStates.isEmpty()
                     && !family.supportsLoadState(state)) {
@@ -683,7 +683,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
         if (identity == null) {
             return null;
         }
-        RuntimeExerciseCatalog catalog = familyCatalog.runtimeCatalog();
+        RuntimeExerciseCatalog catalog = ExerciseFamilyCatalog.load(appContext).runtimeCatalog();
         RuntimeExercisePreset preset = catalog.preset(identity.presetId);
         if (preset == null) {
             preset = catalog.preset(identity.canonicalPresetId);
@@ -782,7 +782,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
             String visualKey,
             String recordType
     ) {
-        ExerciseFamilyIdentity mapped = familyCatalog.identityForStorageExerciseId(exerciseId);
+        ExerciseFamilyIdentity mapped = ExerciseFamilyCatalog.load(appContext).identityForStorageExerciseId(exerciseId);
         if (mapped != null) {
             return mapped;
         }

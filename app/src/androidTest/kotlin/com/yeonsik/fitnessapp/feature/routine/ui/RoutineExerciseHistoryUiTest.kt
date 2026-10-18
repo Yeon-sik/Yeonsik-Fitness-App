@@ -1,8 +1,7 @@
 package com.yeonsik.fitnessapp.feature.routine.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
@@ -46,7 +45,7 @@ class RoutineExerciseHistoryUiTest {
             emptyMap(), null, emptyMap(), emptyMap(), emptyMap(), null, null, emptyList(), emptyList())
         compose.setContent {
             FitnessComposeTheme(false) {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+                Column(Modifier.fillMaxSize()) {
                     RoutineDetailScreen(HomeUiState.Ready(home), "owner", "routine", actions, history.value)
                 }
             }
@@ -72,5 +71,36 @@ class RoutineExerciseHistoryUiTest {
         compose.onNodeWithText(exercise.nameKo).assertIsDisplayed()
         compose.onNodeWithText("다시 불러오기").performClick()
         compose.runOnIdle { assertEquals(true, retried) }
+    }
+
+    @Test fun startStaysVisibleAcrossTheListAndIsDisabledUntilTheStartFinishes() {
+        val starting = mutableStateOf(false)
+        var starts = 0
+        val exercises = (1..12).map { exercise.copy(id = "item-$it", order = it) }
+        val home = HomeSnapshot("owner", "2026-10-17", emptyList(), "routine",
+            listOf(RoutineSummary("routine", "테스트 루틴", exercises.size)), mapOf("routine" to exercises),
+            emptyMap(), null, emptyMap(), emptyMap(), emptyMap(), null, null, emptyList(), emptyList())
+        val actions = Proxy.newProxyInstance(RoutineDetailActions::class.java.classLoader,
+            arrayOf(RoutineDetailActions::class.java)) { proxy, method, args ->
+            when (method.name) {
+                "equals" -> proxy === args?.get(0)
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> "Routine start callbacks"
+                "startWorkout" -> { starts++; starting.value = true; null }
+                else -> null
+            }
+        } as RoutineDetailActions
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                RoutineDetailScreen(HomeUiState.Ready(home), "owner", "routine", actions, starting = starting.value)
+            }
+        }
+        compose.onNodeWithTag("routine-start-workout").assertIsDisplayed()
+        compose.onNodeWithText("루틴 이름").assertDoesNotExist()
+        compose.onNodeWithTag("routine-exercise-item-12").performScrollTo()
+        compose.onNodeWithTag("routine-start-workout").assertIsDisplayed().performClick().assertIsNotEnabled()
+        compose.onNodeWithText("시작하는 중…").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, starts); starting.value = false }
+        compose.onNodeWithTag("routine-start-workout").assertIsEnabled()
     }
 }

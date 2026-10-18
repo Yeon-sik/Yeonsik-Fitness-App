@@ -77,4 +77,7 @@ class WorkoutReadRepository(
 
     override fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int =
         storage.completedResistanceSessions(scope, startDate, endDate)
+
+    override fun progressSessions(scope: AccountScope, startDate: String, endDate: String) =
+        storage.progressSessions(scope, startDate, endDate)
 }

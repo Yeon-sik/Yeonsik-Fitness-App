@@ -633,6 +633,9 @@ public final class LocalDataBackupService {
         }
         Set<String> expected = new LinkedHashSet<>(TABLE_ORDER);
         Set<String> required = new LinkedHashSet<>(expected);
+        if (databaseVersion < 56) {
+            required.remove("workout_setup_notes");
+        }
         if (databaseVersion < 55) {
             required.remove("workout_manual_exercise_links");
         }
@@ -1104,6 +1107,7 @@ public final class LocalDataBackupService {
         tables.add("workout_records");
         tables.add("workout_exercises");
         tables.add("workout_manual_exercise_links");
+        tables.add("workout_setup_notes");
         tables.add("workout_sets");
         tables.add("meal_records");
         tables.add("weight_records");

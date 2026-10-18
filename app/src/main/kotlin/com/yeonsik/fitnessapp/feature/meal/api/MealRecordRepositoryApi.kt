@@ -8,6 +8,8 @@ import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake
 import com.yeonsik.fitnessapp.data.MealMenuSelection
 import com.yeonsik.fitnessapp.data.MealCompositionItem
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditSnapshot
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditRequest
 
 /** Meal write port used by the meal application layer. */
 interface MealRecordRepositoryApi {
@@ -92,6 +94,13 @@ interface MealRecordRepositoryApi {
         foods.isEmpty() -> saveDiningOutMenuItems(scope, date, mealTime, menus)
         else -> throw UnsupportedOperationException("함께 담은 식단 저장을 지원하지 않습니다.")
     }
+
+    fun loadMealForEditing(scope: AccountScope, recordId: String): MealRecordEditSnapshot? = null
+
+    /** Updates the original meal atomically and rejects an out-of-date edit. */
+    fun updateMealItems(scope: AccountScope, request: MealRecordEditRequest, mealTime: String,
+        foods: List<MealCompositionItem>, menus: List<DiningOutMenuIntake>): Boolean =
+        throw UnsupportedOperationException("식단 내용 수정을 지원하지 않습니다.")
 
     /** Updates only the local meal time and preserves the consumed snapshot. */
     fun updateMealTime(scope: AccountScope, recordId: String, mealTime: String): Boolean

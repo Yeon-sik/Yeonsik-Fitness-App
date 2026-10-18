@@ -37,6 +37,7 @@ object FitnessRoomMigrations {
             add(V52_TO_V53)
             add(V53_TO_V54)
             add(V54_TO_V55)
+            add(V55_TO_V56)
         }.toTypedArray()
     }
 
@@ -111,6 +112,15 @@ object FitnessRoomMigrations {
                 "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
             db.execSQL("CREATE INDEX workout_manual_links_identity_idx ON " +
                 "workout_manual_exercise_links(user_id, family_id, canonical_variant_key)")
+        }
+    }
+
+    /** Add only private settings; no workout facts or existing metadata are rewritten. */
+    val V55_TO_V56: Migration = object : Migration(55, 56) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE workout_setup_notes (user_id TEXT NOT NULL, " +
+                "exercise_key TEXT NOT NULL, note TEXT NOT NULL, updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, exercise_key))")
         }
     }
 

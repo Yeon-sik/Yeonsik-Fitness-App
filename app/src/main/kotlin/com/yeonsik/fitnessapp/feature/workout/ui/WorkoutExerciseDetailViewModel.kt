@@ -10,9 +10,7 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -152,6 +150,20 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         repository.addTypedSet(scope, recordId, exerciseId, setIndex, input)
     }
 
+    fun updateSetType(scope: AccountScope, recordId: String, setId: String,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType, callback: Consumer<Boolean>) =
+        executeWrite(callback) { repository.updateSetType(scope, recordId, setId, type) }
+
+    fun addDropSet(scope: AccountScope, recordId: String, exerciseId: String, parentSetId: String,
+        callback: Consumer<Boolean>) = executeWrite(callback) { repository.addDropSet(scope, recordId, exerciseId, parentSetId) }
+
+    fun linkSuperset(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+        callback: Consumer<Boolean>) = executeWrite(callback) { repository.linkSuperset(scope, recordId, exerciseId, partnerExerciseId) }
+
+    fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType, callback: Consumer<Boolean>) =
+        executeWrite(callback) { repository.linkExerciseGroup(scope, recordId, exerciseId, partnerExerciseId, type) }
+
     fun deleteSet(scope: AccountScope, recordId: String, setId: String,
                   callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.deleteSet(scope, recordId, setId)
@@ -173,35 +185,43 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         repository.replaceExercise(scope, recordId, exerciseId, replacement)
     }
 
-    /**
-     * Copies the last persisted exercise facts into the current set slots. Existing set ids are
-     * updated in place; only missing slots are appended. The operation is explicit user input,
-     * never a render-time side effect, and the history model remains immutable.
-     */
-    fun applyPreviousHistory(
-        scope: AccountScope,
-        recordId: String,
-        exerciseId: String,
-        currentSets: List<WorkoutSet>,
-        history: WorkoutExerciseHistory,
-        callback: Consumer<Boolean>
-    ) = executeWrite(callback) {
-        val orderedCurrent = currentSets.sortedWith(compareBy<WorkoutSet> { it.setIndex }.thenBy { it.id })
-        val orderedHistory = history.sets.sortedWith(compareBy<WorkoutSet> { it.setIndex }.thenBy { it.id })
-        orderedHistory.allIndexed { index, previous ->
-            val input = previous.toInput()
-            val current = orderedCurrent.getOrNull(index)
-            if (current != null) {
-                repository.updateTypedSet(scope, recordId, current.id, input)
-            } else {
-                repository.addTypedSet(scope, recordId, exerciseId, previous.setIndex, input)
-            }
-        }
-    }
-
     fun updateExerciseRestSeconds(scope: AccountScope, recordId: String, exerciseId: String,
                                   seconds: Int, callback: Consumer<Boolean>) =
         executeWrite(callback) { repository.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds) }
+
+    fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String,
+                        note: String, callback: Consumer<Boolean>) {
+        writeNote(scope, recordId, exerciseId, callback) {
+            repository.updateSetupNote(scope, recordId, exerciseId, note)
+        }
+    }
+
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String, callback: Consumer<Boolean>) {
+        writeNote(scope, recordId, null, callback) { repository.updateConditionNote(scope, recordId, note) }
+    }
+
+    private fun writeNote(scope: AccountScope, recordId: String, exerciseId: String?,
+                          callback: Consumer<Boolean>, write: () -> Boolean) {
+        val request = activeRequest
+        val ready = mutableState.value as? WorkoutExerciseDetailUiState.Ready
+        if (request == null || request.ownerId != scope.ownerId || request.recordId != recordId ||
+            request.readOnly || ready == null || ready.ownerId != scope.ownerId ||
+            (exerciseId != null && ready.detail.activeExercise.id != exerciseId)) {
+            callback.accept(false)
+            return
+        }
+        executor.execute {
+            val result = runCatching(write).getOrDefault(false)
+            mainHandler.post {
+                val current = activeRequest
+                // A set refresh changes the request token but does not leave this note's screen.
+                val sameScreen = current != null && current.ownerId == request.ownerId &&
+                    current.recordId == request.recordId && current.activeExerciseId == request.activeExerciseId &&
+                    !current.readOnly
+                callback.accept(result && sameScreen)
+            }
+        }
+    }
 
     private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
         executor.execute {
@@ -212,28 +232,6 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                 mainHandler.post { callback.accept(false) }
             }
         }
-    }
-
-    private fun WorkoutSet.toInput(): WorkoutSetInput = WorkoutSetInput(
-        weightKg = weightKg.takeIf { it.isFinite() && it > 0.0 },
-        reps = actualReps.takeIf { it > 0 },
-        durationSeconds = durationSeconds.takeIf { it > 0 },
-        distanceMeters = distanceMeters.takeIf { it.isFinite() && it > 0.0 },
-        assistedWeightKg = assistedWeightKg.takeIf { it.isFinite() && it > 0.0 },
-        addedWeightKg = addedWeightKg.takeIf { it.isFinite() && it > 0.0 },
-        rir = rir,
-        restSeconds = restSeconds,
-        completed = isCompleted,
-        loadState = loadState,
-        inputLoadValue = inputLoadValue,
-        inputLoadUnit = inputLoadUnit
-    )
-
-    private inline fun <T> Iterable<T>.allIndexed(predicate: (Int, T) -> Boolean): Boolean {
-        forEachIndexed { index, value ->
-            if (!predicate(index, value)) return false
-        }
-        return true
     }
 
     private fun publishIfCurrent(request: DetailRequest, state: WorkoutExerciseDetailUiState) {

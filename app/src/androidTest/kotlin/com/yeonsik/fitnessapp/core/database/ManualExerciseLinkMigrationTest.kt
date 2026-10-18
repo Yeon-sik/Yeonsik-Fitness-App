@@ -54,10 +54,10 @@ class ManualExerciseLinkMigrationTest {
                 tables.associateWith { table -> rows(db, table) }
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-                .addMigrations(FitnessRoomMigrations.V54_TO_V55).build()
+                .addMigrations(FitnessRoomMigrations.V54_TO_V55, FitnessRoomMigrations.V55_TO_V56).build()
             try {
                 val db = room.openHelper.writableDatabase
-                assertEquals(55, db.version)
+                assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.version)
                 for (table in tables) assertEquals(table, before[table], rows(db, table))
                 assertTrue(room.workoutRoomDao().manualExerciseLinks("record", "owner").isEmpty())
             } finally { room.close() }

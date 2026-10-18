@@ -98,6 +98,15 @@ internal fun MealRecordEditDialog(
 
 @Composable
 internal fun MealSnapshotDetailDialog(state: MealDetailState, onDismiss: () -> Unit) {
+    MealSnapshotDetailDialog(state, onDismiss, onEditDateTime = null)
+}
+
+@Composable
+internal fun MealSnapshotDetailDialog(
+    state: MealDetailState,
+    onDismiss: () -> Unit,
+    onEditDateTime: (() -> Unit)?
+) {
     if (state == MealDetailState.Idle) return
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -114,7 +123,14 @@ internal fun MealSnapshotDetailDialog(state: MealDetailState, onDismiss: () -> U
                 MealDetailState.Idle -> Unit
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("닫기") } }
+        confirmButton = {
+            Row {
+                if (state is MealDetailState.Ready && onEditDateTime != null) {
+                    TextButton(onEditDateTime) { Text("날짜·시간 수정") }
+                }
+                TextButton(onDismiss) { Text("닫기") }
+            }
+        }
     )
 }
 

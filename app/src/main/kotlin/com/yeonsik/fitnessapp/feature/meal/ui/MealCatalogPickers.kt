@@ -1,10 +1,13 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -17,6 +20,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
+import com.yeonsik.fitnessapp.data.NutritionFood
+import com.yeonsik.fitnessapp.data.NutritionUnit
+import com.yeonsik.fitnessapp.feature.nutrition.model.*
 import com.yeonsik.fitnessapp.feature.nutrition.ui.*
 
 @Composable
@@ -26,6 +32,15 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
     val enabled = !editor.saving && !editor.draftLoading
     val dining = editor.diningOut
     val noun = if (dining) "외식 메뉴" else if (editor.category == MealCatalogCategory.ALL) "음식" else "식품"
+    var pendingFoodId by rememberSaveable(editor.ownerId, editor.date, editor.category) { mutableStateOf<String?>(null) }
+    val pendingFood = editor.searchResults.firstOrNull { it.id == pendingFoodId }
+    if (pendingFood != null) key(editor.ownerId, editor.date, pendingFood.id) {
+        MealFoodPortionDialog(pendingFood, enabled, onDismiss = { pendingFoodId = null }, onAdd = { portion ->
+            focus.clearFocus()
+            actions.selectFood(portion.food, portion.quantity, portion.mode)
+            pendingFoodId = null
+        })
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AppTextField(editor.query, actions::searchFood, Modifier.fillMaxWidth().testTag("meal-catalog-query"),
             label = { Text(if (dining) "저장된 외식 메뉴 검색" else if (editor.category == MealCatalogCategory.ALL) "음식 이름 검색" else "${editor.category.label} 이름 검색") }, enabled = enabled,
@@ -49,7 +64,7 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 MealCatalogResultList(editor.searchResults, {
                     focus.clearFocus()
-                    if (dining) actions.useDiningOutFood(it) else actions.selectFood(it)
+                    if (dining) actions.useDiningOutFood(it) else pendingFoodId = it.id
                 }, Modifier.fillMaxWidth().testTag(if (dining) "meal-dining-results" else "meal-food-results"), enabled = enabled,
                     includedFoodIds = mealFoodItems(editor).map { it.food.id }.toSet() + diningMealMenus(editor).mapNotNull { it.nutritionFoodId },
                     actionLabel = if (dining) "불러오기" else "담기", onReviewFood = onReviewFood,
@@ -58,6 +73,51 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
         }
         if (editor.query.isNotBlank()) TextButton({ actions.searchFood(""); focus.clearFocus() }, enabled = enabled) { Text("검색 지우기") }
     }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun MealFoodPortionDialog(food: NutritionFood, enabled: Boolean,
+    onDismiss: () -> Unit, onAdd: (FoodPortionDraft) -> Unit) {
+    val initial = remember(food) { initialFoodPortion(food, preferCount = true) }
+    var quantity by rememberSaveable(food.id) { mutableStateOf(initial.quantity) }
+    var mode by rememberSaveable(food.id) { mutableStateOf(initial.mode) }
+    val portion = FoodPortionDraft(food, quantity, mode)
+    val unit = if (mode == PortionInputMode.BASIS && food.basisUnit == NutritionUnit.SERVING) "인분" else portion.unitLabel()
+    val step = when (mode) {
+        PortionInputMode.COUNT -> 1.0
+        PortionInputMode.GRAMS -> (recipeGramsPerServing(food) ?: 100.0) / 4.0
+        PortionInputMode.BASIS -> food.basisAmount / 4.0
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(food.displayName()) },
+        text = {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("먹은 개수나 양을 정한 뒤 식단에 담으세요.")
+                Text("영양정보 기준 · ${food.basisLabel()}", style = MaterialTheme.typography.bodySmall)
+                if (portion.availableModes().size > 1) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    portion.availableModes().forEach { next ->
+                        FilterChip(selected = mode == next, enabled = enabled, onClick = {
+                            val converted = portion.withMode(next)
+                            quantity = converted?.quantity ?: ""
+                            mode = next
+                        }, label = { Text(portion.modeLabel(next)) },
+                            modifier = Modifier.testTag("meal-add-mode-${next.name}"))
+                    }
+                }
+                MealQuantityAdjuster(quantity, unit, step, { quantity = it }, enabled,
+                    "meal-add-quantity", food.displayName())
+                portion.profile?.let { MealNutritionPreview(it, Modifier.fillMaxWidth()) }
+            }
+        },
+        confirmButton = {
+            TextButton({ onAdd(portion) }, enabled = enabled && portion.amount != null,
+                modifier = Modifier.testTag("meal-add-confirm")) { Text("식단에 담기") }
+        },
+        dismissButton = { TextButton(onDismiss, modifier = Modifier.testTag("meal-add-cancel")) { Text("취소") } }
+    )
 }
 
 @Composable

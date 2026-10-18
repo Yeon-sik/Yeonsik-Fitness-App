@@ -27,6 +27,42 @@ import java.util.concurrent.TimeUnit
 class WorkoutSessionViewModelTest {
     private val scope = AccountScope("view-model-owner")
 
+    @Test fun sameSessionRefreshKeepsContentButDifferentOwnerEntersLoading() {
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0))
+        val executor = Executors.newSingleThreadExecutor()
+        val model = viewModel(repository, executor)
+        val loaded = CountDownLatch(1)
+        val states = Collections.synchronizedList(mutableListOf<WorkoutSessionUiState>())
+        val observer = Observer<WorkoutSessionUiState> {
+            states += it
+            if (it is WorkoutSessionUiState.Ready) loaded.countDown()
+        }
+        onMain { model.uiState.observeForever(observer); model.enter(scope, "record") }
+        try {
+            assertTrue(loaded.await(5, TimeUnit.SECONDS))
+            onMain {
+                states.clear()
+                model.enter(scope, "record")
+                assertTrue(model.uiState.value is WorkoutSessionUiState.Ready)
+            }
+            executor.submit { }.get(5, TimeUnit.SECONDS)
+            onMain { }
+            assertEquals(2, repository.calls)
+            assertFalse(states.any { it is WorkoutSessionUiState.Loading })
+            onMain {
+                model.enter(AccountScope("different-owner"), "record")
+                assertEquals(WorkoutSessionUiState.Loading, model.uiState.value)
+            }
+            executor.submit { }.get(5, TimeUnit.SECONDS)
+            onMain {
+                assertEquals("different-owner", (model.uiState.value as WorkoutSessionUiState.Ready).ownerId)
+            }
+        } finally {
+            onMain { model.uiState.removeObserver(observer) }
+            executor.shutdownNow()
+        }
+    }
+
     @Test
     fun nullTargetInvalidatesInFlightReadAndTerminalEvent() {
         val firstStarted = CountDownLatch(1)
@@ -281,7 +317,8 @@ class WorkoutSessionViewModelTest {
         private val completedSetCount: Int = 0,
         private val deleteSucceeds: Boolean = true
     ) : WorkoutRepositoryApi {
-        private var calls = 0
+        var calls = 0
+            private set
         var deleteCalls = 0
         var completeCalls = 0
         var deletedOwnerId: String? = null

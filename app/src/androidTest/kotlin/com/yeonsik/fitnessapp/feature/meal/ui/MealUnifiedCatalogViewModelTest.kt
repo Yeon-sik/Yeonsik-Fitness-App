@@ -21,6 +21,37 @@ import java.util.concurrent.TimeUnit
 
 /** All repositories here are fixtures; these tests never open the user's database. */
 class MealUnifiedCatalogViewModelTest {
+    @Test fun selectedCountAndAmountAreSavedWithoutAnIntermediateDefaultPortion() = withFixture {
+        main {
+            vm.startDraft()
+            vm.selectFood(catalog.product, "2.5", PortionInputMode.COUNT)
+            vm.selectFood(catalog.rice, "150", PortionInputMode.BASIS)
+            vm.selectFood(catalog.menu, "0.5", PortionInputMode.BASIS)
+            assertEquals(listOf("2.5", "150"), state().foodItems.map { it.quantity })
+            assertEquals(PortionInputMode.COUNT, state().foodItems.first().amountMode)
+            assertEquals("0.5", state().diningMenus.single().quantity)
+            assertEquals(listOf("2.5", "150"), handle.get<ArrayList<String>>("meal.portion_amounts"))
+            vm.saveFood(scope) {}
+        }
+        queue.drain()
+        assertEquals(listOf(225.0, 150.0), savedFoods.map { it.quantity })
+        assertEquals(0.5, savedMenus.single().input.quantity, 0.0)
+    }
+
+    @Test fun invalidAmountOrUnsupportedUnitDoesNotAddFood() = withFixture {
+        main {
+            vm.startDraft()
+            listOf("", "0", "-1", "NaN", "Infinity").forEach {
+                vm.selectFood(catalog.product, it, PortionInputMode.COUNT)
+                assertTrue(state().foodItems.isEmpty())
+            }
+            vm.selectFood(catalog.rice, "2", PortionInputMode.COUNT)
+            assertTrue(state().foodItems.isEmpty())
+            vm.selectFood(catalog.rice, "125", PortionInputMode.BASIS)
+            assertEquals("125", state().foodItems.single().quantity)
+        }
+    }
+
     @Test fun recipeServingAndCookedWeightRemainEquivalentWithPartialConsumption() {
         val recipe = NutritionFood.builder().id("recipe").ownerId("nutrition-owner").name("내 요리")
             .kind(NutritionFood.KIND_RECIPE).basis(1.0, NutritionUnit.SERVING)

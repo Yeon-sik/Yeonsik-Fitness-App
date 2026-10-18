@@ -19,6 +19,7 @@ import java.util.Map;
 /** Runtime reader for the generated JSON projection of EXERCISE_FAMILY_CATALOG_V1.yaml. */
 public final class ExerciseFamilyCatalog {
     public static final String ASSET_FILE_NAME = "exercise_family_mapping_v1.json";
+    private static volatile ExerciseFamilyCatalog cached;
 
     private static final ExerciseFamilyCatalog EMPTY = new ExerciseFamilyCatalog(
             Collections.emptyMap(),
@@ -52,6 +53,19 @@ public final class ExerciseFamilyCatalog {
         if (context == null) {
             return EMPTY;
         }
+        ExerciseFamilyCatalog existing = cached;
+        if (existing != null) return existing;
+        synchronized (ExerciseFamilyCatalog.class) {
+            if (cached != null) return cached;
+            ExerciseFamilyCatalog loaded = readAsset(context);
+            // The packaged catalog is immutable until the process is replaced by an update.
+            // A failed read is not cached, so transient failures retain the existing retry behavior.
+            if (loaded != EMPTY) cached = loaded;
+            return loaded;
+        }
+    }
+
+    private static ExerciseFamilyCatalog readAsset(Context context) {
         Context applicationContext = context.getApplicationContext() == null
                 ? context
                 : context.getApplicationContext();

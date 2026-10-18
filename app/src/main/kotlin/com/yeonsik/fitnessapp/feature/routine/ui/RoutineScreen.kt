@@ -1,48 +1,29 @@
 package com.yeonsik.fitnessapp.feature.routine.ui
 
-import android.app.Activity
-import androidx.activity.compose.LocalActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.yeonsik.fitnessapp.core.ui.FitnessButton
-import com.yeonsik.fitnessapp.core.ui.FitnessCard
-import com.yeonsik.fitnessapp.core.ui.FitnessExerciseIllustration
-import com.yeonsik.fitnessapp.core.ui.FitnessHeader
-import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
-import com.yeonsik.fitnessapp.core.ui.FitnessSection
-import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
-import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
-import com.yeonsik.fitnessapp.core.ui.FitnessStatusMessage
-import com.yeonsik.fitnessapp.core.ui.FitnessTextField
-import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
-import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitnessapp.core.ui.*
+import com.yeonsik.fitnessapp.data.FitnessRecordContract
+import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseImage
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRoutineExerciseAnchor
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRoutineTitleAnchor
+import com.yeonsik.fitnessapp.feature.workout.ui.workoutSharedElement
+import com.yeonsik.fitnessapp.state.FitnessScreen
 
 interface RoutineDetailActions {
     fun back()
@@ -52,13 +33,10 @@ interface RoutineDetailActions {
     fun navigate(screen: FitnessScreen)
     fun openExerciseHistory(exercise: RoutineExerciseInstance)
     fun closeExerciseHistory()
-    fun startWorkout(
-        routineId: String,
-        title: String,
-        exercises: List<RoutineExerciseInstance>
-    )
+    fun startWorkout(routineId: String, title: String, exercises: List<RoutineExerciseInstance>)
 }
 
+/** The preparation page owns scrolling so its start action remains reachable. */
 @Composable
 internal fun RoutineDetailScreen(
     home: HomeUiState,
@@ -66,191 +44,69 @@ internal fun RoutineDetailScreen(
     selectedRoutineId: String?,
     actions: RoutineDetailActions,
     historyState: RoutineExerciseHistoryUiState? = null,
-    unit: MassUnit = MassUnit.KG
+    unit: MassUnit = MassUnit.KG,
+    starting: Boolean = false,
+    inProgressSessionId: String? = null
 ) {
-    val ready = home as? HomeUiState.Ready
-    if (ready == null || ready.snapshot.ownerId != ownerId) {
+    val ready = (home as? HomeUiState.Ready)?.takeIf { it.snapshot.ownerId == ownerId }
+    if (ready == null) {
         FitnessHeader("루틴", back = actions::back)
-        FitnessStatusMessage(
-            status = FitnessSemanticStatus.INFO,
-            title = "루틴을 불러오는 중입니다",
-            message = "현재 계정의 루틴과 운동 종목을 준비하고 있습니다."
-        )
+        FitnessStatusMessage(FitnessSemanticStatus.INFO, "루틴을 불러오는 중입니다",
+            "현재 계정의 루틴과 운동 종목을 준비하고 있습니다.")
         return
     }
-
     val routineId = selectedRoutineId ?: ready.snapshot.activeRoutineId
     val routine = ready.snapshot.routines.firstOrNull { it.id == routineId }
     val exercises = stableRoutineExercises(ready.snapshot.routineExercises[routineId].orEmpty())
     val closeHistory by rememberUpdatedState(actions::closeExerciseHistory)
-    DisposableEffect(ownerId, routineId) {
-        onDispose { closeHistory() }
-    }
+    DisposableEffect(ownerId, routineId) { onDispose { closeHistory() } }
     if (historyState?.ownerId == ownerId) {
         RoutineExerciseHistoryDialog(historyState, unit, actions::closeExerciseHistory,
             onRetry = { actions.openExerciseHistory(historyState.exercise) })
     }
-    var editedName by rememberSaveable(routine?.id) { mutableStateOf(routine?.name.orEmpty()) }
-    LaunchedEffect(routine?.id, routine?.name) {
-        editedName = routine?.name.orEmpty()
-    }
-
-    FitnessHeader(
-        title = "루틴",
-        subtitle = routine?.name ?: "기본 루틴",
-        back = actions::back
-    )
-
-    if (routine != null) {
-        FitnessCard(Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(FitnessSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-            ) {
-                FitnessTextField(
-                    value = editedName,
-                    onValueChange = { editedName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("루틴 이름") }
-                )
-                RoutineDefinitionActions(routine.id, editedName, routine.name, actions)
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            .testTag("routine-preparation-scroll"), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    FitnessHeader(routine?.name ?: "루틴", "${exercises.size}개 종목", back = actions::back,
+                        titleModifier = Modifier.workoutSharedElement(routineId?.let(::WorkoutRoutineTitleAnchor), "title"))
+                }
+                if (routine != null) RoutineManagementMenu(routine.id, routine.name, actions, enabled = !starting)
             }
-        }
-    }
-
-    FitnessSection("운동 종목") {
-        if (exercises.isEmpty()) {
-            FitnessStatusMessage(
-                status = FitnessSemanticStatus.INFO,
-                title = "아직 종목이 없습니다",
-                message = "운동 종목을 추가하면 이 루틴으로 바로 운동을 시작할 수 있습니다."
-            )
-        } else {
-            exercises.forEachIndexed { index, exercise ->
-                RoutineExerciseRow(index + 1, exercise) { actions.openExerciseHistory(exercise) }
+            FitnessSection("운동 종목") {
+                if (exercises.isEmpty()) {
+                    FitnessStatusMessage(FitnessSemanticStatus.INFO, "아직 종목이 없습니다",
+                        "운동 종목을 추가하면 이 루틴으로 바로 운동을 시작할 수 있습니다.")
+                }
+                exercises.forEachIndexed { index, exercise ->
+                    key(exercise.id) {
+                        RoutineExerciseRow(index, routineId.orEmpty(), exercise) { actions.openExerciseHistory(exercise) }
+                    }
+                }
+                FitnessOutlinedButton(onClick = { actions.navigate(FitnessScreen.ROUTINE_ADD) },
+                    enabled = !starting, modifier = Modifier.fillMaxWidth()) { Text("종목 추가") }
             }
+            Spacer(Modifier.height(FitnessSpacing.gap))
         }
-    }
-
-    RoutineWorkoutActions(
-        routineId = routine?.id ?: routineId.orEmpty(),
-        title = routine?.name ?: "운동",
-        exercises = exercises,
-        actions = actions
-    )
-}
-
-@Composable
-private fun RoutineDefinitionActions(
-    routineId: String,
-    editedName: String,
-    originalName: String,
-    actions: RoutineDetailActions
-) {
-    val stack = LocalDensity.current.fontScale >= 1.3f
-    val content: @Composable () -> Unit = {
-        FitnessOutlinedButton(
-            onClick = { actions.rename(routineId, editedName) },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("이름 저장") }
-        FitnessOutlinedButton(
-            onClick = { actions.copy(routineId, "$originalName 복사") },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("복사") }
-        FitnessOutlinedButton(
-            onClick = { actions.delete(routineId); actions.back() },
-            modifier = Modifier.fillMaxWidth(),
-            destructive = true
-        ) { Text("루틴 삭제") }
-    }
-    if (stack) {
-        Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) { content() }
-    } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-            FitnessOutlinedButton(
-                onClick = { actions.rename(routineId, editedName) },
-                modifier = Modifier.weight(1f)
-            ) { Text("이름 저장") }
-            FitnessOutlinedButton(
-                onClick = { actions.copy(routineId, "$originalName 복사") },
-                modifier = Modifier.weight(1f)
-            ) { Text("복사") }
-            FitnessOutlinedButton(
-                onClick = { actions.delete(routineId); actions.back() },
-                modifier = Modifier.weight(1f),
-                destructive = true
-            ) { Text("삭제") }
-        }
-    }
-}
-
-@Composable
-private fun RoutineWorkoutActions(
-    routineId: String,
-    title: String,
-    exercises: List<RoutineExerciseInstance>,
-    actions: RoutineDetailActions
-) {
-    val stack = LocalDensity.current.fontScale >= 1.3f
-    val add: @Composable () -> Unit = {
-        FitnessOutlinedButton(
-            onClick = { actions.navigate(FitnessScreen.ROUTINE_ADD) },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("종목 추가") }
-    }
-    val start: @Composable () -> Unit = {
-        FitnessButton(
-            onClick = { actions.startWorkout(routineId, title, exercises) },
-            enabled = exercises.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("이 루틴으로 시작") }
-    }
-    if (stack) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-        ) {
-            add()
-            start()
-        }
-    } else {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-        ) {
-            Box(Modifier.weight(1f)) { add() }
-            Box(Modifier.weight(1f)) { start() }
-        }
-    }
-}
-
-@Composable
-private fun RoutineExerciseRow(displayOrder: Int, exercise: RoutineExerciseInstance, onClick: () -> Unit) {
-    val activity = LocalActivity.current
-    FitnessCard(Modifier.fillMaxWidth().testTag("routine-exercise-${exercise.id}")
-        .clickable(role = Role.Button, onClickLabel = "종목 기록 보기", onClick = onClick)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RoutineExerciseImage(activity, exercise)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-            ) {
-                Text(
-                    text = "$displayOrder. ${exercise.nameKo}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                val metadata = routineExerciseMetadata(exercise)
-                if (metadata.isNotBlank()) {
-                    Text(
-                        text = metadata,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxWidth().padding(top = FitnessSpacing.gap)
+                .semantics { liveRegion = LiveRegionMode.Polite }) {
+                FitnessButton(
+                    onClick = { actions.startWorkout(routineId.orEmpty(), routine?.name ?: "운동", exercises) },
+                    enabled = !starting && routine != null && exercises.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().testTag("routine-start-workout")
+                ) {
+                    if (starting) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
+                            color = LocalContentColor.current)
+                        Spacer(Modifier.width(FitnessSpacing.small))
+                    }
+                    Text(when {
+                        starting -> "시작하는 중…"
+                        inProgressSessionId != null || ready.snapshot.inProgressSessionId != null -> "진행 중인 운동 이어가기"
+                        else -> "이 루틴으로 시작"
+                    })
                 }
             }
         }
@@ -258,60 +114,59 @@ private fun RoutineExerciseRow(displayOrder: Int, exercise: RoutineExerciseInsta
 }
 
 @Composable
-private fun RoutineExerciseImage(activity: Activity?, exercise: RoutineExerciseInstance) {
-    val modifier = Modifier.size(72.dp)
-    val description = "${exercise.nameKo} 운동 이미지"
-    val identity = exercise.familyIdentity
-    if (activity == null) {
-        RoutineImageFallback(modifier)
-    } else if (identity != null) {
-        FitnessExerciseIllustration(
-            activity = activity,
-            identity = identity,
-            exactVariant = true,
-            modifier = modifier,
-            contentDescription = description,
-            fallback = { RoutineImageFallback(modifier) }
-        )
-    } else {
-        FitnessExerciseIllustration(
-            activity = activity,
-            exerciseId = exercise.exerciseId,
-            modifier = modifier,
-            contentDescription = description,
-            fallback = { RoutineImageFallback(modifier) },
-            exactVariant = true
-        )
+private fun RoutineManagementMenu(routineId: String, name: String, actions: RoutineDetailActions, enabled: Boolean) {
+    var expanded by remember { mutableStateOf(false) }
+    var rename by rememberSaveable(routineId) { mutableStateOf(false) }
+    var deleting by rememberSaveable(routineId) { mutableStateOf(false) }
+    var draft by rememberSaveable(routineId, name) { mutableStateOf(name) }
+    Box {
+        TextButton(onClick = { expanded = true }, enabled = enabled) { Text("더보기") }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("이름 변경") }, onClick = { expanded = false; rename = true })
+            DropdownMenuItem(text = { Text("복사") }, onClick = { expanded = false; actions.copy(routineId, "$name 복사") })
+            DropdownMenuItem(text = { Text("삭제", color = MaterialTheme.colorScheme.error) },
+                onClick = { expanded = false; deleting = true })
+        }
     }
+    if (rename) AlertDialog(onDismissRequest = { rename = false }, title = { Text("루틴 이름 변경") },
+        text = { FitnessTextField(draft, { draft = it }, label = { Text("루틴 이름") }) },
+        confirmButton = { TextButton(onClick = { actions.rename(routineId, draft.trim()); rename = false },
+            enabled = draft.isNotBlank()) { Text("이름 저장") } },
+        dismissButton = { TextButton(onClick = { rename = false }) { Text("취소") } })
+    if (deleting) AlertDialog(onDismissRequest = { deleting = false }, title = { Text("루틴을 삭제할까요?") },
+        text = { Text("$name 루틴을 삭제합니다. 이미 저장된 운동 기록은 유지됩니다.") },
+        confirmButton = { TextButton(onClick = { deleting = false; actions.delete(routineId); actions.back() }) {
+            Text("루틴 삭제", color = MaterialTheme.colorScheme.error)
+        } }, dismissButton = { TextButton(onClick = { deleting = false }) { Text("취소") } })
 }
 
 @Composable
-private fun RoutineImageFallback(modifier: Modifier = Modifier.size(72.dp)) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text(
-            text = "이미지 없음",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+private fun RoutineExerciseRow(index: Int, routineId: String, exercise: RoutineExerciseInstance, onClick: () -> Unit) {
+    val anchor = WorkoutRoutineExerciseAnchor(routineId, index)
+    FitnessCard(Modifier.fillMaxWidth().testTag("routine-exercise-${exercise.id}"), onClick = onClick) {
+        Row(Modifier.fillMaxWidth().padding(FitnessSpacing.card * 0.6f),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap * 0.6f),
+            verticalAlignment = Alignment.CenterVertically) {
+            WorkoutExerciseImage(exercise.exerciseId, exercise.familyIdentity, "${exercise.nameKo} 운동 이미지",
+                Modifier.size(64.dp), sharedAnchor = anchor)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+                Text(exercise.nameKo, Modifier.workoutSharedElement(anchor, "title"), style = MaterialTheme.typography.titleSmall)
+                Text(routineExerciseMetadata(exercise), style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${index + 1}번째 종목 · 기록 보기", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
-internal fun stableRoutineExercises(
-    exercises: List<RoutineExerciseInstance>
-): List<RoutineExerciseInstance> = exercises
-    .withIndex()
-    .sortedWith(
-        compareBy<IndexedValue<RoutineExerciseInstance>> { it.value.order }
-            .thenBy { it.value.id }
-            .thenBy { it.index }
-    )
-    .map { it.value }
+internal fun stableRoutineExercises(exercises: List<RoutineExerciseInstance>): List<RoutineExerciseInstance> = exercises
+    .withIndex().sortedWith(compareBy<IndexedValue<RoutineExerciseInstance>> { it.value.order }
+        .thenBy { it.value.id }.thenBy { it.index }).map { it.value }
 
 internal fun routineExerciseMetadata(exercise: RoutineExerciseInstance): String = listOfNotNull(
-    displayBodyPart(exercise.uiPart),
-    exercise.primarySubPart.takeIf { it.isNotBlank() && it != "세부 부위 없음" },
-    exercise.equipment.takeIf { it.isNotBlank() },
-    FitnessRecordContract.displayRecordTypeKo(exercise.recordType)
+    displayBodyPart(exercise.uiPart), exercise.primarySubPart.takeIf { it.isNotBlank() && it != "세부 부위 없음" },
+    exercise.equipment.takeIf { it.isNotBlank() }, FitnessRecordContract.displayRecordTypeKo(exercise.recordType)
 ).joinToString(" · ")
 
 private fun displayBodyPart(value: String): String? {

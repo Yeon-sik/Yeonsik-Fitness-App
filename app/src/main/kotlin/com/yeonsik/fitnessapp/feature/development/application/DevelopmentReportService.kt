@@ -9,6 +9,11 @@ import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentTrainingOverview
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentGuidance
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentAdvice
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentAdviceAction
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 import java.time.DayOfWeek
@@ -16,12 +21,58 @@ import java.time.LocalDate
 import java.util.LinkedHashMap
 
 /** Composes development-owned report facts from the owning feature read APIs. */
-class DevelopmentReportService(
+class DevelopmentReportService @JvmOverloads constructor(
     private val workouts: WorkoutReadApi,
     private val meals: MealReadApi,
     private val body: BodyMetricsReadApi,
-    private val development: DevelopmentReadApi
+    private val development: DevelopmentReadApi,
+    private val nutritionAnalysis: NutritionAnalysisApi? = null
 ) : DevelopmentReportApi {
+    override fun buildGuidance(scope: AccountScope, referenceDate: LocalDate,
+                               training: DevelopmentTrainingOverview): DevelopmentGuidance {
+        require(scope.ownerId.isNotBlank())
+        val checkIn = runCatching {
+            development.checkInSummary(scope, referenceDate.minusDays(6).toString(), referenceDate.toString())
+        }
+        // Completed calendar days; today's partially logged meals never masquerade as a daily trend.
+        val nutrition = runCatching {
+            nutritionAnalysis?.analyze(scope, referenceDate.minusDays(7).toString(), referenceDate.minusDays(1).toString())
+                ?.let { report ->
+                    val weight = body.latestBodyMetricOnOrBefore(scope, referenceDate.toString())
+                    val recentWeight = weight?.takeIf {
+                        runCatching { LocalDate.parse(it.date) >= referenceDate.minusDays(13) }.getOrDefault(false)
+                    }?.weightKg?.takeIf { it.isFinite() && it > 0 }
+                    val resistanceSessions = workouts.completedResistanceSessions(scope,
+                        referenceDate.minusDays(13).toString(), referenceDate.toString())
+                    DevelopmentNutritionAdvisor.advise(report, recentWeight, resistanceSessions)
+                }.orEmpty()
+        }
+        val facts = checkIn.getOrNull()
+        val shortSleep = facts != null && facts.sleepRecordedDays >= 3 &&
+            facts.averageSleepHours?.let { it < 7.0 } == true
+        val lowReadiness = (facts?.lowEnergyOrReadinessDays ?: 0) >= 2
+        val recoveryAdvice = if (shortSleep || lowReadiness) DevelopmentAdvice(
+            "recovery-review", "세트 추가 전에 컨디션을 살펴보세요",
+            "최근 낮은 컨디션이나 짧은 수면 기록이 있어요. 오늘 느낌을 확인하고 운동량을 결정하세요.",
+            listOf("최근 7일 낮은 에너지·준비도 ${facts?.lowEnergyOrReadinessDays ?: 0}일",
+                "수면 기록 ${facts?.sleepRecordedDays ?: 0}일 · 평균 ${facts?.averageSleepHours?.let { "%.1f시간".format(it) } ?: "미기록"}",
+                "자가 기록을 참고한 조정 후보예요. 수면과 수행 변화의 원인을 확정하지 않아요."),
+            DevelopmentAdviceAction.RECOVERY, "오늘 컨디션 확인", 30
+        ) else null
+        return DevelopmentGuidance(referenceDate, DevelopmentSetAdvisor.suggest(training, facts),
+            nutrition.getOrDefault(emptyList()), recoveryAdvice,
+            if (nutrition.isFailure) "식단 제안을 불러오지 못했어요." else null,
+            if (checkIn.isFailure) "회복 기록을 불러오지 못해 운동 제안에 반영하지 않았어요." else null)
+    }
+
+    override fun buildTrainingOverview(scope: AccountScope, referenceDate: LocalDate): DevelopmentTrainingOverview {
+        require(scope.ownerId.isNotBlank()) { "Development owner is required." }
+        val start = referenceDate.minusDays(55).toString()
+        val end = referenceDate.toString()
+        return DevelopmentProgressAnalyzer.build(referenceDate,
+            workouts.progressSessions(scope, start, end), workouts.completedDates(scope, start, end))
+    }
+
     override fun buildPaperAdviceAssessment(scope: AccountScope, referenceDate: LocalDate): PaperAdviceAssessment =
         PaperAdviceSnapshotAssembler(workouts, meals, body, development, scope.ownerId)
             .assess(referenceDate)

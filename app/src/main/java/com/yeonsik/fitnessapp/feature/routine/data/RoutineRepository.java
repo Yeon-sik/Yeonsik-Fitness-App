@@ -30,7 +30,7 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
 
     private final FitnessRoomDatabase roomDatabase;
-    private final ExerciseFamilyCatalog familyCatalog;
+    private final Context appContext;
     private String userId;
     private String activeRoutineId;
 
@@ -39,7 +39,7 @@ public final class RoutineRepository implements RoutineRepositoryApi {
             throw new IllegalArgumentException("RoutineRepository requires Room and context.");
         }
         this.roomDatabase = roomDatabase;
-        this.familyCatalog = ExerciseFamilyCatalog.load(context);
+        this.appContext = context.getApplicationContext();
         this.userId = normalizeUserId(userId);
     }
 
@@ -337,7 +337,7 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     private ExerciseFamilyIdentity resolvedIdentity(ExerciseFamilyIdentity supplied, String legacyExerciseId) {
-        return supplied != null ? supplied : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
+        return supplied != null ? supplied : ExerciseFamilyCatalog.load(appContext).identityForStorageExerciseId(legacyExerciseId);
     }
 
     private ExerciseFamilyIdentity identityForRow(
@@ -349,7 +349,7 @@ public final class RoutineRepository implements RoutineRepositoryApi {
             String visualVariantKey,
             String recordType
     ) {
-        ExerciseFamilyIdentity mapped = familyCatalog.identityForStorageExerciseId(legacyExerciseId);
+        ExerciseFamilyIdentity mapped = ExerciseFamilyCatalog.load(appContext).identityForStorageExerciseId(legacyExerciseId);
         if (mapped != null || familyId == null || familyId.trim().isEmpty()) return mapped;
         return new ExerciseFamilyIdentity(
                 legacyExerciseId, familyId, presetId, presetId, nameKo, nameKo, nameKo, nameKo,

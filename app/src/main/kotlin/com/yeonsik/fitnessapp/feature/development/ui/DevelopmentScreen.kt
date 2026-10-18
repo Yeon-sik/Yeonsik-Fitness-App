@@ -50,6 +50,13 @@ interface DevelopmentScreenActions {
     fun showNutritionGoal()
     fun showRecoveryCheckIn()
     fun openInsightAction(insight: DevelopmentInsight)
+    fun refresh() {}
+    fun openExerciseRecord(recordId: String, exerciseOccurrenceId: String) {}
+    fun openRoutine(routineId: String?) {}
+    fun followExercises(keys: List<String>) {}
+    fun startSuggestedWorkout(proposal: WorkoutSetCountProposal) {}
+    fun openMeals() {}
+    fun requestPaperAdvice() {}
 }
 
 private val reportLoadingMessages = listOf(
@@ -64,79 +71,22 @@ internal fun DevelopmentScreen(
     paperAdviceState: PaperAdviceUiState,
     ownerId: String,
     unit: MassUnit,
-    actions: DevelopmentScreenActions
+    actions: DevelopmentScreenActions,
+    startingWorkout: Boolean = false
 ) {
     val ready = state as? DevelopmentUiState.Ready
-    AppHeader("발전", "최근 기록을 기반으로 계산합니다.")
     if (ready == null || ready.ownerId != ownerId) {
+        FitnessHeader("발전", "기록을 바탕으로 다음 할 일을 정리해요")
         val error = state as? DevelopmentUiState.Error
         if (error != null && error.ownerId == ownerId) {
-            AppCard(Modifier.fillMaxWidth()) {
-                Text(error.message, Modifier.padding(AppSpacing.card))
-            }
+            FitnessStatusMessage(FitnessSemanticStatus.ERROR, "기록을 불러오지 못했어요", error.message)
+            FitnessOutlinedButton(actions::refresh, Modifier.fillMaxWidth()) { Text("다시 불러오기") }
         } else {
             OrbLoadingStatus(reportLoadingMessages)
         }
         return
     }
-    val report = ready.report
-    FitnessFactRow(
-        first = { FitnessFactCard("이번 주 운동", "${report.currentWeekCompletedWorkoutSessions}회", "완료 세션") },
-        second = { FitnessFactCard("최근 체중", report.latestWeightKg?.let { MassFormatter.withUnit(it, unit) } ?: "미기록", "기록 기준") }
-    )
-    Text("신체 정보", style = MaterialTheme.typography.titleLarge)
-    AppDataRow(
-        "기준 신체 정보",
-        "키 ${report.bodyProfile.heightLabelKo()} · 체중 " +
-            (report.latestWeightKg?.let { MassFormatter.withUnit(it, unit) } ?: "미기록")
-    )
-    AppOutlinedButton(onClick = actions::showBodyProfile, Modifier.fillMaxWidth()) {
-        Text("신체 정보 수정")
-    }
-    Text("발전 목표", style = MaterialTheme.typography.titleLarge)
-    AppDataRow(
-        report.goal.objectiveLabelKo(),
-        "${report.goal.focusBodyPartLabelKo()} · 주 ${report.goal.weeklySessionsTarget ?: 0}일"
-    )
-    AppOutlinedButton(onClick = actions::showGoal, Modifier.fillMaxWidth()) {
-        Text("발전 목표 수정")
-    }
-    Text("영양·회복", style = MaterialTheme.typography.titleLarge)
-    AppDataRow(
-        "사용자 입력 기준",
-        "영양 목표와 날짜별 회복 체크인을 같은 계정으로 저장합니다."
-    )
-    AppOutlinedButton(onClick = actions::showNutritionGoal, Modifier.fillMaxWidth()) {
-        Text("영양 목표 설정")
-    }
-    AppOutlinedButton(onClick = actions::showRecoveryCheckIn, Modifier.fillMaxWidth()) {
-        Text("오늘 회복 체크인")
-    }
-    Text("우선 행동", style = MaterialTheme.typography.titleLarge)
-    if (report.insights.isEmpty()) Text("현재 기록에서 추가로 경고할 우선 행동이 없습니다.",
-        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    report.insights.forEach { insight ->
-        AppCard(Modifier.fillMaxWidth().clickable { actions.openInsightAction(insight) }) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                Text(insight.title, style = MaterialTheme.typography.titleMedium)
-                Text(insight.evidence, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(insight.nextAction, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-    Text("훈련 부위 근거", style = MaterialTheme.typography.titleLarge)
-    report.recentCompletedStrengthSetsByBodyPart.forEach { (part, sets) -> Text("$part · ${sets}세트") }
-    Text("영양·회복 근거", style = MaterialTheme.typography.titleLarge)
-    Text("식단 ${report.mealRecordedDays}일 · 체크인 ${report.checkInRecordedDays}일")
-    Text("논문 기반 점검", style = MaterialTheme.typography.titleLarge)
-    PaperAdviceSection(paperAdviceState, ownerId)
-    Text("판단 근거 범위", style = MaterialTheme.typography.titleLarge)
-    Text(
-        "${report.dataCoverage.windowDays}일 중 기록 ${report.dataCoverage.daysWithAnyData}일 · " +
-            "운동 ${report.dataCoverage.workoutRecordedDays}일 · 체중 ${report.dataCoverage.weightRecordedDays}일",
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    DevelopmentOverviewContent(ready, paperAdviceState, unit, actions, startingWorkout = startingWorkout)
 }
 
 interface DevelopmentEditorActions {

@@ -260,7 +260,7 @@ private fun MealFoodAmountEditor(item: MealFoodDraftItem, actions: MealScreenAct
 }
 
 @Composable
-private fun MealQuantityAdjuster(value: String, unit: String, step: Double, onChange: (String) -> Unit,
+internal fun MealQuantityAdjuster(value: String, unit: String, step: Double, onChange: (String) -> Unit,
     enabled: Boolean, tag: String, name: String) {
     val amount = mealQuantityValue(value)
     val focus = LocalFocusManager.current

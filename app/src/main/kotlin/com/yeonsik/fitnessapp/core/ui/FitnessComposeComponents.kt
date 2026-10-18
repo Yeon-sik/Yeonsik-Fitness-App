@@ -43,14 +43,15 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null,
-                  titleStyle: TextStyle = MaterialTheme.typography.headlineLarge) {
+                  titleStyle: TextStyle = MaterialTheme.typography.headlineLarge,
+                  titleModifier: Modifier = Modifier) {
     Column(Modifier.fillMaxWidth().padding(bottom = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         if (back != null) {
             TextButton(onClick = back, contentPadding = PaddingValues(horizontal = 0.dp),
                 modifier = Modifier.heightIn(min = FitnessSpacing.touch)) { Text("‹ 뒤로") }
         }
-        Text(title, Modifier.semantics { heading() }, style = titleStyle)
+        Text(title, titleModifier.semantics { heading() }, style = titleStyle)
         if (!subtitle.isNullOrBlank()) {
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -70,6 +70,7 @@ interface MealScreenActions {
     }
     fun searchFood(query: String)
     fun selectFood(food: NutritionFood)
+    fun selectFood(food: NutritionFood, quantity: String, mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode)
     fun useDiningOutFood(food: NutritionFood)
     fun saveReusableDiningOutMenu()
     fun updateQuantity(value: String)
@@ -132,12 +133,13 @@ interface MealScreenActions {
     )
     fun saveDiningOut()
     fun editMeal(meal: HomeMealSummary)
+    fun editMealDateTime(meal: HomeMealSummary)
     fun deleteMeal(recordId: String)
     fun saveMealTime(recordId: String, mealTime: String)
     fun saveMealDateTime(recordId: String, date: String, mealTime: String)
     fun viewMealDetail(recordId: String)
     fun closeMealDetail()
-    fun cancelMealEdit()
+    fun cancelMealDateTimeEdit()
 }
 
 internal data class MealEditorScrollTarget(
@@ -299,6 +301,7 @@ internal fun MealScreen(
     Spacer(Modifier.height(AppSpacing.gap))
     if (editor?.editing != true) {
         editor?.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        editor?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val hasDraft = editor?.let(::hasMealRegistrationDraft) == true
         MealInputNotice(
             if (hasDraft) "작성 중인 식단이 있어요. 이어서 입력할 수 있어요."
@@ -337,7 +340,7 @@ internal fun MealScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     val recordActionsEnabled = currentReady != null && editor != null &&
-        !editor.saving && !editor.recordActionSaving
+        !editor.saving && !editor.draftLoading && !editor.recordActionSaving
     Box(Modifier.fillMaxWidth().testTag("meal-record-history")) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
             if (snapshot == null) {
@@ -359,7 +362,7 @@ internal fun MealScreen(
                             }
                             Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
+                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams} g",
                                 style = MaterialTheme.typography.bodyMedium)
                             TextButton(
                                 onClick = { actions.viewMealDetail(meal.id) },
@@ -433,10 +436,17 @@ internal fun MealScreen(
     }
 
     editor?.let {
-        MealSnapshotDetailDialog(it.recordDetail, actions::closeMealDetail)
-        it.recordEditor?.let { recordEditor ->
+        val dateTimeMeal = (it.recordDetail as? MealDetailState.Ready)?.recordId?.let { recordId ->
+            snapshot?.todayMeals?.firstOrNull { meal -> meal.id == recordId && meal.timeEditable }
+        }
+        MealSnapshotDetailDialog(
+            it.recordDetail,
+            actions::closeMealDetail,
+            dateTimeMeal?.let { meal -> { actions.editMealDateTime(meal) } }
+        )
+        it.dateTimeEditor?.let { recordEditor ->
             MealRecordEditDialog(recordEditor, it.recordActionSaving, it.error,
-                actions::saveMealDateTime, actions::cancelMealEdit)
+                actions::saveMealDateTime, actions::cancelMealDateTimeEdit)
         }
     }
 }
@@ -471,9 +481,7 @@ private fun MealMacroMetric(label: String, value: String, modifier: Modifier = M
     Column(modifier.testTag("meal-macro-$label"), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text("g", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MealOverviewValue(value, "g", MaterialTheme.typography.titleLarge)
         child?.let { (childLabel, childValue) -> MealSecondaryMetric(childLabel,
             if (childValue == "?" || childValue == "미확인") childValue else "$childValue g") }
     }

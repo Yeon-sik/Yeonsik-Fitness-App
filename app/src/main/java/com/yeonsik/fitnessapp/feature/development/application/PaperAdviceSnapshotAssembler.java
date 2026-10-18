@@ -9,7 +9,7 @@ import com.yeonsik.fitnessapp.feature.development.model.DevelopmentCheckInSummar
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi;
 import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary;
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi;
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWorkingSetCounts;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.PaperAdvice;
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment;
@@ -91,7 +91,7 @@ public final class PaperAdviceSnapshotAssembler {
         );
         Double weeklyWeightChangePct = weeklyWeightChangePct(currentWeight, previousWeight);
         Map<String, Double> hardSets = recentHardSets(
-                scope, recentStart.toString(), safeDate.toString()
+                scope, decisionStart.toString(), safeDate.toString()
         );
 
         PaperAdviceInput.Builder builder = PaperAdviceInput.builder()
@@ -156,13 +156,16 @@ public final class PaperAdviceSnapshotAssembler {
             String endDate
     ) {
         Map<String, Double> result = new LinkedHashMap<>();
-        for (WorkoutBodyPartSets row : workouts.strengthSetsByBodyPart(scope, startDate, endDate)) {
-            String bodyPart = row.getUiPart();
+        // The legacy input name is weeklyHardSets. Values are observed completed working roots;
+        // missing RIR never establishes that a set was physiologically "hard".
+        for (Map.Entry<String, Integer> row : WorkoutWorkingSetCounts.byBodyPart(
+                workouts.progressSessions(scope, startDate, endDate)).entrySet()) {
+            String bodyPart = row.getKey();
             if (bodyPart == null || bodyPart.trim().isEmpty()) continue;
             String normalized = bodyPart.trim().toLowerCase(Locale.US);
             result.put(normalized, result.containsKey(normalized)
-                    ? result.get(normalized) + row.getSetCount()
-                    : (double) row.getSetCount());
+                    ? result.get(normalized) + row.getValue()
+                    : (double) row.getValue());
         }
         return result;
     }

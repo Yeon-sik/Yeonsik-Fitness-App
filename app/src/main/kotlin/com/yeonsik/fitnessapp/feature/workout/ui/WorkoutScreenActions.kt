@@ -1,9 +1,8 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 /**
@@ -39,13 +38,6 @@ internal interface WorkoutDetailActions {
     fun openExercise(exerciseId: String)
     fun linkManualExercise(exerciseId: String)
     fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
-    fun applyPreviousHistory(
-        recordId: String,
-        exerciseId: String,
-        currentSets: List<WorkoutSet>,
-        history: WorkoutExerciseHistory,
-        onResult: (Boolean) -> Unit
-    )
     fun addSet(
         recordId: String,
         exerciseId: String,
@@ -59,6 +51,17 @@ internal interface WorkoutDetailActions {
         input: WorkoutSetInput,
         onResult: (Boolean) -> Unit
     )
+    fun updateSetType(recordId: String, setId: String,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun addDropSet(recordId: String, exerciseId: String, parentSetId: String, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun linkSuperset(recordId: String, exerciseId: String, partnerExerciseId: String?, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun linkExerciseGroup(recordId: String, exerciseId: String, partnerExerciseId: String?,
+        type: WorkoutExerciseGroupType, onResult: (Boolean) -> Unit) {
+        if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(recordId, exerciseId, partnerExerciseId, onResult)
+        else onResult(false)
+    }
+    fun updateSetupNote(recordId: String, exerciseId: String, note: String, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun updateConditionNote(recordId: String, note: String, onResult: (Boolean) -> Unit) { onResult(false) }
     fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit)
     fun startRestTimer(restSeconds: Int?)
     fun updateExerciseRestSeconds(recordId: String, exerciseId: String, seconds: Int,

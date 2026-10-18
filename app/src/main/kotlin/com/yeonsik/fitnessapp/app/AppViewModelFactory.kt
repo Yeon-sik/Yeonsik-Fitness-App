@@ -97,6 +97,7 @@ class AppViewModelFactory(
                     container.developmentReportApi,
                     container.developmentApplicationService,
                     container.recoveryRepositoryApi,
+                    trackingRepository = container.developmentTrackingRepository,
                 )
             modelClass.isAssignableFrom(SupplementViewModel::class.java) ->
                 SupplementViewModel(handle, container.supplementRepositoryApi)

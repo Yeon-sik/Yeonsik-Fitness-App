@@ -7,6 +7,8 @@ import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
@@ -27,6 +29,11 @@ interface WorkoutRepositoryApi {
 
     fun createSessionFromRoutine(scope: AccountScope, date: String, title: String,
                                  routineId: String?, exercises: List<RoutineExerciseInstance>): String = error("Routine session creation is not supported by this repository.")
+
+    /** Materializes accepted set-count guidance as uncompleted inputs in a new owned session. */
+    fun createSessionWithSetCountProposal(scope: AccountScope, date: String, title: String,
+        routineId: String, exercises: List<RoutineExerciseInstance>, proposal: WorkoutSetCountProposal): String =
+        error("Set-count guidance is not supported by this repository.")
 
     fun createManualPastSessionFromRoutine(scope: AccountScope, date: String, title: String,
                                             routineId: String?, exercises: List<RoutineExerciseInstance>,
@@ -80,6 +87,18 @@ interface WorkoutRepositoryApi {
     fun discard(scope: AccountScope, recordId: String)
 
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput): Boolean
+    fun updateSetType(scope: AccountScope, recordId: String, setId: String,
+                      type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType): Boolean = false
+    fun addDropSet(scope: AccountScope, recordId: String, exerciseId: String, parentSetId: String): Boolean = false
+    fun linkSuperset(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?): Boolean = false
+    /** A null partner removes this exercise from its group without modifying any recorded sets. */
+    fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+                          type: WorkoutExerciseGroupType): Boolean =
+        if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(scope, recordId, exerciseId, partnerExerciseId) else false
+    /** Updates the reusable setting and this occurrence's snapshot atomically. */
+    fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String, note: String): Boolean = false
+    /** One condition note belongs to the session, independently of exercise selection. */
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String): Boolean = false
     fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
                                   exerciseId: String, seconds: Int): Boolean = false
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,

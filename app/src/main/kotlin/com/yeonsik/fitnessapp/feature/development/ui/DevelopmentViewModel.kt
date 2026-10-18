@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.development.ui
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
@@ -13,6 +15,9 @@ import com.yeonsik.fitnessapp.development.DevelopmentReport
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentTrackingRepositoryApi
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentTrainingOverview
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentGuidance
 import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import java.time.LocalDate
 import java.util.concurrent.ExecutorService
@@ -21,7 +26,16 @@ import java.util.concurrent.Executors
 sealed interface DevelopmentUiState {
     data object Idle : DevelopmentUiState
     data object Loading : DevelopmentUiState
-    data class Ready(val ownerId: String, val report: DevelopmentReport) : DevelopmentUiState
+    data class Ready(
+        val ownerId: String,
+        val report: DevelopmentReport,
+        val training: DevelopmentTrainingOverview? = null,
+        val followedKeys: List<String> = emptyList(),
+        val trainingError: String? = null,
+        val trackingMessage: String? = null,
+        val guidance: DevelopmentGuidance? = null,
+        val guidanceError: String? = null
+    ) : DevelopmentUiState
     data class Error(val ownerId: String, val message: String) : DevelopmentUiState
 }
 
@@ -105,8 +119,11 @@ class DevelopmentViewModel @JvmOverloads constructor(
     private val repository: DevelopmentReportApi,
     private val applicationService: DevelopmentApplicationService,
     private val recoveryRepository: RecoveryRepositoryApi,
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val trackingRepository: DevelopmentTrackingRepositoryApi? = null
 ) : ViewModel() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var trackingRequestVersion = 0L
     private val mutableState = MutableLiveData<DevelopmentUiState>(DevelopmentUiState.Idle)
     val uiState: LiveData<DevelopmentUiState> = mutableState
     private val mutablePaperAdviceState = MutableLiveData<PaperAdviceUiState>(PaperAdviceUiState.Idle)
@@ -127,13 +144,9 @@ class DevelopmentViewModel @JvmOverloads constructor(
     fun enterIfNeeded(scope: AccountScope, date: String) {
         val identity = scope.ownerId to date
         val report = mutableState.value
-        val advice = mutablePaperAdviceState.value
         val reportAvailable = report is DevelopmentUiState.Ready &&
             report.ownerId == scope.ownerId || report is DevelopmentUiState.Loading
-        val adviceAvailable = advice is PaperAdviceUiState.Ready &&
-            advice.ownerId == scope.ownerId ||
-            advice is PaperAdviceUiState.Loading && advice.ownerId == scope.ownerId
-        if (!stale && reportIdentity == identity && reportAvailable && adviceAvailable) return
+        if (!stale && reportIdentity == identity && reportAvailable) return
         enter(scope, date)
     }
 
@@ -149,6 +162,7 @@ class DevelopmentViewModel @JvmOverloads constructor(
     fun markStale() { stale = true }
     private var editorRequestVersion = 0L
     private var recoveryRequestVersion = 0L
+    private var pendingRecoveryEditor: Pair<String, RecoveryEditorKind>? = null
 
     fun enter(scope: AccountScope, date: String) {
         reportIdentity = scope.ownerId to date
@@ -156,21 +170,71 @@ class DevelopmentViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_DATE] = date
         val request = ++reportRequestVersion
         mutableState.value = DevelopmentUiState.Loading
-        mutablePaperAdviceState.value = PaperAdviceUiState.Loading(scope.ownerId)
+        mutablePaperAdviceState.value = PaperAdviceUiState.Idle
         executor.execute {
             try {
-                val report = repository.buildReport(scope, LocalDate.parse(date))
-                if (request == reportRequestVersion) {
-                    mutableState.postValue(DevelopmentUiState.Ready(scope.ownerId, report))
+                val referenceDate = LocalDate.parse(date)
+                val report = repository.buildReport(scope, referenceDate)
+                val training = runCatching { repository.buildTrainingOverview(scope, referenceDate) }
+                val guidance = runCatching {
+                    repository.buildGuidance(scope, referenceDate,
+                        training.getOrNull() ?: DevelopmentTrainingOverview.empty(referenceDate))
+                }
+                val preferences = runCatching { trackingRepository?.followedExerciseKeys(scope) }
+                val exercises = training.getOrNull()?.exercises.orEmpty()
+                val available = exercises.map { it.key }.toSet()
+                val stored = preferences.getOrNull()
+                val selected = stored?.filter { it in available }
+                val followed = if (stored == null || stored.isNotEmpty() && selected.isNullOrEmpty())
+                    exercises.take(3).map { it.key } else selected.orEmpty()
+                mainHandler.post {
+                    if (request == reportRequestVersion && reportIdentity == (scope.ownerId to date)) {
+                        mutableState.value = DevelopmentUiState.Ready(scope.ownerId, report,
+                            training.getOrNull(), followed,
+                            training.exceptionOrNull()?.message ?: if (training.isFailure)
+                                "운동 변화를 불러오지 못했습니다." else null,
+                            if (preferences.isFailure) "관심 운동 설정을 불러오지 못해 최근 운동을 표시합니다." else null,
+                            guidance.getOrNull(), if (guidance.isFailure) "조정 제안을 불러오지 못했어요." else null)
+                    }
                 }
             } catch (error: Exception) {
-                if (request == reportRequestVersion) mutableState.postValue(
-                    DevelopmentUiState.Error(scope.ownerId,
-                        error.message ?: "발전 리포트를 불러오지 못했습니다.")
-                )
+                mainHandler.post {
+                    if (request == reportRequestVersion && reportIdentity == (scope.ownerId to date))
+                        mutableState.value = DevelopmentUiState.Error(scope.ownerId,
+                            error.message ?: "발전 리포트를 불러오지 못했습니다.")
+                }
             }
         }
-        loadPaperAdvice(scope, date, request)
+    }
+
+    fun requestPaperAdvice(scope: AccountScope, date: String) {
+        if (reportIdentity != (scope.ownerId to date)) return
+        val current = mutablePaperAdviceState.value
+        if (current is PaperAdviceUiState.Ready && current.ownerId == scope.ownerId ||
+            current is PaperAdviceUiState.Loading && current.ownerId == scope.ownerId) return
+        mutablePaperAdviceState.value = PaperAdviceUiState.Loading(scope.ownerId)
+        loadPaperAdvice(scope, date, reportRequestVersion)
+    }
+
+    fun followExercises(scope: AccountScope, keys: List<String>) {
+        val state = mutableState.value as? DevelopmentUiState.Ready ?: return
+        if (state.ownerId != scope.ownerId || keys.size > 5 || keys.distinct().size != keys.size) return
+        val available = state.training?.exercises.orEmpty().map { it.key }.toSet()
+        if (keys.any { it !in available }) return
+        val request = ++trackingRequestVersion
+        val reportRequest = reportRequestVersion
+        mutableState.value = state.copy(followedKeys = keys.toList(), trackingMessage = null)
+        executor.execute {
+            val result = runCatching { trackingRepository?.saveFollowedExerciseKeys(scope, keys) }
+            mainHandler.post {
+                val current = mutableState.value as? DevelopmentUiState.Ready
+                if (request == trackingRequestVersion && reportRequest == reportRequestVersion &&
+                    current != null && current.ownerId == scope.ownerId && result.isFailure) {
+                    mutableState.value = current.copy(followedKeys = state.followedKeys,
+                        trackingMessage = result.exceptionOrNull()?.message ?: "관심 운동을 저장하지 못했습니다.")
+                }
+            }
+        }
     }
 
     fun openProfileEditor(scope: AccountScope, date: String) {
@@ -302,50 +366,61 @@ class DevelopmentViewModel @JvmOverloads constructor(
 
     fun enterRecovery(scope: AccountScope, date: String) {
         val requestId = ++recoveryRequestVersion
+        if (pendingRecoveryEditor?.first != scope.ownerId) pendingRecoveryEditor = null
         mutableRecoveryEditorState.value =
             RecoveryEditorUiState.Loading(requestId, scope.ownerId, date)
         executor.execute {
             try {
                 val goal = recoveryRepository.nutritionGoal(scope)
                 val checkIn = recoveryRepository.checkIn(scope, date)
-                if (requestId == recoveryRequestVersion) {
-                    mutableRecoveryEditorState.postValue(
+                mainHandler.post {
+                    if (requestId != recoveryRequestVersion) return@post
+                    val editor = pendingRecoveryEditor?.takeIf { it.first == scope.ownerId }?.second
+                    pendingRecoveryEditor = null
+                    mutableRecoveryEditorState.value =
                         RecoveryEditorUiState.Ready(
                             requestId,
                             scope.ownerId,
                             checkIn.date,
                             goal,
-                            checkIn
+                            checkIn,
+                            editor
                         )
-                    )
                 }
             } catch (error: Exception) {
-                if (requestId == recoveryRequestVersion) {
-                    mutableRecoveryEditorState.postValue(
+                mainHandler.post {
+                    if (requestId != recoveryRequestVersion) return@post
+                    pendingRecoveryEditor = null
+                    mutableRecoveryEditorState.value =
                         RecoveryEditorUiState.Error(
                             requestId,
                             scope.ownerId,
                             date,
                             error.message ?: "영양·회복 정보를 불러오지 못했습니다."
                         )
-                    )
                 }
             }
         }
     }
 
     fun openNutritionGoalEditor(scope: AccountScope) {
-        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
-        if (state.ownerId == scope.ownerId) {
-            mutableRecoveryEditorState.value =
-                state.copy(editor = RecoveryEditorKind.NUTRITION_GOAL)
-        }
+        openRecoveryEditor(scope, RecoveryEditorKind.NUTRITION_GOAL)
     }
 
     fun openCheckInEditor(scope: AccountScope) {
-        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
-        if (state.ownerId == scope.ownerId) {
-            mutableRecoveryEditorState.value = state.copy(editor = RecoveryEditorKind.CHECK_IN)
+        openRecoveryEditor(scope, RecoveryEditorKind.CHECK_IN)
+    }
+
+    private fun openRecoveryEditor(scope: AccountScope, kind: RecoveryEditorKind) {
+        val state = mutableRecoveryEditorState.value
+        if (state is RecoveryEditorUiState.Ready && state.ownerId == scope.ownerId) {
+            mutableRecoveryEditorState.value = state.copy(editor = kind)
+        } else {
+            pendingRecoveryEditor = scope.ownerId to kind
+            if (state !is RecoveryEditorUiState.Loading || state.ownerId != scope.ownerId) {
+                enterRecovery(scope, reportIdentity?.takeIf { it.first == scope.ownerId }?.second
+                    ?: LocalDate.now().toString())
+            }
         }
     }
 
@@ -422,6 +497,7 @@ class DevelopmentViewModel @JvmOverloads constructor(
     }
 
     fun dismissRecoveryEditor() {
+        pendingRecoveryEditor = null
         val state = mutableRecoveryEditorState.value
         mutableRecoveryEditorState.value = when (state) {
             is RecoveryEditorUiState.Ready -> state.copy(editor = null)
@@ -437,19 +513,19 @@ class DevelopmentViewModel @JvmOverloads constructor(
                 require(assessment.input.referenceDate == referenceDate) {
                     "PaperAdvice 기준일이 요청과 다릅니다."
                 }
-                if (request == reportRequestVersion) {
-                    mutablePaperAdviceState.postValue(
-                        PaperAdviceUiState.Ready(scope.ownerId, assessment)
-                    )
+                mainHandler.post {
+                    if (request == reportRequestVersion && reportIdentity == (scope.ownerId to date)) {
+                        mutablePaperAdviceState.value = PaperAdviceUiState.Ready(scope.ownerId, assessment)
+                    }
                 }
             } catch (error: Exception) {
-                if (request == reportRequestVersion) {
-                    mutablePaperAdviceState.postValue(
-                        PaperAdviceUiState.Error(
+                mainHandler.post {
+                    if (request == reportRequestVersion && reportIdentity == (scope.ownerId to date)) {
+                        mutablePaperAdviceState.value = PaperAdviceUiState.Error(
                             scope.ownerId,
                             error.message ?: "논문 기반 점검을 불러오지 못했습니다."
                         )
-                    )
+                    }
                 }
             }
         }
@@ -460,7 +536,12 @@ class DevelopmentViewModel @JvmOverloads constructor(
         return editorRequestVersion
     }
 
-    override fun onCleared() { executor.shutdownNow() }
+    override fun onCleared() {
+        reportRequestVersion++
+        trackingRequestVersion++
+        mainHandler.removeCallbacksAndMessages(null)
+        executor.shutdownNow()
+    }
 
     private companion object {
         const val KEY_DATE = "development.date"

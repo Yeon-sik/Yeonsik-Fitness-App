@@ -34,17 +34,25 @@ import java.util.Locale
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Ready, priceTraceState: PriceTraceUiState, mealLabel: String) {
     val totals = mealEntryNutritionTotals(editor)
-    val inputEnabled = !editor.saving && !editor.draftLoading
+    val inputEnabled = !editor.saving && !editor.draftLoading &&
+        (editor.recordEditor == null || editor.recordEditor.updatedAt.isNotBlank())
     val registrationError = mealEntryRegistrationError(editor)
     val diningEditor = rememberDiningOutEditorState(editor, priceTraceState)
     val manualEntryRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    var showCart by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf(false) }
-    var expandedKey by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf<String?>(null) }
+    val recordId = editor.recordEditor?.recordId
+    var showCart by rememberSaveable(editor.ownerId, editor.date, recordId) { mutableStateOf(recordId != null) }
+    var expandedKey by rememberSaveable(editor.ownerId, editor.date, recordId) { mutableStateOf<String?>(null) }
     val searchScroll = rememberScrollState()
     val cartScroll = rememberScrollState()
     val contentStateHolder = rememberSaveableStateHolder()
+    LaunchedEffect(recordId, editor.draftLoading) {
+        if (recordId != null && !editor.draftLoading && expandedKey == null) {
+            expandedKey = mealFoodItems(editor).firstOrNull()?.let { "food-${it.food.id}" }
+                ?: diningMealMenus(editor).firstOrNull()?.let { "dining-${it.id}" }
+        }
+    }
     val reviewFood: (com.yeonsik.fitnessapp.data.NutritionFood) -> Unit = { food ->
         focusManager.clearFocus()
         expandedKey = mealFoodItems(editor).firstOrNull { it.food.id == food.id }?.let { "food-${it.food.id}" }
@@ -52,7 +60,8 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
         showCart = true
     }
     NutritionEntryFrame(
-        "$mealLabel 기록", actions::closeDraft, subtitle = editor.date, closeEnabled = !editor.saving,
+        if (recordId != null) "$mealLabel 수정" else "$mealLabel 기록", actions::closeDraft,
+        subtitle = editor.date, closeEnabled = !editor.saving,
         scrollState = if (showCart) cartScroll else searchScroll,
         introduction = {
             MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
@@ -71,7 +80,7 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
                     modifier = Modifier.testTag("meal-entry-error"))
             }
             AppButton(actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"), enabled = inputEnabled && registrationError == null) {
-                Text(if (editor.saving) "저장 중…" else "$mealLabel 기록하기")
+                Text(if (editor.saving) "저장 중…" else if (recordId != null) "수정 저장" else "$mealLabel 기록하기")
             }
         }
     ) {
@@ -84,11 +93,13 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
                 text = { Text("음식 찾기") }, modifier = Modifier.testTag("meal-entry-find"))
             Tab(selected = showCart, onClick = { focusManager.clearFocus(); showCart = true }, enabled = inputEnabled,
                 selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text("이번 식단 (${totals.itemCount()})") }, modifier = Modifier.testTag("meal-entry-cart"))
+                text = { Text("기록 (${totals.itemCount()})") }, modifier = Modifier.testTag("meal-entry-cart"))
         }
         if (editor.draftLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (recordId != null && editor.recordEditor?.updatedAt?.isNotBlank() == true) Text("기록한 음식과 양을 수정한 뒤 저장하세요.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         editor.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        contentStateHolder.SaveableStateProvider("${editor.ownerId}:${editor.date}:${if (showCart) "cart" else "find"}") {
+        contentStateHolder.SaveableStateProvider("${editor.ownerId}:${editor.date}:$recordId:${if (showCart) "cart" else "find"}") {
             if (showCart) {
                 MealCartContent(actions, editor, expandedKey, { focusManager.clearFocus(); expandedKey = it },
                     onFindMore = { focusManager.clearFocus(); showCart = false },
