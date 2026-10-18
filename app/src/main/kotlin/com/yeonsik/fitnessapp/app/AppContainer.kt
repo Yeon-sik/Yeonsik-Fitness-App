@@ -169,6 +169,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     )
     private val workoutReadRepository = WorkoutReadRepository(roomDatabase, appContext)
     private val mealReadRepository = MealReadRepository(roomDatabase)
+    val mealReadApi: com.yeonsik.fitness.shared.feature.meal.api.MealReadApi = mealReadRepository
     private val bodyMetricsReadRepository = BodyMetricsReadRepository(roomDatabase)
     private val developmentReadRepository = DevelopmentReadRepository(roomDatabase)
     private val nutritionAnalysisService = NutritionAnalysisService(

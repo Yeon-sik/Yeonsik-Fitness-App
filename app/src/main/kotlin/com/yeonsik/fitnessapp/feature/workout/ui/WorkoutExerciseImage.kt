@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -75,7 +76,7 @@ internal fun WorkoutExerciseImage(
         FitnessStatusBadge(FitnessSemanticStatus.UNKNOWN, "운동 이미지 없음", modifier = modifier)
         return
     }
-    val imageKey = WorkoutImageKey(resolution.drawables.toList(), Configuration(resources.configuration))
+    val imageKey = WorkoutImageKey(resolution.drawables.toList(), Configuration(LocalConfiguration.current))
     key(imageKey) {
         val scene by produceState(WorkoutImageCache.peek(imageKey), imageKey) {
             value = WorkoutImageCache.load(resources, imageKey)

@@ -150,6 +150,16 @@ internal fun homeEntryEffectKey(
     date: String
 ): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, date)
 
+internal fun mealMutationHomeRefreshDate(
+    destinationScreen: FitnessScreen,
+    today: String,
+    selectedMealDate: String
+): String? = when (destinationScreen) {
+    FitnessScreen.HOME -> today
+    FitnessScreen.MEALS -> selectedMealDate
+    else -> null
+}
+
 internal data class RecordEntryEffectKey(
     val screen: FitnessScreen,
     val ownerId: String,
@@ -399,8 +409,8 @@ private fun AppRoot(
             viewModels.getDevelopment().markStale()
             if (mealRecordNotice != null) {
                 viewModels.getHome().markStale()
-                if (destinationScreen == FitnessScreen.HOME) {
-                    viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
+                mealMutationHomeRefreshDate(destinationScreen, navigationState.today, routeDate)?.let { date ->
+                    viewModels.getHome().enterIfNeeded(AccountScope(ownerId), date)
                 }
             }
             if (destinationScreen == FitnessScreen.RECORDS) {
@@ -1980,11 +1990,18 @@ private fun AppDestination(
         override fun saveDiningOut() = viewModels.getMeal().save(AccountScope(ownerId)) { }
         override fun editMeal(meal: com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary) =
             viewModels.getMeal().openRecordEditor(meal)
+        override fun editMealDateTime(meal: com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary) =
+            viewModels.getMeal().openMealDateTimeEditor(meal)
         override fun deleteMeal(recordId: String) =
             viewModels.getMeal().deleteMeal(AccountScope(ownerId), recordId)
         override fun saveMealTime(recordId: String, mealTime: String) =
             viewModels.getMeal().saveMealTime(AccountScope(ownerId), recordId, mealTime)
-        override fun cancelMealEdit() = viewModels.getMeal().closeRecordEditor()
+        override fun saveMealDateTime(recordId: String, date: String, mealTime: String) =
+            viewModels.getMeal().saveMealDateTime(AccountScope(ownerId), recordId, date, mealTime)
+        override fun viewMealDetail(recordId: String) =
+            viewModels.getMeal().openMealDetail(AccountScope(ownerId), recordId)
+        override fun closeMealDetail() = viewModels.getMeal().closeMealDetail()
+        override fun cancelMealDateTimeEdit() = viewModels.getMeal().closeMealDateTimeEditor()
     }
     val settingsActions = object : SettingsScreenActions {
         override fun setPreferredMassUnit(unit: MassUnit) = viewModels.getSettings().setPreferredMassUnit(unit)

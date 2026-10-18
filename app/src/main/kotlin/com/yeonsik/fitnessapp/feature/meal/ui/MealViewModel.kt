@@ -9,6 +9,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.data.NutritionFood
 import com.yeonsik.fitnessapp.data.MealCompositionItem
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
@@ -97,6 +99,13 @@ data class MealRecordEditor(
     val updatedAt: String = ""
 )
 
+sealed interface MealDetailState {
+    data object Idle : MealDetailState
+    data class Loading(val recordId: String) : MealDetailState
+    data class Ready(val recordId: String, val snapshot: MealSnapshotRead) : MealDetailState
+    data class Error(val recordId: String, val message: String) : MealDetailState
+}
+
 sealed interface MealUiState {
     data object Idle : MealUiState
     data class Ready(
@@ -114,6 +123,7 @@ sealed interface MealUiState {
         val quantity: String = "",
         val priceTraceQuery: String = "",
         val recordEditor: MealRecordEditor? = null,
+        val dateTimeEditor: MealRecordEditor? = null,
         val recordActionSaving: Boolean = false,
         val nutritionAnalysis: NutritionAnalysisReport? = null,
         val nutritionAnalysisLoading: Boolean = false,
@@ -132,7 +142,8 @@ sealed interface MealUiState {
         val diningConsumedPercent: String = "100",
         val diningMenus: List<MealDiningDraftItem> = emptyList(),
         val category: MealCatalogCategory = MealCatalogCategory.ALL,
-        val removedItem: RemovedMealDraftItem? = null
+        val removedItem: RemovedMealDraftItem? = null,
+        val recordDetail: MealDetailState = MealDetailState.Idle
     ) : MealUiState
 }
 
@@ -198,7 +209,8 @@ class MealViewModel @JvmOverloads constructor(
     private val diningProposals: DiningProposalApi? = null,
     private val mainExecutor: Executor = Executor { Handler(Looper.getMainLooper()).post(it) },
     private val searchDelayMillis: Long = 250L,
-    private val nutritionTemplates: NutritionTemplateRepositoryApi? = null
+    private val nutritionTemplates: NutritionTemplateRepositoryApi? = null,
+    private val mealReadApi: MealReadApi? = null
 ) : ViewModel() {
     private val main = Handler(Looper.getMainLooper())
     val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor)
@@ -215,6 +227,7 @@ class MealViewModel @JvmOverloads constructor(
     private var priceTraceRequestVersion = 0L
     private var nutritionPublicationRequestVersion = 0L
     @Volatile private var nutritionAnalysisRequestVersion = 0L
+    private var detailRequestVersion = 0L
     private var selectedFood: NutritionFood? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
@@ -254,6 +267,7 @@ class MealViewModel @JvmOverloads constructor(
         val request = ++requestVersion
         if (dateChanged) {
             draftBeforeRecordEdit = null
+            ++detailRequestVersion
             selectedFood = null
             clearDraftStorage()
             mutableState.value = MealUiState.Idle
@@ -575,6 +589,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun openRecordEditor(meal: HomeMealSummary) {
         val state = ready()
         if (meal.id.isBlank() || meal.date != date || !meal.timeEditable || state.saving || state.draftLoading) return
+        ++detailRequestVersion
         draftBeforeRecordEdit = state
         val backup = Bundle()
         savedStateHandle.keys().filter { it.startsWith("meal.") && !it.startsWith("meal.publication.") &&
@@ -587,6 +602,31 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         }
         savedStateHandle[KEY_DRAFT_BEFORE_EDIT] = backup
         loadRecordEditor(meal.id, restoring = false)
+    }
+
+    fun openMealDateTimeEditor(meal: HomeMealSummary) {
+        val state = ready()
+        if (meal.id.isBlank() || meal.date != date || !meal.timeEditable || state.saving ||
+            state.draftLoading || state.editing || state.recordEditor != null || state.recordActionSaving) return
+        ++requestVersion
+        ++detailRequestVersion
+        mutableState.value = state.copy(
+            recordDetail = MealDetailState.Idle,
+            dateTimeEditor = MealRecordEditor(
+                recordId = meal.id,
+                date = meal.date,
+                title = meal.previewTitle,
+                time = meal.mealTime.takeUnless { it == "시간 미기록" }.orEmpty()
+            ),
+            error = null,
+            notice = null
+        )
+    }
+
+    fun closeMealDateTimeEditor() {
+        val state = ready()
+        if (state.recordActionSaving) return
+        mutableState.value = state.copy(dateTimeEditor = null, error = null)
     }
 
     private fun loadRecordEditor(recordId: String, restoring: Boolean) {
@@ -693,11 +733,81 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         }
     }
 
+    fun openMealDetail(scope: AccountScope, recordId: String) {
+        val state = ready()
+        if (scope.ownerId != ownerId || state.ownerId != scope.ownerId || recordId.isBlank() ||
+            state.saving || state.recordActionSaving || state.draftLoading) return
+        val request = ++detailRequestVersion
+        val requestedDate = state.date
+        mutableState.value = state.copy(recordDetail = MealDetailState.Loading(recordId), recordEditor = null)
+        executor.execute {
+            val result = runCatching {
+                val api = mealReadApi ?: throw IllegalStateException("식단 상세를 불러올 수 없습니다.")
+                api.mealSnapshot(scope, recordId) ?: throw IllegalStateException("식단 기록을 찾을 수 없습니다.")
+            }
+            mainExecutor.execute publish@{
+                val current = mutableState.value as? MealUiState.Ready ?: return@publish
+                if (request != detailRequestVersion || ownerId != scope.ownerId || date != requestedDate ||
+                    current.ownerId != scope.ownerId || current.recordDetail != MealDetailState.Loading(recordId)) return@publish
+                mutableState.value = current.copy(recordDetail = result.fold(
+                    { MealDetailState.Ready(recordId, it) },
+                    { MealDetailState.Error(recordId, it.message ?: "식단 상세를 불러오지 못했습니다.") }
+                ))
+            }
+        }
+    }
+
+    fun closeMealDetail() {
+        ++detailRequestVersion
+        update { it.copy(recordDetail = MealDetailState.Idle) }
+    }
+
     fun saveMealTime(scope: AccountScope, recordId: String, mealTime: String) {
         val state = ready()
-        if (scope.ownerId != ownerId || state.recordEditor?.recordId != recordId || state.saving || state.draftLoading) return
-        updateTime(mealTime)
-        save(scope) { }
+        val recordEditor = state.recordEditor
+        if (recordEditor?.recordId == recordId) {
+            if (scope.ownerId != ownerId || state.saving || state.draftLoading) return
+            updateTime(mealTime)
+            save(scope) { }
+            return
+        }
+        val dateTimeEditor = state.dateTimeEditor ?: return
+        saveMealDateTime(scope, recordId, dateTimeEditor.date, mealTime)
+    }
+
+    fun saveMealDateTime(scope: AccountScope, recordId: String, recordDate: String, mealTime: String) {
+        val state = ready()
+        val dateTimeEditor = state.dateTimeEditor
+        if (scope.ownerId != ownerId || dateTimeEditor?.recordId != recordId ||
+            state.recordActionSaving || state.saving) return
+        val request = ++requestVersion
+        mutableState.value = state.copy(recordActionSaving = true, error = null, notice = null)
+        executor.execute {
+            try {
+                if (!mealRepository.updateMealDateTime(scope, recordId, recordDate, mealTime)) {
+                    throw IllegalStateException("이 식단 기록 날짜와 시간을 수정할 수 없습니다.")
+                }
+                mainExecutor.execute {
+                    if (request == requestVersion && ownerId == scope.ownerId && date == state.date) {
+                        mutableState.value = ready().copy(
+                            dateTimeEditor = null,
+                            recordActionSaving = false,
+                            notice = "식단 기록 날짜와 시간을 수정했습니다."
+                        )
+                        loadNutritionAnalysis(scope, state.date)
+                    }
+                }
+            } catch (error: Exception) {
+                mainExecutor.execute {
+                    if (request == requestVersion && ownerId == scope.ownerId && date == state.date) {
+                        mutableState.value = ready().copy(
+                            recordActionSaving = false,
+                            error = error.message ?: "식단 기록 날짜와 시간을 수정하지 못했습니다."
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun deleteMeal(scope: AccountScope, recordId: String) {
@@ -1433,7 +1543,11 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         if (state.saving) return
         val items = mealFoodItems(state)
         val removedIndex = items.indexOfFirst { it.id == itemId || it.food.id == itemId }
-        if (removedIndex < 0) return
+        if (removedIndex < 0) {
+            // The all-food picker also includes saved dining menus in the same draft.
+            diningMealMenus(state).firstOrNull { it.nutritionFoodId == itemId }?.let { removeDiningMenu(it.id) }
+            return
+        }
         val remaining = state.foodItems.filterNot { it.id == itemId || it.food.id == itemId }
         val lastItem = remaining.lastOrNull()
         selectedFood = lastItem?.food
@@ -1812,6 +1926,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
 
     override fun onCleared() {
         ++requestVersion
+        ++detailRequestVersion
         searchJob?.cancel()
         mainHandler.removeCallbacksAndMessages(null)
         executor.shutdownNow()

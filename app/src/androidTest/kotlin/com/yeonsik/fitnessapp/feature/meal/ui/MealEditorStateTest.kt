@@ -12,6 +12,10 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.data.NutritionFood
 import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
+import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
@@ -60,10 +64,11 @@ class MealEditorStateTest {
     @After fun tearDown() { room.close(); background.shutdownNow() }
 
     private fun createModel(source: NutritionCatalogRepositoryApi = catalog, analysis: NutritionAnalysisApi? = null,
-        handle: SavedStateHandle = SavedStateHandle(), searchDelayMillis: Long = 0) {
+        handle: SavedStateHandle = SavedStateHandle(), searchDelayMillis: Long = 0,
+        readApi: MealReadApi = MealReadRepository(room)) {
         onMain {
             model = MealViewModel(handle, meals, source, integration, nutritionAnalysisApi = analysis, executor = background,
-                mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = searchDelayMillis)
+                mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = searchDelayMillis, mealReadApi = readApi)
             model.enter(scope, date)
             model.startDraft()
         }
@@ -337,6 +342,132 @@ class MealEditorStateTest {
         assertTrue(catalog.searchFoods("계정 전환 식품").isEmpty())
         catalog.setUserId(nutritionOwner)
         assertTrue(catalog.searchFoods("계정 전환 식품").isEmpty())
+    }
+
+    @Test fun dateTimeEditRefreshNoticeAndReadsMoveTheOriginalRecordToTheDestination() {
+        createModel()
+        val food = registerBaseFood()
+        val id = meals.saveFoodMeal(scope, date, "12:30", food.id, 100.0)
+        val read = MealReadRepository(room)
+        val before = read.mealSnapshot(scope, id)!!
+        val target = LocalDate.now().minusDays(2).toString()
+        val meal = HomeMealSummary(id, date, "1끼", food.name, 100, 10.0, 10.0, 1.0, 1,
+            food.name, "12:30", "food", null, "", "", "", "recorded", "", "", true, null, "", "")
+        onMain {
+            model.openRecordEditor(meal)
+            model.saveMealDateTime(scope, id, target, "19:20")
+            assertTrue(state().recordActionSaving)
+        }
+        background.runNext(); flushMain()
+        onMain {
+            assertFalse(state().recordActionSaving)
+            assertNull(state().recordEditor)
+            assertNotNull(state().notice) // ComposeAppScreen observes this to reload Home/Meal history.
+        }
+        assertTrue(read.meals(scope, date).isEmpty())
+        assertEquals(id, read.meals(scope, target).single().id)
+        assertEquals("19:20", read.meals(scope, target).single().mealTime)
+        assertEquals(before.items, read.mealSnapshot(scope, id)!!.items)
+    }
+
+    @Test fun detailUsesTheRequestedRecordSnapshotEvenAfterCatalogNamesChange() {
+        val read = MealReadRepository(room)
+        val requests = mutableListOf<Pair<String, String>>()
+        createModel(readApi = object : MealReadApi by read {
+            override fun mealSnapshot(scope: AccountScope, recordId: String): MealSnapshotRead? {
+                requests += scope.ownerId to recordId
+                return read.mealSnapshot(scope, recordId)
+            }
+        })
+        val food = registerBaseFood()
+        val id = meals.saveFoodMeal(scope, date, "12:30", food.id, 150.0)
+        room.openHelper.writableDatabase.execSQL("UPDATE nutrition_foods SET name='현재 이름' WHERE id=?", arrayOf(food.id))
+        onMain { model.openMealDetail(scope, id); assertEquals(MealDetailState.Loading(id), state().recordDetail) }
+        background.runNext(); flushMain()
+        onMain {
+            val detail = state().recordDetail as MealDetailState.Ready
+            assertEquals(id, detail.recordId)
+            assertEquals("기준 식품", detail.snapshot.items.single().foodName)
+            assertEquals(150.0, detail.snapshot.items.single().quantity, 0.0)
+            assertEquals("g", detail.snapshot.items.single().unit)
+            model.closeMealDetail()
+            assertEquals(MealDetailState.Idle, state().recordDetail)
+        }
+        assertEquals(listOf(scope.ownerId to id), requests)
+    }
+
+    @Test fun detailRejectsAnotherOwnerAndKeepsLegacyMissingItemsExplicit() {
+        createModel()
+        val food = registerBaseFood()
+        val id = meals.saveFoodMeal(scope, date, "12:30", food.id, 100.0)
+        onMain { model.enter(AccountScope("other-owner"), date); model.openMealDetail(AccountScope("other-owner"), id) }
+        background.runNext(); flushMain()
+        onMain { assertTrue(state().recordDetail is MealDetailState.Error) }
+        onMain { model.enter(scope, date) }
+        room.openHelper.writableDatabase.execSQL("DELETE FROM meal_record_items WHERE meal_record_id=?", arrayOf(id))
+        onMain { model.openMealDetail(scope, id) }
+        background.runNext(); flushMain()
+        onMain { assertTrue((state().recordDetail as MealDetailState.Ready).snapshot.items.isEmpty()) }
+    }
+
+    @Test fun staleDetailCannotReplaceANewerRecordOwnerDateOrDismissedDialog() {
+        createModel()
+        val food = registerBaseFood()
+        val first = meals.saveFoodMeal(scope, date, "12:30", food.id, 100.0)
+        val second = meals.saveFoodMeal(scope, date, "18:30", food.id, 200.0)
+        onMain { model.openMealDetail(scope, first) }
+        background.runNext() // Hold the first publication until another record is requested.
+        onMain { model.openMealDetail(scope, second) }
+        flushMain()
+        onMain { assertEquals(MealDetailState.Loading(second), state().recordDetail) }
+        background.runNext(); flushMain()
+        onMain { assertEquals(second, (state().recordDetail as MealDetailState.Ready).recordId) }
+
+        onMain { model.openMealDetail(scope, first) }
+        background.runNext()
+        onMain { model.enter(AccountScope("other-owner"), date) }
+        flushMain()
+        onMain { assertEquals(MealDetailState.Idle, state().recordDetail) }
+
+        onMain { model.enter(scope, date); model.openMealDetail(scope, first) }
+        background.runNext()
+        onMain { model.enter(scope, LocalDate.now().minusDays(1).toString()) }
+        flushMain()
+        onMain { assertEquals(MealDetailState.Idle, state().recordDetail) }
+
+        onMain { model.enter(scope, date); model.openMealDetail(scope, first) }
+        background.runNext()
+        onMain { model.closeMealDetail() }
+        flushMain()
+        onMain { assertEquals(MealDetailState.Idle, state().recordDetail) }
+    }
+
+    @Test fun searchRemovalKeepsQueryResultsAndDraftCountWithOrdinaryAndMixedMenuItems() {
+        createModel()
+        val food = registerBaseFood()
+        onMain { model.search("기준") }
+        background.runNext(); flushMain()
+        onMain {
+            val results = state().searchResults
+            model.selectFood(food)
+            assertEquals(1, mealFoodItems(state()).size)
+            model.removeFood(food.id)
+            assertTrue(mealFoodItems(state()).isEmpty())
+            assertEquals("기준", state().query)
+            assertEquals(results, state().searchResults)
+            model.selectFood(food)
+            assertEquals(1, mealFoodItems(state()).size)
+            val menu = NutritionFood.builder().id("mixed-menu").ownerId(nutritionOwner).name("외식 메뉴")
+                .brand("식당").kind(NutritionFood.KIND_EXTERNAL_MENU).basis(1.0, NutritionUnit.SERVING)
+                .profile(NutritionProfile.ofMacros(200.0, 20.0, 25.0, 4.0)).build()
+            model.selectFood(menu)
+            assertFalse(state().diningOut)
+            assertEquals(1, diningMealMenus(state()).size)
+            model.removeFood(menu.id)
+            assertTrue(diningMealMenus(state()).isEmpty())
+            assertEquals(1, mealFoodItems(state()).size)
+            assertEquals("기준", state().query)
+        }
     }
 
     private fun registerBaseFood(): NutritionFood {

@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -126,6 +127,7 @@ internal fun HomeActivityHistorySection(
                             ActivityGrid(
                                 cells = page.cells,
                                 selectedDate = selectedDate.takeIf { interactive },
+                                today = page.window.today,
                                 ownerId = page.identity.ownerId,
                                 dayDetails = dayDetails,
                                 preferredMassUnit = preferredMassUnit,
@@ -222,6 +224,7 @@ private fun ActivityWindowNavigation(
 private fun ActivityGrid(
     cells: List<HomeActivityCell>,
     selectedDate: String?,
+    today: LocalDate,
     ownerId: String,
     dayDetails: HomeActivityDayDetailsUiState,
     preferredMassUnit: MassUnit,
@@ -230,6 +233,8 @@ private fun ActivityGrid(
     onOpenRecords: (String) -> Unit
 ) {
     val weeks = cells.chunked(7)
+    // Visual activity never creates a preview selection or triggers a detail request.
+    val activeDate = selectedDate ?: today.toString().takeIf { cells.any { cell -> cell.date == today } }
     Column(
         modifier = Modifier.fillMaxWidth().testTag("home-activity-grid"),
         verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -248,6 +253,8 @@ private fun ActivityGrid(
                             cell = cell,
                             modifier = Modifier.weight(1f).aspectRatio(1f),
                             selected = selectedDate == cell.date.toString(),
+                            active = activeDate == cell.date.toString(),
+                            isToday = cell.date == today,
                             onClick = { onSelectCell(cell.date.toString()) },
                             preview = if (selectedDate == cell.date.toString()) {
                                 {
@@ -312,6 +319,8 @@ private fun ActivityCell(
     cell: HomeActivityCell,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    active: Boolean = selected,
+    isToday: Boolean = false,
     onClick: () -> Unit = {},
     preview: (@Composable () -> Unit)? = null
 ) {
@@ -334,11 +343,13 @@ private fun ActivityCell(
                         Offset(size.width * 0.7f, size.height * 0.3f), strokeWidth = 1.dp.toPx())
                 }
             } else Modifier)
-            .then(if (selected) Modifier.border(2.5.dp, HomeActivitySelectionColor, shape) else Modifier)
+            .then(if (active) Modifier.border(2.5.dp, HomeActivitySelectionColor, shape) else Modifier)
             .clickable(enabled = cell.state == HomeActivityCellState.TRACKED, onClick = onClick)
             .testTag("home-activity-cell-${cell.date}")
             .semantics {
-                contentDescription = cell.contentDescription + if (selected) ", 선택됨" else ""
+                contentDescription = cell.contentDescription + (if (isToday) ", 오늘" else "") +
+                    (if (selected) ", 선택됨" else "")
+                if (active) stateDescription = "활성"
                 if (cell.state != HomeActivityCellState.TRACKED) disabled()
             }
     ) {

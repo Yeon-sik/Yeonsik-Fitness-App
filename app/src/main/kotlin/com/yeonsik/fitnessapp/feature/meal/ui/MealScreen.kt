@@ -135,9 +135,13 @@ interface MealScreenActions {
     )
     fun saveDiningOut()
     fun editMeal(meal: HomeMealSummary)
+    fun editMealDateTime(meal: HomeMealSummary)
     fun deleteMeal(recordId: String)
     fun saveMealTime(recordId: String, mealTime: String)
-    fun cancelMealEdit()
+    fun saveMealDateTime(recordId: String, date: String, mealTime: String)
+    fun viewMealDetail(recordId: String)
+    fun closeMealDetail()
+    fun cancelMealDateTimeEdit()
 }
 
 internal data class MealEditorScrollTarget(
@@ -265,7 +269,9 @@ internal fun MealScreen(
                 MealMacroMetrics(
                     carbs = totals?.total("carbs_grams")?.describedValue() ?: "?",
                     protein = totals?.total("protein_grams")?.describedValue() ?: "?",
-                    fat = totals?.total("fat_grams")?.describedValue() ?: "?"
+                    fat = totals?.total("fat_grams")?.describedValue() ?: "?",
+                    sugars = totals?.total("sugars_grams")?.describedValue() ?: "?",
+                    saturatedFat = totals?.total("saturated_fat_grams")?.describedValue() ?: "?"
                 )
             }
             if (loadingOverview) {
@@ -360,6 +366,11 @@ internal fun MealScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams} g",
                                 style = MaterialTheme.typography.bodyMedium)
+                            TextButton(
+                                onClick = { actions.viewMealDetail(meal.id) },
+                                modifier = Modifier.fillMaxWidth().testTag("meal-record-detail-${meal.id}"),
+                                enabled = recordActionsEnabled
+                            ) { Text("메뉴 자세히 보기") }
                             Row(Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                                 AppOutlinedButton(
@@ -426,36 +437,62 @@ internal fun MealScreen(
         )
     }
 
+    editor?.let {
+        val dateTimeMeal = (it.recordDetail as? MealDetailState.Ready)?.recordId?.let { recordId ->
+            snapshot?.todayMeals?.firstOrNull { meal -> meal.id == recordId && meal.timeEditable }
+        }
+        MealSnapshotDetailDialog(
+            it.recordDetail,
+            actions::closeMealDetail,
+            dateTimeMeal?.let { meal -> { actions.editMealDateTime(meal) } }
+        )
+        it.dateTimeEditor?.let { recordEditor ->
+            MealRecordEditDialog(recordEditor, it.recordActionSaving, it.error,
+                actions::saveMealDateTime, actions::cancelMealDateTimeEdit)
+        }
+    }
 }
 
 @Composable
-private fun MealMacroMetrics(carbs: String, protein: String, fat: String) {
+internal fun MealMacroMetrics(carbs: String, protein: String, fat: String, sugars: String, saturatedFat: String,
+    modifier: Modifier = Modifier) {
     val metrics = listOf(
         "탄수화물" to carbs,
         "단백질" to protein,
         "지방" to fat
     )
     if (LocalDensity.current.fontScale >= 1.35f) {
-        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.fillMaxWidth()) }
+        Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.fillMaxWidth(),
+                when (label) { "탄수화물" -> "당류" to sugars; "지방" -> "포화지방" to saturatedFat; else -> null }) }
         }
     } else {
         Row(
-            Modifier.fillMaxWidth(),
+            modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
         ) {
-            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.weight(1f)) }
+            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.weight(1f),
+                when (label) { "탄수화물" -> "당류" to sugars; "지방" -> "포화지방" to saturatedFat; else -> null }) }
         }
     }
 }
 
 @Composable
-private fun MealMacroMetric(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+private fun MealMacroMetric(label: String, value: String, modifier: Modifier = Modifier,
+    child: Pair<String, String>? = null) {
+    Column(modifier.testTag("meal-macro-$label"), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         MealOverviewValue(value, "g", MaterialTheme.typography.titleLarge)
+        child?.let { (childLabel, childValue) -> MealSecondaryMetric(childLabel,
+            if (childValue == "?" || childValue == "미확인") childValue else "$childValue g") }
     }
+}
+
+@Composable
+internal fun MealSecondaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Text("$label $value", modifier.padding(start = AppSpacing.small).testTag("meal-secondary-$label"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable

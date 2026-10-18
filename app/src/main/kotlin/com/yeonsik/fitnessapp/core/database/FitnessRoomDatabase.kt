@@ -1666,6 +1666,20 @@ interface MealRoomDao {
     ): Int
 
     @Query(
+        "UPDATE meal_records SET date=:date, metadata=:metadata, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND device_id=:deviceId " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateMealDateTimeMetadata(
+        recordId: String,
+        userId: String,
+        deviceId: String,
+        date: String,
+        metadata: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
         "UPDATE meal_records SET deleted_at=:deletedAt, updated_at=:updatedAt " +
             "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
     )

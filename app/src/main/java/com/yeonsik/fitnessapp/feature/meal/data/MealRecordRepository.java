@@ -1133,24 +1133,36 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         if (normalizedId == null) {
             return false;
         }
-        MealRoomDao.EditableMealRecord existing = mealDao.editableMealRecord(
-                normalizedId,
-                ownerId,
-                DEVICE_ID
-        );
-        if (existing == null) {
+        return roomDatabase.runInTransaction(() -> {
+            MealRoomDao.EditableMealRecord existing = mealDao.editableMealRecord(
+                    normalizedId, ownerId, DEVICE_ID
+            );
+            return existing != null && updateMealDateTime(scope, normalizedId, existing.getDate(), mealTime);
+        });
+    }
+
+    @Override
+    public boolean updateMealDateTime(AccountScope scope, String recordId, String date, String mealTime) {
+        String ownerId = requireActiveOwner(scope);
+        String normalizedId = optional(recordId);
+        if (normalizedId == null) {
             return false;
         }
-        LocalDate recordDate = MealEntryPolicy.requireRecordDate(existing.getDate(), LocalDate.now());
-        String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
-        String metadata = metadataWithEatenAt(existing.getMetadata(), eatenAt);
-        return mealDao.updateMealMetadata(
-                normalizedId,
-                ownerId,
-                DEVICE_ID,
-                metadata,
-                now()
-        ) > 0;
+        return roomDatabase.runInTransaction(() -> {
+            MealRoomDao.EditableMealRecord existing = mealDao.editableMealRecord(
+                    normalizedId, ownerId, DEVICE_ID
+            );
+            if (existing == null) {
+                return false;
+            }
+            LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, LocalDate.now());
+            String time = MealEntryPolicy.requireMealTime(mealTime);
+            String eatenAt = MealEntryPolicy.eatenAt(recordDate, time, ZoneId.systemDefault());
+            String metadata = metadataWithEatenAt(existing.getMetadata(), eatenAt);
+            return mealDao.updateMealDateTimeMetadata(
+                    normalizedId, ownerId, DEVICE_ID, recordDate.toString(), metadata, now()
+            ) > 0;
+        });
     }
 
     @Override
