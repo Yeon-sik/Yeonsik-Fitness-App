@@ -108,6 +108,7 @@ internal fun mealEntryRegistrationError(editor: MealUiState.Ready): String? {
 internal fun encodeDiningMenu(menu: MealDiningDraftItem): String = JSONObject().apply {
     put("id", menu.id); put("quantity", menu.quantity); put("percent", menu.consumedPercent)
     put("food_id", menu.nutritionFoodId ?: JSONObject.NULL)
+    put("record_item_id", menu.recordItemId ?: JSONObject.NULL)
     val d = menu.draft
     put("draft", JSONArray(listOf(d.store, d.branch, d.menu, d.calories, d.carbs, d.protein, d.fat,
         d.sodium, d.sugars, d.saturatedFat, d.time, d.restaurantId, d.restaurantLocationId, d.restaurantMenuId,
@@ -122,5 +123,6 @@ internal fun decodeDiningMenu(raw: String): MealDiningDraftItem? = runCatching {
         d.getString(3), d.getString(4), d.getString(5), d.getString(6), d.getString(7), d.getString(8), d.getString(9),
         d.getString(10), d.getString(11), d.getString(12), d.getString(13), d.getString(14), d.getString(15), d.getString(16),
         transFat = d.optString(17, "")),
-        json.getString("quantity"), json.getString("percent"), json.optString("food_id").takeUnless { it == "null" || it.isBlank() })
+        json.getString("quantity"), json.getString("percent"), json.optString("food_id").takeUnless { it == "null" || it.isBlank() },
+        json.optString("record_item_id").takeUnless { it == "null" || it.isBlank() })
 }.getOrNull()

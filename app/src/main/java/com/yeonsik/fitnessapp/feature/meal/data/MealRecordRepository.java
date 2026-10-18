@@ -30,6 +30,8 @@ import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi;
 import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput;
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput;
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake;
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditSnapshot;
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditRequest;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy;
 
@@ -53,6 +55,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     private final FitnessRoomDatabase roomDatabase;
     private final MealRoomDao mealDao;
     private final NutritionCatalogRepositoryApi nutritionCatalog;
+    private final MealRecordEditingStorage editingStorage;
     private String userId;
 
     public MealRecordRepository(
@@ -63,6 +66,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         this.roomDatabase = roomDatabase;
         this.mealDao = roomDatabase.mealRoomDao();
         this.nutritionCatalog = nutritionCatalog;
+        this.editingStorage = new MealRecordEditingStorage(roomDatabase);
         setUserId(userId);
     }
 
@@ -306,9 +310,36 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     @Override
     public String saveMealItems(AccountScope scope, String date, String mealTime,
                                 List<MealCompositionItem> foods, List<DiningOutMenuIntake> inputs) {
+        return saveMealItems(scope, date, mealTime, foods, inputs, null);
+    }
+
+    @Override
+    public MealRecordEditSnapshot loadMealForEditing(AccountScope scope, String recordId) {
+        requireActiveOwner(scope);
+        return editingStorage.load(scope, recordId);
+    }
+
+    @Override
+    public boolean updateMealItems(AccountScope scope, MealRecordEditRequest request, String mealTime,
+                                   List<MealCompositionItem> foods, List<DiningOutMenuIntake> inputs) {
+        requireActiveOwner(scope);
+        return roomDatabase.runInTransaction(() -> {
+            MealRecordsRoomEntity target = editingStorage.requireTarget(scope, request);
+            if (request.getFoodItemIds().size() != foods.size() || request.getMenuItemIds().size() != inputs.size()) {
+                throw new IllegalArgumentException("수정할 식단 구성을 다시 확인하세요.");
+            }
+            saveMealItems(scope, target.getDate(), mealTime, foods, inputs, request);
+            return true;
+        });
+    }
+
+    private String saveMealItems(AccountScope scope, String date, String mealTime,
+                                 List<MealCompositionItem> foods, List<DiningOutMenuIntake> inputs,
+                                 @Nullable MealRecordEditRequest edit) {
         if (foods == null || inputs == null) throw new IllegalArgumentException("식단 내용을 확인하세요.");
-        if (inputs.isEmpty()) return saveFoodMealItems(scope, date, mealTime, foods);
-        if (foods.isEmpty()) return saveDiningOutMenuItems(scope, date, mealTime, inputs);
+        if (foods.isEmpty() && inputs.isEmpty()) throw new IllegalArgumentException("음식을 하나 이상 담으세요.");
+        if (edit == null && inputs.isEmpty()) return saveFoodMealItems(scope, date, mealTime, foods);
+        if (edit == null && foods.isEmpty()) return saveDiningOutMenuItems(scope, date, mealTime, inputs);
         String ownerId = requireActiveOwner(scope);
         List<MealCompositionItem> consumedItems = new ArrayList<>(foods);
         List<MealItemSnapshot> snapshots = prepareFoodSnapshots(consumedItems);
@@ -326,36 +357,39 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
         boolean backfilled = MealEntryPolicy.isBackfilled(recordDate, today);
         String now = now();
-        String recordId = UUID.randomUUID().toString();
+        String recordId = edit == null ? UUID.randomUUID().toString() : edit.getRecordId();
         int mealIndex = safeInt(mealDao.mealCountForDate(ownerId, recordDate.toString()));
         String mealLabel = MealEntryPolicy.labelForIndex(mealIndex);
 
         String metadata;
         try {
             JSONObject entry = new JSONObject(foodMetadata(mealLabel, eatenAt, snapshots.size() + prepared.menus.size()));
-            entry.put("entry_kind", "mixed");
-            entry.put("consumption_scope", "per_menu");
+            entry.put("entry_kind", inputs.isEmpty() ? "food" : foods.isEmpty() ? "dining_out" : "mixed");
+            if (!inputs.isEmpty()) entry.put("consumption_scope", "per_menu");
             metadata = entry.toString();
         } catch (Exception error) {
             throw new IllegalStateException("식단 정보를 만들지 못했습니다.", error);
         }
+        boolean diningOnly = foods.isEmpty();
+        DiningOutMealInput firstMenu = inputs.isEmpty() ? null : inputs.get(0).getInput();
+        String firstName = diningOnly ? firstMenu.getMenuName() : consumedItems.get(0).food.displayName();
         MealRecordsRoomEntity record = new MealRecordsRoomEntity(
                 recordId,
                 ownerId,
                 recordDate.toString(),
-                MealEntryPolicy.previewTitle(consumedItems.get(0).food.displayName(), snapshots.size() + prepared.menus.size(), mealLabel + " 식사"),
-                MealRecordKind.FOOD,
+                MealEntryPolicy.previewTitle(firstName, snapshots.size() + prepared.menus.size(), mealLabel + " 식사"),
+                diningOnly ? MealRecordKind.DINING_OUT : MealRecordKind.FOOD,
+                null,
+                diningOnly ? firstMenu.getStoreName() : null,
+                diningOnly ? firstMenu.getBranchName() : null,
+                diningOnly ? firstName : null,
+                diningOnly && inputs.size() == 1 ? firstMenu.getRestaurantId() : null,
+                diningOnly && inputs.size() == 1 ? firstMenu.getRestaurantLocationId() : null,
+                diningOnly && inputs.size() == 1 ? firstMenu.getRestaurantMenuId() : null,
+                diningOnly && inputs.size() == 1 ? firstMenu.getCatalogProductId() : null,
                 null,
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                inputs.isEmpty() ? null : DiningOutConsumption.CONTRACT_VERSION,
                 Math.round(totals.calories()),
                 totals.proteinGrams(),
                 totals.carbsGrams(),
@@ -375,8 +409,13 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
 
         roomDatabase.runInTransaction(() -> {
             requireActiveOwner(scope);
-            mealDao.insertRecord(record);
-            for (MealItemSnapshot snapshot : snapshots) insertItemSnapshot(recordId, snapshot, now, ownerId);
+            MealRecordEditingStorage.Replacement replacement = edit == null ? null
+                    : editingStorage.beginReplacement(scope, edit, record);
+            if (replacement == null) mealDao.insertRecord(record);
+            for (int index = 0; index < snapshots.size(); index++) {
+                String itemId = insertItemSnapshot(recordId, snapshots.get(index), now, ownerId, null, null, null, null);
+                if (replacement != null) replacement.preserve(edit.getFoodItemIds().get(index), itemId, false);
+            }
             for (int index = 0; index < prepared.menus.size(); index++) {
                 MealMenuSelection menu = prepared.menus.get(index);
                 String itemId = insertComplexMenuSnapshot(recordId, menu, snapshots.size() + index, now, ownerId,
@@ -386,6 +425,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                         UUID.randomUUID().toString(), ownerId, recordId, itemId, DiningOutConsumption.CONTRACT_VERSION,
                         DiningOutConsumption.CONSUMER_SCOPE_SELF, (long) consumption.dinerCount, consumption.consumedFraction,
                         consumption.shareMethod, consumption.confidence, now, now, null, DEVICE_ID));
+                if (replacement != null) replacement.preserve(edit.getMenuItemIds().get(index), itemId, true);
             }
         });
         return recordId;
@@ -402,6 +442,11 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             }
             if (item.food.isDiningOutMenu() || item.food.isDiningOutComponent()) {
                 throw new IllegalArgumentException("외식 메뉴는 외식 입력에서 기록하세요.");
+            }
+            if (item.food.id != null && item.food.id.startsWith("meal-record:")
+                    && (item.profile.value(NutritionProfile.CARBS_GRAMS) == null
+                    || item.profile.value(NutritionProfile.FAT_GRAMS) == null)) {
+                throw new IllegalArgumentException("요약만 남은 기록입니다. 해당 음식을 빼고 음식과 양을 다시 선택하세요.");
             }
             for (Double value : item.profile.asMap().values()) {
                 if (value != null && (!Double.isFinite(value) || value < 0d)) {

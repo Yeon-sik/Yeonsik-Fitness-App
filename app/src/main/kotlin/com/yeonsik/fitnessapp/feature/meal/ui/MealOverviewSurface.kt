@@ -19,6 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.backdrops.layerBackdrop
@@ -90,7 +93,7 @@ internal fun MealOverviewGlassSurface(
 internal fun MealDailyMetrics(count: Int, calories: String) {
     if (LocalDensity.current.fontScale >= 1.35f) {
         Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            MealOverviewMetric("식단", "${count}끼")
+            MealOverviewMetric("식단", count.toString(), unit = "끼")
             MealOverviewMetric("열량", calories, unit = "kcal")
         }
     } else {
@@ -98,7 +101,7 @@ internal fun MealDailyMetrics(count: Int, calories: String) {
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
         ) {
-            MealOverviewMetric("식단", "${count}끼", Modifier.weight(1f))
+            MealOverviewMetric("식단", count.toString(), Modifier.weight(1f), "끼")
             MealOverviewMetric("열량", calories, Modifier.weight(1f), "kcal")
         }
     }
@@ -114,9 +117,17 @@ private fun MealOverviewMetric(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold)
-        if (unit != null) Text(unit, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MealOverviewValue(value, unit, MaterialTheme.typography.headlineSmall)
     }
+}
+
+/** Keep a measurement together, including when the system uses larger text. */
+@Composable
+internal fun MealOverviewValue(value: String, unit: String?, style: TextStyle) {
+    val unitStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Normal)
+    Text(buildAnnotatedString {
+        append(value)
+        if (unit != null) withStyle(unitStyle.toSpanStyle()) { append("\u00A0$unit") }
+    }, style = style, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
 }

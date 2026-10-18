@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import android.os.Handler
+import android.os.Bundle
 import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -16,6 +17,8 @@ import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditItem
+import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditRequest
 import com.yeonsik.fitnessapp.feature.nutrition.model.*
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorController
@@ -44,7 +47,8 @@ data class MealFoodDraftItem(
     val food: NutritionFood,
     val quantity: String,
     val consumedPercent: String = "100",
-    val amountMode: PortionInputMode = PortionInputMode.BASIS
+    val amountMode: PortionInputMode = PortionInputMode.BASIS,
+    val recordItemId: String? = null
 )
 
 data class MealDiningDraftItem(
@@ -52,7 +56,8 @@ data class MealDiningDraftItem(
     val draft: DiningOutDraft,
     val quantity: String = "1",
     val consumedPercent: String = "100",
-    val nutritionFoodId: String? = null
+    val nutritionFoodId: String? = null,
+    val recordItemId: String? = null
 )
 
 data class RemovedMealDraftItem(
@@ -88,7 +93,8 @@ data class MealRecordEditor(
     val recordId: String,
     val date: String,
     val title: String,
-    val time: String
+    val time: String,
+    val updatedAt: String = ""
 )
 
 sealed interface MealUiState {
@@ -212,8 +218,11 @@ class MealViewModel @JvmOverloads constructor(
     private var selectedFood: NutritionFood? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
+    private var draftBeforeRecordEdit: MealUiState.Ready? = null
 
     fun enter(scope: AccountScope, date: String) {
+        val activeEdit = mutableState.value as? MealUiState.Ready
+        if (activeEdit?.ownerId == scope.ownerId && activeEdit.date == date && activeEdit.recordEditor != null) return
         searchJob?.cancel()
         val previousOwner = ownerId.ifEmpty { savedStateHandle[KEY_DRAFT_OWNER] ?: "" }
         val previousDate = this.date.ifEmpty { savedStateHandle[KEY_DRAFT_DATE] ?: "" }
@@ -244,6 +253,7 @@ class MealViewModel @JvmOverloads constructor(
         if (nutritionEditor.uiState.value?.open == true) nutritionEditor.open()
         val request = ++requestVersion
         if (dateChanged) {
+            draftBeforeRecordEdit = null
             selectedFood = null
             clearDraftStorage()
             mutableState.value = MealUiState.Idle
@@ -289,6 +299,10 @@ class MealViewModel @JvmOverloads constructor(
                 ownerId = scope.ownerId, query = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: "")
         }
         if (restorePublication && nutritionPublicationReady().open) openNutritionPublication()
+        savedStateHandle.get<String>(KEY_EDIT_RECORD_ID)?.let { recordId ->
+            loadRecordEditor(recordId, restoring = true)
+            return
+        }
         val selectedId = savedStateHandle.get<String>(KEY_FOOD_ID).orEmpty()
         val portionIds = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_IDS).orEmpty()
         val portionAmounts = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_AMOUNTS).orEmpty()
@@ -344,6 +358,10 @@ class MealViewModel @JvmOverloads constructor(
 
     fun closeDraft() {
         if (ready().saving) return
+        if (ready().recordEditor != null) {
+            closeRecordEditor()
+            return
+        }
         cancelSearch()
         savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
         update { it.copy(editing = false, diningOut = false, manualFoodEntry = false,
@@ -555,62 +573,131 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun openRecordEditor(meal: HomeMealSummary) {
-        if (meal.id.isBlank() || meal.date != date) return
-        ++requestVersion
-        mutableState.value = ready().copy(
-            recordEditor = MealRecordEditor(
-                recordId = meal.id,
-                date = meal.date,
-                title = meal.previewTitle,
-                time = meal.mealTime.takeUnless { it == "시간 미기록" }.orEmpty()
-            ),
-            error = null,
-            notice = null
-        )
+        val state = ready()
+        if (meal.id.isBlank() || meal.date != date || !meal.timeEditable || state.saving || state.draftLoading) return
+        draftBeforeRecordEdit = state
+        val backup = Bundle()
+        savedStateHandle.keys().filter { it.startsWith("meal.") && !it.startsWith("meal.publication.") &&
+            it !in listOf(KEY_EDIT_RECORD_ID, KEY_DRAFT_BEFORE_EDIT, KEY_DRAFT_OWNER, KEY_DRAFT_DATE) }.forEach { key ->
+            when (val value = savedStateHandle.get<Any>(key)) {
+                is String -> backup.putString(key, value)
+                is Boolean -> backup.putBoolean(key, value)
+                is ArrayList<*> -> backup.putStringArrayList(key, ArrayList(value.filterIsInstance<String>()))
+            }
+        }
+        savedStateHandle[KEY_DRAFT_BEFORE_EDIT] = backup
+        loadRecordEditor(meal.id, restoring = false)
     }
 
-    fun closeRecordEditor() {
+    private fun loadRecordEditor(recordId: String, restoring: Boolean) {
+        cancelSearch()
+        val scope = AccountScope(ownerId)
+        val requestedDate = date
+        val request = ++requestVersion
+        val restoredDraft = ready()
+        val savedIds = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_IDS)
+        val savedAmounts = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_AMOUNTS).orEmpty()
+        val savedPercents = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_PERCENTS).orEmpty()
+        val savedModes = savedStateHandle.get<ArrayList<String>>(KEY_PORTION_MODES).orEmpty()
+        val savedMenus = savedStateHandle.get<ArrayList<String>>(KEY_DINING_MENUS)
+        val hasSavedTime = savedStateHandle.contains(KEY_TIME)
+        if (!restoring) {
+            val backup = savedStateHandle.get<Bundle>(KEY_DRAFT_BEFORE_EDIT)
+            clearDraftStorage()
+            savedStateHandle[KEY_DRAFT_BEFORE_EDIT] = backup
+        }
+        savedStateHandle[KEY_EDIT_RECORD_ID] = recordId
+        update { it.copy(editing = true, draftLoading = true, saving = false, recordActionSaving = false,
+            recordEditor = MealRecordEditor(recordId, requestedDate, "식단", ""),
+            foodItems = emptyList(), foodPortions = emptyList(), diningMenus = emptyList(), selectedFood = null,
+            draft = if (restoring) restoredDraft.draft else DiningOutDraft(time = ""),
+            manualFoodEntry = false, searchLoading = false, searchResults = emptyList(), error = null, notice = null) }
+        executor.execute {
+            val result = runCatching {
+                val snapshot = mealRepository.loadMealForEditing(scope, recordId)
+                    ?: error("수정할 식단 기록을 찾지 못했습니다.")
+                check(snapshot.date == requestedDate) { "선택한 날짜의 식단이 아닙니다." }
+                val baseline = snapshot.items.filterNot { it.diningOut }.map { item ->
+                    MealFoodDraftItem(item.itemId ?: item.food.id, item.food, mealQuantityText(item.quantity), recordItemId = item.itemId)
+                }
+                val foods = if (restoring && savedIds != null) savedIds.mapIndexed { index, id ->
+                    val original = baseline.firstOrNull { it.food.id == id }
+                    val food = original?.food ?: nutritionCatalog.findFoodById(id) ?: error("수정 중인 음식을 다시 추가하세요.")
+                    (original ?: MealFoodDraftItem(UUID.randomUUID().toString(), food, mealQuantityText(food.basisAmount)))
+                        .copy(quantity = savedAmounts.getOrElse(index) { mealQuantityText(food.basisAmount) },
+                            consumedPercent = savedPercents.getOrElse(index) { "100" },
+                            amountMode = savedModes.getOrNull(index)?.let { runCatching { PortionInputMode.valueOf(it) }.getOrNull() }
+                                ?: PortionInputMode.BASIS)
+                } else baseline
+                val menus = if (restoring && savedMenus != null) savedMenus.map { raw ->
+                    decodeDiningMenu(raw) ?: error("수정 중인 메뉴를 복구하지 못했습니다. 식단을 다시 열어 주세요.")
+                }
+                    else snapshot.items.filter { it.diningOut }.map(::recordDiningDraft)
+                Triple(snapshot, foods, menus)
+            }
+            mainExecutor.execute loaded@{
+                if (request != requestVersion || ownerId != scope.ownerId || date != requestedDate) return@loaded
+                result.fold({ (snapshot, foods, menus) ->
+                    selectedFood = null
+                    val draft = if (restoring && hasSavedTime) restoredDraft.draft else DiningOutDraft(time = snapshot.time)
+                    savedStateHandle[KEY_TIME] = draft.time
+                    update { it.copy(draftLoading = false, recordEditor = MealRecordEditor(snapshot.recordId,
+                        snapshot.date, snapshot.title, snapshot.time, snapshot.updatedAt),
+                        foodItems = foods, foodPortions = foods.map { item -> FoodPortionDraft(item.food, item.quantity, item.amountMode) },
+                        diningMenus = menus, draft = draft, diningOut = false, category = MealCatalogCategory.ALL,
+                        diningPortion = if (restoring) restoredDraft.diningPortion else "1",
+                        diningConsumedPercent = if (restoring) restoredDraft.diningConsumedPercent else "100",
+                        query = "", removedItem = null, error = null) }
+                }, { error -> update { it.copy(draftLoading = false, error = error.message ?: "식단 내용을 불러오지 못했습니다.") } })
+            }
+        }
+    }
+
+    private fun recordDiningDraft(item: MealRecordEditItem): MealDiningDraftItem {
+        val food = item.food
+        val source = runCatching { JSONObject(food.sourceReference ?: "{}") }.getOrNull()
+        fun nutrient(key: String) = food.profile.value(key)?.let(::number).orEmpty()
+        return MealDiningDraftItem(item.itemId ?: UUID.randomUUID().toString(), DiningOutDraft(
+            store = sourceValue(source, "restaurant_name").ifBlank { food.brand.orEmpty() },
+            branch = sourceValue(source, "branch_name"), menu = food.name,
+            calories = nutrient("calories_kcal"), carbs = nutrient("carbs_grams"), protein = nutrient("protein_grams"),
+            fat = nutrient("fat_grams"), sodium = nutrient("sodium_mg"), sugars = nutrient("sugars_grams"),
+            saturatedFat = nutrient("saturated_fat_grams"), transFat = nutrient("trans_fat_grams"),
+            restaurantId = sourceValue(source, "restaurant_id"), restaurantLocationId = sourceValue(source, "restaurant_location_id"),
+            restaurantMenuId = sourceValue(source, "restaurant_menu_id"), catalogProductId = sourceValue(source, "catalog_product_id"),
+            sourceNamespace = sourceValue(source, "source_namespace"), sourceLocationCode = sourceValue(source, "source_location_code")
+        ), mealQuantityText(item.quantity), number(item.consumedFraction * 100), item.sourceFoodId, item.itemId)
+    }
+
+    fun closeRecordEditor() = restoreDraftBeforeEdit(null)
+
+    private fun restoreDraftBeforeEdit(notice: String?) {
+        if (ready().saving) return
+        cancelSearch()
         ++requestVersion
-        update { it.copy(recordEditor = null, recordActionSaving = false, error = null) }
+        val backup = savedStateHandle.get<Bundle>(KEY_DRAFT_BEFORE_EDIT)
+        val previous = draftBeforeRecordEdit
+        draftBeforeRecordEdit = null
+        clearDraftStorage()
+        backup?.keySet()?.forEach { key -> savedStateHandle[key] = backup.get(key) }
+        if (previous != null && previous.ownerId == ownerId && previous.date == date) {
+            selectedFood = previous.selectedFood
+            mutableState.value = previous.copy(editing = false, recordEditor = null, saving = false,
+                recordActionSaving = false, error = null, notice = notice)
+            update { it }
+        } else {
+            selectedFood = null
+            mutableState.value = MealUiState.Idle
+            enter(AccountScope(ownerId), date)
+            update { it.copy(editing = false, notice = notice) }
+        }
     }
 
     fun saveMealTime(scope: AccountScope, recordId: String, mealTime: String) {
         val state = ready()
-        if (scope.ownerId != ownerId || state.recordEditor?.recordId != recordId || state.recordActionSaving) {
-            return
-        }
-        val request = ++requestVersion
-        mutableState.value = state.copy(
-            recordActionSaving = true,
-            error = null,
-            notice = null
-        )
-        executor.execute {
-            try {
-                if (!mealRepository.updateMealTime(scope, recordId, mealTime)) {
-                    throw IllegalStateException("이 식단 기록 시간을 수정할 수 없습니다.")
-                }
-                if (request == requestVersion && ownerId == scope.ownerId) {
-                    mutableState.postValue(
-                        ready().copy(
-                            recordEditor = null,
-                            recordActionSaving = false,
-                            notice = "식단 기록 시간을 수정했습니다."
-                        )
-                    )
-                    loadNutritionAnalysis(scope, date)
-                }
-            } catch (error: Exception) {
-                if (request == requestVersion && ownerId == scope.ownerId) {
-                    mutableState.postValue(
-                        ready().copy(
-                            recordActionSaving = false,
-                            error = error.message ?: "식단 기록 시간을 수정하지 못했습니다."
-                        )
-                    )
-                }
-            }
-        }
+        if (scope.ownerId != ownerId || state.recordEditor?.recordId != recordId || state.saving || state.draftLoading) return
+        updateTime(mealTime)
+        save(scope) { }
     }
 
     fun deleteMeal(scope: AccountScope, recordId: String) {
@@ -1499,9 +1586,20 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         update { it.copy(saving = true, searching = false, searchLoading = false, error = null) }
         executor.execute {
             try {
-                mealRepository.saveMealItems(scope, state.date, state.draft.time, items, diningInputs)
-                mainExecutor.execute {
+                val target = state.recordEditor
+                if (target == null) mealRepository.saveMealItems(scope, state.date, state.draft.time, items, diningInputs)
+                else check(mealRepository.updateMealItems(scope, MealRecordEditRequest(target.recordId, target.updatedAt,
+                    mealFoodItems(state).map { it.recordItemId }, diningMealMenus(state).map { it.recordItemId }),
+                    state.draft.time, items, diningInputs)) { "식단 내용을 수정하지 못했습니다." }
+                mainExecutor.execute saved@{
                     if (ownerId == scope.ownerId && date == state.date) {
+                        if (target != null) {
+                            mutableState.value = ready().copy(saving = false)
+                            restoreDraftBeforeEdit("식단 내용을 수정했습니다.")
+                            loadNutritionAnalysis(scope, state.date)
+                            onSaved(true)
+                            return@saved
+                        }
                         resetSavedDraft()
                         selectedFood = null
                         update { it.copy(selectedFood = null, foodItems = emptyList(), editing = false,
@@ -1583,14 +1681,15 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             proposed.foodPortions != previous.foodPortions && proposed.foodItems == previous.foodItems ->
                 proposed.copy(foodItems = proposed.foodPortions.map { portion ->
                     val existing = previous.foodItems.firstOrNull { it.food.id == portion.food.id }
-                    MealFoodDraftItem(existing?.id ?: UUID.randomUUID().toString(), portion.food, portion.quantity, existing?.consumedPercent ?: "100", portion.mode)
+                    MealFoodDraftItem(existing?.id ?: UUID.randomUUID().toString(), portion.food, portion.quantity,
+                        existing?.consumedPercent ?: "100", portion.mode, existing?.recordItemId)
                 })
             proposed.foodPortions != previous.foodPortions && proposed.foodItems != previous.foodItems -> {
                 val itemsByFoodId = proposed.foodItems.associateBy { it.food.id }.toMutableMap()
                 proposed.foodPortions.forEach { portion ->
                     val existing = itemsByFoodId[portion.food.id]
                     itemsByFoodId[portion.food.id] = MealFoodDraftItem(existing?.id ?: UUID.randomUUID().toString(),
-                        portion.food, portion.quantity, existing?.consumedPercent ?: "100", portion.mode)
+                        portion.food, portion.quantity, existing?.consumedPercent ?: "100", portion.mode, existing?.recordItemId)
                 }
                 proposed.copy(foodItems = proposed.foodItems.mapNotNull { itemsByFoodId.remove(it.food.id) } + itemsByFoodId.values)
             }
@@ -1600,13 +1699,13 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         savedStateHandle[KEY_EDITING] = next.editing
         savedStateHandle[KEY_DINING_OUT] = next.diningOut
         savedStateHandle[KEY_CATEGORY] = next.category.name
-        if (!next.draftLoading) {
+        if (!next.draftLoading && (next.recordEditor == null || next.recordEditor.updatedAt.isNotBlank())) {
             savedStateHandle[KEY_PORTION_IDS] = ArrayList(next.foodItems.map { it.food.id })
             savedStateHandle[KEY_PORTION_AMOUNTS] = ArrayList(next.foodItems.map { it.quantity })
             savedStateHandle[KEY_PORTION_PERCENTS] = ArrayList(next.foodItems.map { it.consumedPercent })
             savedStateHandle[KEY_PORTION_MODES] = ArrayList(next.foodItems.map { it.amountMode.name })
+            savedStateHandle[KEY_DINING_MENUS] = ArrayList(next.diningMenus.map(::encodeDiningMenu))
         }
-        savedStateHandle[KEY_DINING_MENUS] = ArrayList(next.diningMenus.map(::encodeDiningMenu))
     }
 
     private fun loadNutritionAnalysis(scope: AccountScope, requestedDate: String) {
@@ -1685,6 +1784,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
     }
 
     private fun clearDraftStorage() {
+        savedStateHandle.remove<String>(KEY_EDIT_RECORD_ID)
+        savedStateHandle.remove<Bundle>(KEY_DRAFT_BEFORE_EDIT)
         savedStateHandle.remove<ArrayList<String>>(KEY_MANUAL_FOOD)
         savedStateHandle.remove<Boolean>(KEY_MANUAL_FOOD_OPEN)
         listOf(KEY_STORE, KEY_BRANCH, KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN,
@@ -1753,6 +1854,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
     }
 
     private companion object {
+        const val KEY_EDIT_RECORD_ID = "meal.edit_record_id"
+        const val KEY_DRAFT_BEFORE_EDIT = "meal.draft_before_record_edit"
         const val KEY_DRAFT_OWNER = "meal.draft_owner"
         const val KEY_DRAFT_DATE = "meal.draft_date"
         const val KEY_MANUAL_FOOD_OPEN = "meal.manual_food_open"

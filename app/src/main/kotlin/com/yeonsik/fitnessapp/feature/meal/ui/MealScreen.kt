@@ -297,6 +297,7 @@ internal fun MealScreen(
     Spacer(Modifier.height(AppSpacing.gap))
     if (editor?.editing != true) {
         editor?.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        editor?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val hasDraft = editor?.let(::hasMealRegistrationDraft) == true
         MealInputNotice(
             if (hasDraft) "작성 중인 식단이 있어요. 이어서 입력할 수 있어요."
@@ -335,7 +336,7 @@ internal fun MealScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     val recordActionsEnabled = currentReady != null && editor != null &&
-        !editor.saving && !editor.recordActionSaving
+        !editor.saving && !editor.draftLoading && !editor.recordActionSaving
     Box(Modifier.fillMaxWidth().testTag("meal-record-history")) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
             if (snapshot == null) {
@@ -357,7 +358,7 @@ internal fun MealScreen(
                             }
                             Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
+                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams} g",
                                 style = MaterialTheme.typography.bodyMedium)
                             Row(Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
@@ -425,37 +426,6 @@ internal fun MealScreen(
         )
     }
 
-    val recordEditor = editor?.recordEditor
-    if (recordEditor != null) {
-        var editTime by rememberSaveable(recordEditor.recordId) {
-            mutableStateOf(recordEditor.time)
-        }
-        AlertDialog(
-            onDismissRequest = actions::cancelMealEdit,
-            title = { Text("식단 수정") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    Text(recordEditor.title, fontWeight = FontWeight.Bold)
-                    MealTimeField(
-                        value = editTime,
-                        onValueChange = { editTime = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !editor.recordActionSaving
-                    )
-                    editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { actions.saveMealTime(recordEditor.recordId, editTime) },
-                    enabled = !editor.recordActionSaving && mealTimeError(editTime) == null
-                ) { Text(if (editor.recordActionSaving) "저장 중" else "저장") }
-            },
-            dismissButton = {
-                TextButton(onClick = actions::cancelMealEdit) { Text("취소") }
-            }
-        )
-    }
 }
 
 @Composable
@@ -484,9 +454,7 @@ private fun MealMacroMetric(label: String, value: String, modifier: Modifier = M
     Column(modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text("g", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MealOverviewValue(value, "g", MaterialTheme.typography.titleLarge)
     }
 }
 

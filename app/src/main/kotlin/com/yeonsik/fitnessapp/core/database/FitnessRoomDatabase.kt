@@ -1734,6 +1734,15 @@ interface MealRoomDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertRecord(record: MealRecordsRoomEntity)
 
+    @Update
+    fun updateMealRecord(record: MealRecordsRoomEntity): Int
+
+    @Update
+    fun updateMealItem(item: MealRecordItemsRoomEntity): Int
+
+    @Update
+    fun updateMealConsumption(consumption: MealRecordItemConsumptionsRoomEntity): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertItem(item: MealRecordItemsRoomEntity)
 
