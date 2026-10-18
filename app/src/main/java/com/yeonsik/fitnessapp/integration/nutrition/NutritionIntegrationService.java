@@ -123,14 +123,6 @@ public final class NutritionIntegrationService implements DiningProposalAccount 
         return products;
     }
 
-    public ProductReadV1 loadProduct(String catalogProductId) throws Exception {
-        ProductReadV1 product = productReadClient.findProduct(catalogProductId);
-        if (product != null) {
-            nutritionCatalog.cachePriceTraceProducts(Collections.singletonList(product));
-        }
-        return product;
-    }
-
     public List<RestaurantSummary> searchRestaurants(String query)
             throws Exception {
         List<RestaurantMenuReadV1Client.RestaurantSummary> results =
@@ -186,23 +178,6 @@ public final class NutritionIntegrationService implements DiningProposalAccount 
         SupabaseConfig captured = nutritionConfig;
         requireExpectedOwner(captured, expectedNutritionOwner);
         return syncCatalog(captured);
-    }
-
-    public PublicationResult publishNutrition(
-            SupabaseConfig configuredNutrition,
-            String nutritionFoodId,
-            String catalogProductId,
-            boolean publish
-    ) throws Exception {
-        SupabaseConfig active = requireNutritionAccount(configuredNutrition);
-        NutritionPublicationClient.PublicationState state = publicationClient.publishProductNutrition(
-                active,
-                nutritionFoodId,
-                catalogProductId,
-                publish
-        );
-        applyLocalPublication(active, state);
-        return new PublicationResult(active, null, state);
     }
 
     public PublicationResult publishDiningOut(
@@ -446,9 +421,6 @@ public final class NutritionIntegrationService implements DiningProposalAccount 
             this.catalogPackageCount = catalogPackageCount;
         }
 
-        public boolean hasRequiredNutrition() {
-            return profile != null && profile.hasAllRequired();
-        }
     }
 
     public static final class RestaurantSummary {

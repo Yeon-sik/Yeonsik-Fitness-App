@@ -227,10 +227,6 @@ public final class NutritionProfile {
         return NutrientCode.labelOf(normalized);
     }
 
-    public static boolean isTypedKey(String key) {
-        return TYPED_UNITS.containsKey(normalizeKey(key));
-    }
-
     /** typed column 키이거나 사전에 등록된 미네랄·비타민 코드여야 저장할 수 있다. */
     public static boolean isSupportedKey(String key) {
         String normalized = normalizeKey(key);

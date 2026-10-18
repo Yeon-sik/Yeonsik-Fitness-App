@@ -382,41 +382,6 @@ fun chooseFood() = chooseCategory(MealCatalogCategory.INGREDIENT)
     }
 
 fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
-    fun resetDraft() {
-        if (ready().saving) return
-        savedStateHandle.remove<String>(KEY_STORE)
-        savedStateHandle.remove<String>(KEY_BRANCH)
-        savedStateHandle.remove<String>(KEY_MENU)
-        savedStateHandle.remove<String>(KEY_CALORIES)
-        savedStateHandle.remove<String>(KEY_CARBS)
-        savedStateHandle.remove<String>(KEY_PROTEIN)
-        savedStateHandle.remove<String>(KEY_FAT)
-        savedStateHandle.remove<String>(KEY_SODIUM)
-        savedStateHandle.remove<String>(KEY_SUGARS)
-        savedStateHandle.remove<String>(KEY_SATURATED_FAT)
-        savedStateHandle.remove<String>(KEY_TRANS_FAT)
-        savedStateHandle.remove<String>(KEY_TIME)
-        savedStateHandle.remove<String>(KEY_FOOD_ID)
-        savedStateHandle.remove<String>(KEY_QUANTITY)
-        savedStateHandle.remove<String>(KEY_RESTAURANT_ID)
-        savedStateHandle.remove<String>(KEY_RESTAURANT_LOCATION_ID)
-        savedStateHandle.remove<String>(KEY_RESTAURANT_MENU_ID)
-        savedStateHandle.remove<String>(KEY_CATALOG_PRODUCT_ID)
-        savedStateHandle.remove<String>(KEY_PRICE_TRACE_QUERY)
-        savedStateHandle.remove<String>(KEY_SOURCE_NAMESPACE)
-        savedStateHandle.remove<String>(KEY_SOURCE_LOCATION_CODE)
-        savedStateHandle[KEY_DINING_PORTION] = "1"
-        savedStateHandle[KEY_DINING_PERCENT] = "100"
-        savedStateHandle.remove<ArrayList<String>>(KEY_DINING_MENUS)
-        savedStateHandle.remove<ArrayList<String>>(KEY_PORTION_PERCENTS)
-        savedStateHandle.remove<ArrayList<String>>(KEY_PORTION_IDS)
-        savedStateHandle.remove<ArrayList<String>>(KEY_PORTION_AMOUNTS)
-        selectedFood = null
-        mutableState.value = ready().copy(editing = true, diningOut = true,
-            draft = DiningOutDraft(), foodItems = emptyList(), foodPortions = emptyList(), selectedFood = null,
-            quantity = "", diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(), removedItem = null, error = null, notice = null)
-    }
-
     fun updateStore(value: String) = draft(KEY_STORE, value)
     fun updateBranch(value: String) = draft(KEY_BRANCH, value)
     fun updateMenu(value: String) = draft(KEY_MENU, value)

@@ -2124,15 +2124,6 @@ public final class NutritionCatalogRepository implements
         return links.isEmpty() ? null : links.get(0);
     }
 
-    /** Public means explicitly published for the approved PriceTrace product link. */
-    public boolean isFoodPublic(String nutritionFoodId) {
-        if (nutritionFoodId == null || nutritionFoodId.trim().isEmpty()) {
-            return false;
-        }
-        NutritionFoodsRoomEntity food = nutritionDao.visibleFood(nutritionFoodId, userId);
-        return food != null && "public".equals(food.getVisibility());
-    }
-
     /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
     @Override
     public List<ProductNutritionLink> pendingProductLinkSuggestions(String nutritionFoodId) {

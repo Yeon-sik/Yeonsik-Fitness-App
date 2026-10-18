@@ -316,8 +316,5 @@ public final class RuntimeExercisePicker {
             this.sortName = sortName;
         }
 
-        public boolean hasSinglePreset() {
-            return presets.size() == 1;
-        }
     }
 }

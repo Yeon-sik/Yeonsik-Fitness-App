@@ -259,19 +259,6 @@ public final class NutritionFood {
                 + " · 당류 " + NutritionCalculator.trimNullable(profile.sugarsGrams()) + "g";
     }
 
-    /** 필수값이 비어 있는 레거시 행을 화면에서 구분하기 위한 안내 문구. null이면 정상. */
-    public String missingRequiredNotice() {
-        List<String> missing = profile.missingRequiredKeys();
-        if (missing.isEmpty()) {
-            return null;
-        }
-        List<String> labels = new ArrayList<>();
-        for (String key : missing) {
-            labels.add(NutritionProfile.labelOf(key));
-        }
-        return "필수 영양소 미입력: " + String.join(", ", labels);
-    }
-
     public static String normalizeKind(String kind) {
         String normalized = kind == null ? "" : kind.trim().toLowerCase(Locale.US);
         switch (normalized) {
@@ -374,10 +361,6 @@ public final class NutritionFood {
         }
     }
 
-    public static String[] categoryOptions() {
-        return CATEGORY_OPTIONS.clone();
-    }
-
     public static String normalizeCookingMethod(String cookingMethod) {
         String normalized = cookingMethod == null
                 ? ""
@@ -415,10 +398,6 @@ public final class NutritionFood {
             default:
                 return "미지정";
         }
-    }
-
-    public static String[] cookingMethodOptions() {
-        return COOKING_METHOD_OPTIONS.clone();
     }
 
     /** 기존 prep_state를 사용하는 호출부와 원격 레거시 행을 위한 호환 매핑. */

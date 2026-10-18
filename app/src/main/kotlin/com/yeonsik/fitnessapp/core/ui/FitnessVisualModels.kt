@@ -351,13 +351,3 @@ fun FitnessDataSufficiency.status(): FitnessSemanticStatus = when (this) {
     FitnessDataSufficiency.INSUFFICIENT -> FitnessSemanticStatus.WARNING
     FitnessDataSufficiency.UNKNOWN -> FitnessSemanticStatus.UNKNOWN
 }
-
-/** Qualitative review context, never a probability or medical certainty. */
-data class FitnessEvidencePresentation(
-    val title: String,
-    val evidence: String? = null,
-    val limitation: String? = null,
-    val source: String? = null,
-    val confidence: FitnessConfidenceLevel = FitnessConfidenceLevel.UNKNOWN,
-    val sufficiency: FitnessDataSufficiency = FitnessDataSufficiency.UNKNOWN
-)

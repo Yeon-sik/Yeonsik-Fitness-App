@@ -22,11 +22,5 @@ object FitnessRoomDatabaseProvider {
                 .also { instance = it }
         }
 
-    internal fun resetForTests() {
-        synchronized(this) {
-            instance?.close()
-            instance = null
-        }
-    }
 }
 

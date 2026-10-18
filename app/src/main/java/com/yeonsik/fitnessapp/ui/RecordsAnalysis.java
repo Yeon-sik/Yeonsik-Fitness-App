@@ -44,14 +44,6 @@ public final class RecordsAnalysis {
                 + (currentState == TrendCurrentState.COMPLETED ? 1 : 0);
     }
 
-    public static int requiredCompletedHistoryPoints(TrendCurrentState currentState) {
-        return Math.max(
-                0,
-                MIN_TREND_POINTS
-                        - (currentState == TrendCurrentState.COMPLETED ? 1 : 0)
-        );
-    }
-
     public static TrendRange trendRange(
             List<Double> values,
             TrendScalePolicy scalePolicy
