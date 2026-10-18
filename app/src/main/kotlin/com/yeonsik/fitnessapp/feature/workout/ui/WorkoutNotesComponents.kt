@@ -22,7 +22,8 @@ internal fun WorkoutNoteField(
     readOnly: Boolean,
     onSave: (String, (Boolean) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
-    tag: String = "workout-note"
+    tag: String = "workout-note",
+    headerTrailing: (@Composable () -> Unit)? = null
 ) {
     if (readOnly && value.isBlank()) return
     key(identity) {
@@ -39,10 +40,18 @@ internal fun WorkoutNoteField(
         val tooLong = draft.length > WORKOUT_NOTE_MAX_LENGTH
         Column(modifier.testTag(tag), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                if (!readOnly) TextButton(onClick = { expanded = !expanded }, enabled = !saving,
-                    modifier = Modifier.testTag("$tag-toggle")) {
-                    Text(if (expanded) "접기" else if (dirty) "작성 중" else if (value.isBlank()) "추가" else "편집")
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, Modifier.weight(1f, fill = headerTrailing == null),
+                        style = MaterialTheme.typography.titleSmall)
+                    if (!readOnly) TextButton(onClick = { expanded = !expanded }, enabled = !saving,
+                        contentPadding = PaddingValues(horizontal = FitnessSpacing.micro),
+                        modifier = Modifier.testTag("$tag-toggle")) {
+                        Text(if (expanded) "접기" else if (dirty) "작성 중" else if (value.isBlank()) "추가" else "편집")
+                    }
+                }
+                if (headerTrailing != null) {
+                    Spacer(Modifier.width(FitnessSpacing.small))
+                    headerTrailing()
                 }
             }
             if (readOnly) {

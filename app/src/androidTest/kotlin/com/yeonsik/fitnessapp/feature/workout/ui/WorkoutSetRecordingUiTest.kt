@@ -584,7 +584,6 @@ class WorkoutSetRecordingUiTest {
         override fun openExercise(exerciseId: String) {}
         override fun linkManualExercise(exerciseId: String) {}
         override fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit) {}
-        override fun applyPreviousHistory(recordId: String, exerciseId: String, currentSets: List<WorkoutSet>, history: WorkoutExerciseHistory, onResult: (Boolean) -> Unit) {}
         override fun addSet(recordId: String, exerciseId: String, setIndex: Int, input: WorkoutSetInput, onResult: (Boolean) -> Unit) {
             val next = WorkoutSet("set-$setIndex", setIndex, 0.0, 0, null, input.restSeconds, false,
                 0, 0.0, 0.0, 0.0, LoadState.EXTERNAL_LOAD, null, MassUnit.KG)

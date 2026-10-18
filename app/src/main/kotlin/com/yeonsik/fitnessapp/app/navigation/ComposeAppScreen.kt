@@ -107,7 +107,6 @@ import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanDraft
 import com.yeonsik.fitnessapp.supplement.SupplementPlan
 import com.yeonsik.fitnessapp.feature.workout.ui.*
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
@@ -2322,19 +2321,6 @@ private fun AppDestination(
                         ) {
                             viewModels.getWorkoutExerciseDetail().deleteExercise(
                                 AccountScope(ownerId), recordId, exerciseId,
-                                java.util.function.Consumer { result -> onResult(result) }
-                            )
-                        }
-
-                        override fun applyPreviousHistory(
-                            recordId: String,
-                            exerciseId: String,
-                            currentSets: List<WorkoutSet>,
-                            history: WorkoutExerciseHistory,
-                            onResult: (Boolean) -> Unit
-                        ) {
-                            viewModels.getWorkoutExerciseDetail().applyPreviousHistory(
-                                AccountScope(ownerId), recordId, exerciseId, currentSets, history,
                                 java.util.function.Consumer { result -> onResult(result) }
                             )
                         }

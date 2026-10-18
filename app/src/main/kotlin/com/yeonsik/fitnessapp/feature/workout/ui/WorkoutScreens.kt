@@ -16,8 +16,10 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -57,6 +59,9 @@ import androidx.compose.ui.semantics.editableText
 import androidx.compose.ui.semantics.setText
 import androidx.compose.ui.semantics.imeAction
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
@@ -372,6 +377,7 @@ internal fun WorkoutDetailScreen(
     val imageIdentity = ready?.detail?.activeExercise?.familyIdentity ?: previewExercise?.familyIdentity
     val imageAnchor = if (imageRecordId != null && imageOccurrenceId != null)
         workoutSessionImageAnchor(imageRecordId, imageOccurrenceId) else null
+    var showImageViewer by rememberSaveable(ownerId, imageRecordId, imageOccurrenceId) { mutableStateOf(false) }
     val titleStyle = MaterialTheme.typography.headlineLarge
     FitnessHeader(title, back = actions::back,
         titleStyle = titleStyle.copy(fontSize = titleStyle.fontSize * 0.7f,
@@ -383,7 +389,12 @@ internal fun WorkoutDetailScreen(
     }
     if (imageExerciseId != null) {
         WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
-            animate = ready != null && !ready.readOnly, sharedAnchor = imageAnchor)
+            animate = ready != null && !ready.readOnly && !showImageViewer, sharedAnchor = imageAnchor,
+            onClick = { showImageViewer = true })
+        if (showImageViewer) WorkoutExerciseImageViewer(imageExerciseId, imageIdentity, title,
+            animate = ready != null && !ready.readOnly) {
+            showImageViewer = false
+        }
     }
     if (ready == null || ready.ownerId != ownerId) {
         FitnessStatusMessage(
@@ -453,9 +464,6 @@ internal fun WorkoutDetailScreen(
             else -> WorkoutExerciseRecordsTab(detail, unit)
         }
         return
-    }
-    detail.lastHistory?.let { history ->
-        WorkoutPreviousHistory(detail, history, unit, readOnly = false, actions = actions)
     }
     if (detail.recentVolumes.isNotEmpty()) {
         FitnessSection("최근 종목 볼륨") {
@@ -582,23 +590,25 @@ private fun WorkoutSetRecordCard(
             WorkoutNoteField(
                 identity = "$ownerId:${detail.recordId}:${detail.activeExercise.id}:${detail.activeExercise.exerciseId}:" +
                     "${detail.activeExercise.familyIdentity?.canonicalVariantKey}:setup",
-                title = "기구 설정 · 고정 메모", value = detail.notes.setup,
+                title = "기구 설정/메모", value = detail.notes.setup,
                 hint = "",
                 placeholder = "예: 시트 4 / 등받이 2 / 벤치 30도", readOnly = false,
                 onSave = { note, result -> actions.updateSetupNote(detail.recordId, detail.activeExercise.id, note) { ok ->
                     result(ok)
                     if (ok) actions.refresh()
                 } },
-                modifier = Modifier.fillMaxWidth(), tag = "workout-setup-note"
+                modifier = Modifier.fillMaxWidth(), tag = "workout-setup-note",
+                headerTrailing = {
+                    TextButton(onClick = { showInputHelp = true },
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        modifier = Modifier.testTag("workout-input-help")
+                            .semantics { contentDescription = "세트 기록 도움말" }) {
+                        Text("세트 기록 방식 ?", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-                Text("세트 기록", style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = { showInputHelp = true },
-                    modifier = Modifier.testTag("workout-input-help").semantics { contentDescription = "세트 기록 도움말" }) {
-                    Text("?", style = MaterialTheme.typography.titleMedium)
-                }
-                Spacer(Modifier.weight(1f))
+                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small, Alignment.End)) {
                 Text("휴식", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(Modifier.width(64.dp)) {
@@ -616,13 +626,19 @@ private fun WorkoutSetRecordCard(
             }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-                val tableWidth = maxWidth.coerceAtLeast(columns.minimumWidth * fontScale)
+                // Keep every input/action visible on compact screens; the load selector
+                // gets its own line when all columns would exceed the card's width.
+                val fittedColumns = columns.copy(hasLoadState = hasLoadState && maxWidth >= columns.minimumWidth * fontScale)
+                // Normal text fits the available width. Large accessibility text retains scrolling.
+                val tableWidth = if (fontScale > 1.3f) maxWidth.coerceAtLeast(fittedColumns.minimumWidth * fontScale) else maxWidth
+                val tableColumns = fittedColumns.copy(widthScale =
+                    (tableWidth / (fittedColumns.minimumWidth * fontScale)).coerceAtMost(1f))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                     Column(
                         Modifier.width(tableWidth),
                         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                     ) {
-                        WorkoutSetTableHeader(columns)
+                        WorkoutSetTableHeader(tableColumns)
                         setGroups.forEach { group ->
                             key(group.root.id) {
                                 WorkoutDropSetGroup(group, workoutSetMarker(orderedSets, group.root), onAdd = {
@@ -643,7 +659,7 @@ private fun WorkoutSetRecordCard(
                                             } else {
                                             drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
                                                 WorkoutSetEditor(actions, detail.recordId, detail.activeExercise.recordType,
-                                                    allowedLoadStates, set, unit, restSeconds, columns, detail, group,
+                                                    allowedLoadStates, set, unit, restSeconds, tableColumns, detail, group,
                                                     onExerciseGroup = { showExerciseGroupPicker = true },
                                                     mayAdvance = { latestCurrentSetId == set.id },
                                                     previousSet = previousWorkoutSet(detail.lastHistory, set),
@@ -692,13 +708,44 @@ private fun WorkoutSetRecordCard(
         }
     }
     if (showExerciseGroupPicker) WorkoutExerciseGroupDialog(detail, actions) { showExerciseGroupPicker = false }
-    if (showInputHelp) AlertDialog(
-        onDismissRequest = { showInputHelp = false },
-        title = { Text("세트 기록 안내") },
-        text = { Text(workoutInputGuidance(recordType, detail.inputBasis,
-            detail.sets.map { it.inputLoadUnit ?: unit }.ifEmpty { listOf(unit) }.distinct().singleOrNull()),
-            Modifier.testTag("workout-input-guidance")) },
-        confirmButton = { TextButton(onClick = { showInputHelp = false }) { Text("확인") } }
+    if (showInputHelp) WorkoutInputHelpDialog(recordType, detail.inputBasis,
+        detail.sets.map { it.inputLoadUnit ?: unit }.ifEmpty { listOf(unit) }.distinct().singleOrNull()) {
+        showInputHelp = false
+    }
+}
+
+@Composable
+private fun WorkoutInputHelpDialog(recordType: String, basis: WorkoutInputBasis, unit: MassUnit?, onDismiss: () -> Unit) {
+    val guidance = workoutInputGuidanceText(recordType, basis, unit)
+    val titleStyle = MaterialTheme.typography.headlineSmall
+    val bodyStyle = MaterialTheme.typography.bodyMedium
+    val buttonStyle = MaterialTheme.typography.labelLarge
+    val textStyle = bodyStyle.copy(fontSize = bodyStyle.fontSize * 1.2f, lineHeight = bodyStyle.lineHeight * 1.2f)
+    val loadColor = LocalFitnessColors.current.success
+    val performanceColor = if (FitnessRecordContract.supportsRir(recordType)) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("세트 기록 안내", style = titleStyle.copy(
+            fontSize = titleStyle.fontSize * 1.2f, lineHeight = titleStyle.lineHeight * 1.2f)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()).testTag("workout-input-guidance"),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+                Text(buildAnnotatedString {
+                    guidance.load?.let { load ->
+                        withStyle(SpanStyle(color = loadColor)) { append(load) }
+                        append(" · ")
+                    }
+                    withStyle(SpanStyle(color = performanceColor)) { append(guidance.performance) }
+                }, style = textStyle)
+                if (FitnessRecordContract.supportsRir(recordType)) Text(
+                    "RIR은 세트를 마친 뒤 더 할 수 있을 것 같은 반복 횟수입니다. 선택 사항이므로 비워두어도 됩니다.",
+                    style = textStyle)
+                if (guidance.accounting.isNotBlank()) Text(guidance.accounting, style = textStyle)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("확인", style = buttonStyle.copy(
+            fontSize = buttonStyle.fontSize * 1.2f, lineHeight = buttonStyle.lineHeight * 1.2f)) } }
     )
 }
 
@@ -1056,58 +1103,6 @@ private fun metricRange(values: List<Double>, unit: MassUnit): String =
     }
 
 @Composable
-private fun WorkoutPreviousHistory(
-    detail: WorkoutExerciseDetail,
-    history: WorkoutExerciseHistory,
-    unit: MassUnit,
-    readOnly: Boolean,
-    actions: WorkoutDetailActions
-) {
-    FitnessSection("지난 운동 기록") {
-        FitnessCard(Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.padding(FitnessSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-            ) {
-                Text(history.date.ifBlank { "날짜 미상" }, style = MaterialTheme.typography.titleMedium)
-                Text("총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}")
-                history.sets.forEach { set ->
-                    Text(
-                        "${workoutSetMarker(history.sets, set)}세트 · " + WorkoutSetPresentation.completedSetSummary(
-                            detail.activeExercise.recordType,
-                            set.weightKg,
-                            set.actualReps,
-                            set.durationSeconds,
-                            set.assistedWeightKg,
-                            set.addedWeightKg,
-                            set.loadState,
-                            unit
-                        ),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                if (!readOnly) {
-                    FitnessOutlinedButton(
-                        onClick = {
-                            actions.applyPreviousHistory(
-                                detail.recordId,
-                                detail.activeExercise.id,
-                                detail.sets,
-                                history
-                            ) { ok ->
-                                if (ok) actions.refresh()
-                                else actions.toast("지난 기록을 적용하지 못했습니다.")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("지난 기록 적용") }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun WorkoutExerciseNavigation(
     exercises: List<WorkoutExercise>,
@@ -1401,11 +1396,12 @@ private fun WorkoutSetEditor(
             rirContent = { WorkoutSetValueField(rir, { rir = it; draftRevision++ }, "RIR",
                 numberOptions.copy(imeAction = ImeAction.Done), doneAction) },
             completedContent = {
-                Checkbox(
+                WorkoutSetCompletionToggle(
                     checked = completed && draftRevision == savedRevision,
                     onCheckedChange = saveCurrentSet,
                     enabled = !saving,
-                    modifier = Modifier.size(FitnessSpacing.touch)
+                    saving = saving,
+                    modifier = Modifier
                         .semantics {
                             contentDescription = "$setDescription 완료"
                             stateDescription = when {
@@ -1459,23 +1455,35 @@ private fun WorkoutSetEditor(
                 }
             }
         )
+        if (!columns.hasLoadState && allowedLoadStates.isNotEmpty()) {
+            Box(Modifier.padding(horizontal = FitnessSpacing.small)) {
+                TextButton(onClick = { onSelect(); showLoadMenu = true }, enabled = !saving,
+                    modifier = Modifier.testTag("workout-set-load-state-${set.id}")
+                        .semantics { contentDescription = "$setDescription 부하 방식" }) {
+                    Text("부하 · ${loadState?.let(::loadStateLabelKo) ?: "미지정"}",
+                        style = MaterialTheme.typography.labelSmall)
+                }
+                DropdownMenu(expanded = showLoadMenu, onDismissRequest = { showLoadMenu = false }) {
+                    allowedLoadStates.forEach { state ->
+                        DropdownMenuItem(text = { Text(loadStateLabelKo(state)) }, onClick = {
+                            if (loadState != state) { loadState = state; draftRevision++ }
+                            showLoadMenu = false
+                        }, leadingIcon = { RadioButton(selected = loadState == state, onClick = null) })
+                    }
+                }
+            }
+        }
         if (isCurrent || saving || saveFailed || draftRevision != savedRevision) {
             Column(Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.small, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (isCurrent) "현재 $setDescription" else setDescription,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
+                if (saving || saveFailed || draftRevision != savedRevision) {
                     Text(
                         when {
                             saving -> "저장 중…"
                             saveFailed -> "저장 실패 · 입력 유지됨"
-                            draftRevision != savedRevision -> "변경됨 · 완료 체크로 저장"
-                            completed -> "저장 완료"
-                            else -> "완료 체크로 저장"
+                            else -> "입력 변경됨"
                         },
-                        Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                        Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                         style = MaterialTheme.typography.labelSmall,
                         color = if (saveFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1508,15 +1516,50 @@ private fun WorkoutSetEditor(
     }
 }
 
+/** Workout-owned completion control; its appearance always follows the app palette. */
+@Composable
+private fun WorkoutSetCompletionToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean,
+    saving: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalFitnessColors.current
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp)
+    Box(modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
+        .toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange),
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.size(26.dp).clip(shape)
+            .background(if (checked) colors.action else MaterialTheme.colorScheme.surfaceVariant)
+            .border(if (checked) 0.dp else 1.5.dp,
+                if (checked) Color.Transparent else MaterialTheme.colorScheme.outline, shape),
+            contentAlignment = Alignment.Center) {
+            if (saving) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = colors.action)
+            else if (checked) Canvas(Modifier.size(16.dp)) {
+                drawLine(colors.onAction, Offset(size.width * 0.15f, size.height * 0.5f),
+                    Offset(size.width * 0.42f, size.height * 0.76f), strokeWidth = 2.dp.toPx(),
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawLine(colors.onAction, Offset(size.width * 0.42f, size.height * 0.76f),
+                    Offset(size.width * 0.86f, size.height * 0.23f), strokeWidth = 2.dp.toPx(),
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+        }
+    }
+}
+
+private const val WORKOUT_SET_CONTENT_SCALE = 0.9f
+
 private data class WorkoutSetInputColumns(
     val mainLabel: String,
     val secondLabel: String?,
     val hasRir: Boolean,
-    val hasLoadState: Boolean
+    val hasLoadState: Boolean,
+    val widthScale: Float = 1f
 ) {
-    val minimumWidth get() = 206.dp +
+    val minimumWidth get() = (206.dp +
         (if (secondLabel != null) 50.dp else 0.dp) + (if (hasRir) 50.dp else 0.dp) +
-        (if (hasLoadState) 66.dp else 0.dp)
+        (if (hasLoadState) 66.dp else 0.dp)) * WORKOUT_SET_CONTENT_SCALE
 }
 
 private fun workoutSetInputColumns(recordType: String, hasLoadState: Boolean) = WorkoutSetInputColumns(
@@ -1553,7 +1596,7 @@ private fun WorkoutSetTableHeader(columns: WorkoutSetInputColumns) {
     }
 }
 
-/** Header and editable rows share one column layout and one horizontal scroll. */
+/** Header and editable rows share the same fitted columns. */
 @Composable
 private fun WorkoutSetTableRow(
     columns: WorkoutSetInputColumns,
@@ -1566,35 +1609,37 @@ private fun WorkoutSetTableRow(
     loadContent: @Composable () -> Unit,
     removeContent: @Composable () -> Unit
 ) {
-    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val columnScale = LocalDensity.current.fontScale.coerceAtLeast(1f) * WORKOUT_SET_CONTENT_SCALE * columns.widthScale
     Row(
         modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(2.dp * fontScale),
+        horizontalArrangement = Arrangement.spacedBy(2.dp * columnScale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { setContent() }
+        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { setContent() }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { mainContent() }
         if (columns.secondLabel != null) {
-            Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { secondContent() }
+            Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { secondContent() }
         }
         if (columns.hasRir) {
-            Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { rirContent() }
+            Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { rirContent() }
         }
-        Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { completedContent() }
+        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { completedContent() }
         if (columns.hasLoadState) {
-            Box(Modifier.width(64.dp * fontScale), contentAlignment = Alignment.Center) { loadContent() }
+            Box(Modifier.width(64.dp * columnScale), contentAlignment = Alignment.Center) { loadContent() }
         }
-        Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { removeContent() }
+        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { removeContent() }
     }
 }
 
 @Composable
 private fun WorkoutSetHeaderLabel(label: String) {
+    val style = MaterialTheme.typography.labelMedium
     Text(
         label,
         modifier = Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.small)
             .semantics { heading() },
-        style = MaterialTheme.typography.labelMedium,
+        style = style.copy(fontSize = style.fontSize * WORKOUT_SET_CONTENT_SCALE,
+            lineHeight = style.lineHeight * WORKOUT_SET_CONTENT_SCALE),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         maxLines = 1,
@@ -1635,13 +1680,17 @@ private fun WorkoutSetValueField(
         .border(if (focused) 2.dp else 1.dp,
             if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
             FitnessShape.input)
-        .padding(horizontal = 4.dp, vertical = AppSpacing.small)
         .semantics { contentDescription = label }
-    val valueStyle = MaterialTheme.typography.bodyMedium.copy(
-        color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+    val bodyStyle = MaterialTheme.typography.bodyMedium
+    val valueStyle = bodyStyle.copy(fontSize = bodyStyle.fontSize * WORKOUT_SET_CONTENT_SCALE,
+        lineHeight = bodyStyle.lineHeight * WORKOUT_SET_CONTENT_SCALE,
+        color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, fontFeatureSettings = "tnum")
+    val suffixStyle = MaterialTheme.typography.labelSmall
     val decoration: @Composable (@Composable () -> Unit) -> Unit = { innerTextField ->
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
+            .padding(horizontal = 4.dp * WORKOUT_SET_CONTENT_SCALE, vertical = AppSpacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp * WORKOUT_SET_CONTENT_SCALE)) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 if (value.isEmpty()) Text("—", Modifier.clearAndSetSemantics {},
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1649,7 +1698,9 @@ private fun WorkoutSetValueField(
                 innerTextField()
             }
             if (suffix != null) Text(suffix, Modifier.clearAndSetSemantics {},
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                style = suffixStyle.copy(fontSize = suffixStyle.fontSize * WORKOUT_SET_CONTENT_SCALE,
+                    lineHeight = suffixStyle.lineHeight * WORKOUT_SET_CONTENT_SCALE),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     // Do not create text-input sessions for every untouched cell on first entry.
@@ -1667,7 +1718,7 @@ private fun WorkoutSetValueField(
                 setText { text ->
                     if (enabled) { onValueChange(text.text); true } else false
                 }
-            }) {
+            }, contentAlignment = Alignment.Center) {
             decoration { Text(value, style = valueStyle, maxLines = 1, softWrap = false,
                 modifier = Modifier.clearAndSetSemantics {}) }
         }

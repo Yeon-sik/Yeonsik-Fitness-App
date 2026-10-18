@@ -1,8 +1,6 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -40,13 +38,6 @@ internal interface WorkoutDetailActions {
     fun openExercise(exerciseId: String)
     fun linkManualExercise(exerciseId: String)
     fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
-    fun applyPreviousHistory(
-        recordId: String,
-        exerciseId: String,
-        currentSets: List<WorkoutSet>,
-        history: WorkoutExerciseHistory,
-        onResult: (Boolean) -> Unit
-    )
     fun addSet(
         recordId: String,
         exerciseId: String,

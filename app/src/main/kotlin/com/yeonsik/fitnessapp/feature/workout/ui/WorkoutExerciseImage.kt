@@ -6,30 +6,44 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
+import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +61,9 @@ internal fun WorkoutExerciseImage(
     contentDescription: String,
     modifier: Modifier = Modifier,
     animate: Boolean = false,
-    sharedAnchor: Any? = null
+    sharedAnchor: Any? = null,
+    onClick: (() -> Unit)? = null,
+    maxImageHeight: Dp = 220.dp
 ) {
     val resources = LocalContext.current.resources
     val context = LocalContext.current
@@ -80,12 +96,14 @@ internal fun WorkoutExerciseImage(
                 }
             }
         }
-        BoxWithConstraints(modifier) {
+        BoxWithConstraints(modifier.then(if (onClick != null) Modifier.clickable(
+            onClickLabel = "운동 이미지 확대", role = Role.Button, onClick = onClick) else Modifier),
+            contentAlignment = Alignment.Center) {
             val loaded = scene
             val aspectRatio = loaded?.let {
                 it.frameA.width * it.bounds.width / (it.frameA.height * it.bounds.height)
             }?.takeIf { it.isFinite() && it > 0f } ?: 1f
-            val canvas = Modifier.fillMaxWidth().height((maxWidth / aspectRatio).coerceAtMost(220.dp))
+            val canvas = Modifier.fillMaxWidth().height((maxWidth / aspectRatio).coerceAtMost(maxImageHeight))
             if (loaded == null) {
                 Spacer(canvas)
             } else {
@@ -97,6 +115,73 @@ internal fun WorkoutExerciseImage(
                 Image(painter, contentDescription, Modifier.workoutSharedElement(sharedAnchor).then(canvas)
                     .testTag("workout-exercise-frame-$visibleFrame"),
                     contentScale = ContentScale.Fit)
+                if (onClick != null) Surface(Modifier.align(Alignment.BottomEnd),
+                    shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text("확대", Modifier.padding(horizontal = FitnessSpacing.small, vertical = FitnessSpacing.micro),
+                        style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
+}
+
+/** The viewer shares decoded artwork with the thumbnail and allocates no enlarged bitmap. */
+@Composable
+internal fun WorkoutExerciseImageViewer(
+    exerciseId: String,
+    identity: ExerciseFamilyIdentity?,
+    title: String,
+    animate: Boolean = false,
+    onDismiss: () -> Unit
+) {
+    var scale by rememberSaveable(exerciseId, identity) { mutableFloatStateOf(1f) }
+    var pan by remember(exerciseId, identity) { mutableStateOf(Offset.Zero) }
+    fun zoomTo(next: Float) {
+        val zoom = next.coerceIn(1f, 5f)
+        pan = if (scale > 1f) pan * ((zoom - 1f) / (scale - 1f)) else Offset.Zero
+        scale = zoom
+    }
+    Dialog(onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onDismiss, modifier = Modifier.testTag("workout-image-close")) { Text("닫기") }
+                }
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).clipToBounds()
+                    .testTag("workout-image-viewer")
+                    .pointerInput(exerciseId, identity) {
+                        detectTransformGestures { centroid, drag, zoom, _ ->
+                            val nextScale = (scale * zoom).coerceIn(1f, 5f)
+                            val factor = nextScale / scale
+                            val focal = centroid - Offset(size.width / 2f, size.height / 2f)
+                            val moved = pan * factor + focal * (1f - factor) + drag
+                            val limitX = size.width * (nextScale - 1f) / 2f
+                            val limitY = size.height * (nextScale - 1f) / 2f
+                            pan = Offset(moved.x.coerceIn(-limitX, limitX), moved.y.coerceIn(-limitY, limitY))
+                            scale = nextScale
+                        }
+                    }, contentAlignment = Alignment.Center) {
+                    WorkoutExerciseImage(exerciseId, identity, "$title 확대 이미지",
+                        animate = animate,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = pan.x
+                            translationY = pan.y
+                        }, maxImageHeight = maxHeight)
+                }
+                Text("두 손가락으로 확대하거나 이미지를 끌어 이동하세요.",
+                    Modifier.padding(horizontal = FitnessSpacing.card), style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth().padding(FitnessSpacing.small),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { zoomTo(scale - 0.5f) }, enabled = scale > 1f) { Text("축소") }
+                    TextButton(onClick = { zoomTo(1f) }) { Text("${(scale * 100).toInt()}% · 원래 크기") }
+                    TextButton(onClick = { zoomTo(scale + 0.5f) }, enabled = scale < 5f) { Text("확대") }
+                }
             }
         }
     }
