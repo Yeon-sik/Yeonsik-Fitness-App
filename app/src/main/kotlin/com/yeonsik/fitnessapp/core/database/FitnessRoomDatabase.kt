@@ -879,6 +879,27 @@ interface WorkoutRoomDao {
 
     @Query(
         "SELECT * FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
+            "AND deleted_at IS NULL AND device_id='android-local' " +
+            "AND metadata LIKE '%\"status\":\"completed\"%'"
+    )
+    fun sharedSummaryRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    data class SummaryUiPart(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "ui_part") val uiPart: String
+    )
+
+    @Query(
+        "SELECT we.record_id, we.ui_part FROM workout_exercises we " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id AND wr.user_id=we.user_id " +
+            "WHERE wr.source_app='fitness' AND wr.user_id=:userId AND wr.deleted_at IS NULL " +
+            "AND wr.device_id='android-local' AND wr.metadata LIKE '%\"status\":\"completed\"%' " +
+            "AND we.deleted_at IS NULL ORDER BY we.record_id, we.order_index"
+    )
+    fun sharedSummaryUiParts(userId: String): List<SummaryUiPart>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
             "AND metadata LIKE '%\"status\":\"completed\"%' " +
             "ORDER BY date DESC, updated_at DESC, id ASC"
     )
@@ -894,6 +915,24 @@ interface WorkoutRoomDao {
     )
     fun summarySetCounts(recordId: String, userId: String): List<SummarySetCount>
 
+    data class RecordSummarySetCount(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "ui_part") val uiPart: String?,
+        @ColumnInfo(name = "primary_sub_part_snapshot") val primarySubPart: String?,
+        @ColumnInfo(name = "set_count") val setCount: Int
+    )
+
+    @Query(
+        "SELECT we.record_id, we.ui_part, we.primary_sub_part_snapshot, COUNT(ws.id) AS set_count " +
+            "FROM workout_sets ws INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id AND wr.user_id=we.user_id " +
+            "WHERE wr.source_app='fitness' AND wr.user_id=:userId AND ws.user_id=:userId " +
+            "AND wr.metadata LIKE '%\"status\":\"completed\"%' " +
+            "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "GROUP BY we.record_id, we.ui_part, we.primary_sub_part_snapshot"
+    )
+    fun completedSummarySetCounts(userId: String): List<RecordSummarySetCount>
+
     @Query(
         "UPDATE workout_records SET category=:category, metadata=:metadata, scope=:scope, " +
             "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId " +
@@ -906,6 +945,25 @@ interface WorkoutRoomDao {
         metadata: String,
         scope: String,
         updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET category=:category, metadata=:metadata, scope=:scope, " +
+            "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL " +
+            "AND updated_at=:expectedUpdatedAt AND metadata=:expectedMetadata " +
+            "AND category=:expectedCategory AND scope=:expectedScope"
+    )
+    fun updateSharedSummaryIfUnchanged(
+        recordId: String,
+        userId: String,
+        category: String,
+        metadata: String,
+        scope: String,
+        updatedAt: String,
+        expectedUpdatedAt: String,
+        expectedMetadata: String,
+        expectedCategory: String,
+        expectedScope: String
     ): Int
 
     data class TransferSetRow(
