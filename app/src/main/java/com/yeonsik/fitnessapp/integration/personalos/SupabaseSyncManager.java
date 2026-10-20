@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.integration.personalos;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
+import java.util.function.Consumer;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -38,13 +39,21 @@ public final class SupabaseSyncManager {
     }
 
     public SyncResult manualSync(SupabaseConfig config) throws Exception {
+        return manualSync(config, ignored -> {});
+    }
+
+    public SyncResult manualSync(SupabaseConfig config, Consumer<String> progress) throws Exception {
+        progress.accept("운동·식단·체중 기록을 동기화하고 있습니다.");
         LegacyFitnessSyncAdapter.SyncResult legacy = legacyAdapter.manualSync(config);
         int published = 0;
         boolean summarySucceeded = true;
         String summaryError = "";
         try {
+            progress.accept("완료 운동 요약의 변경분을 확인하고 있습니다.");
             summaryStore.reconcileSharedWorkoutSummaries(config.effectiveUserId());
-            published = summaryPublisher.publish(config, summaryStore);
+            published = summaryPublisher.publish(config, summaryStore, (done, total) ->
+                    progress.accept(total == 0 ? "완료 운동 요약의 변경이 없습니다."
+                            : "완료 운동 요약을 전송하고 있습니다. (" + done + "/" + total + ")"));
         } catch (Exception error) {
             summarySucceeded = false;
             summaryError = error.getMessage() == null

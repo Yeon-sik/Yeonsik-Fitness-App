@@ -71,6 +71,7 @@ import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher
+import com.yeonsik.fitnessapp.integration.personalos.PreferencesSummaryPublicationStore
 import com.yeonsik.fitnessapp.integration.personalos.LegacyFitnessSyncAdapter
 import androidx.savedstate.SavedStateRegistryOwner
 import java.util.concurrent.ExecutorService
@@ -225,7 +226,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val syncManager = SupabaseSyncManager(
         LegacyFitnessSyncAdapter(roomDatabase),
         fitnessSummaryStore,
-        FitnessSummaryPublisher()
+        FitnessSummaryPublisher(PreferencesSummaryPublicationStore(context))
     )
     private val productReadClient = ProductReadV1Client(priceTraceSupabaseConfig)
     private val restaurantMenuReadClient = RestaurantMenuReadV1Client(priceTraceSupabaseConfig)
