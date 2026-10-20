@@ -58,7 +58,7 @@ class SettingsConnectionUiTest {
         compose.runOnIdle { ui.value = ui.value.copy(isAccountOperationInProgress = false, syncLabel = "authentication failed",
             authenticationErrorDetail = "공통 DB · 이메일 인증이 필요합니다.") }
         compose.onNodeWithTag("settings-login-SHARED").assertIsEnabled()
-        compose.onAllNodesWithText("공통 DB · 이메일 인증이 필요합니다.").assertCountEquals(2)
+        compose.onAllNodesWithText("공통 DB · 이메일 인증이 필요합니다.").assertCountEquals(1)
     }
 
     private fun show(state: SettingsUiState) {

@@ -59,52 +59,89 @@ interface SettingsScreenActions {
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActions) {
     var advancedConnectionsVisible by rememberSaveable {
         mutableStateOf(!state.sharedConfig.isConnectionConfigured)
     }
+    var backupExpanded by rememberSaveable { mutableStateOf(false) }
+    var importExpanded by rememberSaveable { mutableStateOf(false) }
+    var exportExpanded by rememberSaveable { mutableStateOf(false) }
+    var informationExpanded by rememberSaveable { mutableStateOf(false) }
     val accountControlsEnabled = !state.isAccountOperationInProgress && !state.isManualSyncing
-    AppHeader("설정", "계정·동기화·데이터 안전·표시 환경")
-    SettingsSectionTitle("상태")
-    SettingsStatusCard(state.sharedConfig, state, Modifier.fillMaxWidth())
-    SettingsSectionTitle("단위")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-        verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-        MassUnit.values().forEach { unit ->
-            AppOutlinedButton(onClick = { actions.setPreferredMassUnit(unit) }, selected = state.preferredMassUnit == unit) { Text(unit.labelKo()) }
-        }
+    AppHeader("설정", "계정과 기록 관리")
+    SettingsStatusCard(
+        state.sharedConfig, state,
+        onSync = actions::runManualSync,
+        syncEnabled = accountControlsEnabled && state.sharedConfig.isConfigured,
+        modifier = Modifier.fillMaxWidth()
+    )
+    if (!advancedConnectionsVisible && !state.sharedConfig.isConfigured) {
+        AccountControls(state.sharedConfig, SettingsConnection.SHARED, actions, accountControlsEnabled)
     }
-    SettingsSupportingText("표시·입력 단위 설정은 로컬 기록을 kg 기준으로 보존합니다.")
-    SettingsSectionTitle("테마")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-        verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-        listOf("dark", "light", "system").forEach { mode ->
-            AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(themeModeLabel(mode)) }
-        }
+    SettingsSectionTitle("표시")
+    SettingsChoiceGroup(
+        title = "무게 단위",
+        choices = MassUnit.values().map { it.name to it.labelKo() },
+        selectedKey = state.preferredMassUnit.name,
+        onSelect = { actions.setPreferredMassUnit(MassUnit.valueOf(it)) },
+        modifier = Modifier.fillMaxWidth()
+    )
+    SettingsSupportingText("선택한 단위로 표시하고 입력합니다. 기존 기록은 유지됩니다.")
+    SettingsChoiceGroup(
+        title = "테마",
+        choices = listOf("dark", "light", "system").map { it to themeModeLabel(it) },
+        selectedKey = state.themeMode,
+        onSelect = actions::setThemeMode,
+        modifier = Modifier.fillMaxWidth()
+    )
+    SettingsSectionTitle("데이터 관리")
+    SettingsExpandableGroup(
+        title = "백업 및 복원",
+        summary = "기록을 파일로 보관하거나 복구",
+        expanded = backupExpanded,
+        onExpandedChange = { backupExpanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        SettingsAction("로컬 백업", actions::createLocalBackup)
+        SettingsAction("백업 복원", actions::restoreLocalBackup)
     }
-    SettingsSectionTitle("데이터 안전")
-    AppButton(onClick = actions::runManualSync, enabled = accountControlsEnabled,
-        modifier = Modifier.fillMaxWidth()) { Text(if (state.isManualSyncing) "동기화 중" else "지금 동기화") }
-    SettingsSupportingText(syncDetailForDisplay(state))
-    SettingsSectionTitle("가져오기·내보내기")
-    AppOutlinedButton(onClick = actions::openFleekDataImport, enabled = !state.isDataImporting,
-        modifier = Modifier.fillMaxWidth()) { Text("FLEEK 가져오기") }
-    AppOutlinedButton(onClick = actions::openWorkoutTransferImport, enabled = !state.isDataTransferInProgress,
-        modifier = Modifier.fillMaxWidth()) { Text("운동 전송 가져오기") }
-    AppOutlinedButton(onClick = actions::exportWorkoutTransfer, enabled = !state.isDataTransferInProgress,
-        modifier = Modifier.fillMaxWidth()) { Text("운동 전송 내보내기") }
-    AppOutlinedButton(onClick = actions::createLocalBackup, Modifier.fillMaxWidth()) { Text("로컬 백업") }
-    AppOutlinedButton(onClick = actions::restoreLocalBackup, Modifier.fillMaxWidth()) { Text("백업 복원") }
-    AppOutlinedButton(onClick = actions::exportRecordsCsv, Modifier.fillMaxWidth()) { Text("CSV 내보내기") }
+    SettingsExpandableGroup(
+        title = "다른 앱 기록 가져오기",
+        summary = "FLEEK · 운동 전송 파일",
+        expanded = importExpanded,
+        onExpandedChange = { importExpanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        SettingsAction("FLEEK 가져오기", actions::openFleekDataImport, enabled = !state.isDataImporting)
+        SettingsAction("운동 전송 가져오기", actions::openWorkoutTransferImport, enabled = !state.isDataTransferInProgress)
+    }
+    SettingsExpandableGroup(
+        title = "파일 내보내기",
+        summary = "운동 전송 · CSV",
+        expanded = exportExpanded,
+        onExpandedChange = { exportExpanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        SettingsAction("운동 전송 내보내기", actions::exportWorkoutTransfer, enabled = !state.isDataTransferInProgress)
+        SettingsAction("CSV 내보내기", actions::exportRecordsCsv)
+    }
     if (state.isDataImporting && state.dataImportDetail.isNotBlank()) {
         Text("가져오기 상태 · " + state.dataImportDetail, style = MaterialTheme.typography.bodyMedium)
     }
     if (state.isDataTransferInProgress && state.dataTransferDetail.isNotBlank()) {
         Text("전송 상태 · " + state.dataTransferDetail, style = MaterialTheme.typography.bodyMedium)
     }
-    SettingsPrivacyCard()
-    SettingsAppInfoCard()
+    SettingsSectionTitle("계정 및 앱 정보")
+    SettingsExpandableGroup(
+        title = "개인정보 및 앱 정보",
+        summary = "기록 보관 안내 · 버전",
+        expanded = informationExpanded,
+        onExpandedChange = { informationExpanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        SettingsPrivacyCard()
+        SettingsAppInfoCard()
+    }
     AppOutlinedButton(
         onClick = { advancedConnectionsVisible = !advancedConnectionsVisible },
         Modifier.fillMaxWidth()
@@ -123,7 +160,7 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
             "PriceTrace DB", SettingsConnection.PRICE_TRACE,
             state.priceTraceConfig, actions, accountControlsEnabled
         )
-    } else {
+    } else if (state.sharedConfig.isConfigured) {
         AccountControls(
             state.sharedConfig, SettingsConnection.SHARED, actions, accountControlsEnabled
         )
@@ -161,7 +198,7 @@ private fun ConnectionAccountSection(
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Text(title, Modifier.padding(top = AppSpacing.section).semantics { heading() },
+    Text(title, Modifier.padding(top = 24.dp).semantics { heading() },
         style = MaterialTheme.typography.titleMedium)
 }
 
