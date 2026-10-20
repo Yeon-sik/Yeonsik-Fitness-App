@@ -139,7 +139,9 @@ internal fun themeModeLabel(mode: String): String = when (mode) {
 }
 
 internal fun syncDetailForDisplay(state: SettingsUiState): String = when {
-    state.isManualSyncing -> SettingsUiPolicy.safeSyncDetailForSurface("syncing")
+    state.isManualSyncing -> state.syncProgressDetail.ifBlank {
+        SettingsUiPolicy.safeSyncDetailForSurface("syncing")
+    }
     state.syncLabel == "synced" -> if (state.syncDetail.startsWith("마지막 동기화 ")) {
         formatSettingsSyncTime(state.syncDetail.removePrefix("마지막 동기화 ").trim())
     } else {

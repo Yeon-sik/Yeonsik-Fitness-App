@@ -52,6 +52,16 @@ class SettingsPresentationTest {
     }
 
     @Test
+    fun inFlightSyncDisplaysControlledPhaseProgressWithoutRawDetails() {
+        val syncing = state("syncing", "access_token=private").copy(
+            isManualSyncing = true, syncProgressDetail = "완료 운동 요약을 전송하고 있습니다. (1/2)"
+        )
+        assertEquals("완료 운동 요약을 전송하고 있습니다. (1/2)", syncDetailForDisplay(syncing))
+        assertEquals("연결을 확인한 뒤 다시 시도하세요.",
+            syncDetailForDisplay(syncing.copy(isManualSyncing = false, syncLabel = "sync failed")))
+    }
+
+    @Test
     fun authenticationShowsControlledDetailAndHidesRawServerText() {
         val raw = state("authentication failed", "access_token=private")
         assertEquals("로그인 정보를 확인한 뒤 다시 시도하세요.", syncDetailForDisplay(raw))

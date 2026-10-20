@@ -1,9 +1,11 @@
 package com.yeonsik.fitnessapp.feature.settings.ui
 
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy
 import com.yeonsik.fitnessapp.config.MassUnitPreferences
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
@@ -14,6 +16,7 @@ import com.yeonsik.fitnessapp.config.ThemeModePreferences
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
+import com.yeonsik.fitnessapp.integration.sync.ManualSyncRunner
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordinator
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
@@ -23,6 +26,7 @@ import java.io.OutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.launch
 
 enum class SettingsConnection {
     SHARED,
@@ -49,7 +53,9 @@ data class SettingsUiState(
     val developerSurfaceAllowed: Boolean,
     val isAccountOperationInProgress: Boolean = false,
     /** Only controlled, user-facing authentication messages; never a server response body. */
-    val authenticationErrorDetail: String = ""
+    val authenticationErrorDetail: String = "",
+    /** Controlled progress copy only; raw remote errors stay out of the normal surface. */
+    val syncProgressDetail: String = ""
 )
 
 sealed class SettingsEvent {
@@ -96,7 +102,7 @@ class SettingsViewModel @JvmOverloads constructor(
     private val sharedAuth: SupabaseAuthManager,
     private val nutritionAuth: SupabaseAuthManager,
     private val priceTraceAuth: SupabaseAuthManager,
-    private val syncApplicationService: SyncApplicationService,
+    private val syncApplicationService: ManualSyncRunner,
     private val localDataTransferApplicationService: LocalDataTransferApplicationService,
     private val sessionCoordinator: SettingsSessionCoordinator,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -249,44 +255,83 @@ class SettingsViewModel @JvmOverloads constructor(
     }
 
     fun runManualSync() {
-        if (accountOperationRunning.get()) {
-            fail("계정 연결 처리가 끝난 뒤 동기화하세요.")
-            return
-        }
-        val sharedConfig = sharedConfigStore.load()
-        if (!sharedConfig.isConfigured) {
-            fail("Supabase 연결 설정을 저장하고 계정에 로그인하세요.")
-            return
-        }
-        setSyncState(true, "syncing", "공통 DB와 영양 DB를 각각 동기화하는 중입니다.")
-        executor.execute {
-            try {
-                val result = syncApplicationService.run(
-                    sharedConfig,
-                    nutritionConfigStore.load()
-                )
-                sessionCoordinator.applySync(result)
-                savedStateHandle[KEY_LAST_SYNCED_AT] = result.sharedResult.syncedAt
-                val summaryFailed = !result.sharedResult.summaryPublicationSucceeded
-                val partial = result.nutritionFailed || summaryFailed
-                val legacyPushedRows = result.sharedResult.pushedRows - result.sharedResult.summaryPublishedRows
-                val summaryStatus = if (summaryFailed) {
-                    "Summary v2 실패: ${result.sharedResult.summaryPublicationError}"
-                } else {
-                    "Summary v2 ${result.sharedResult.summaryPublishedRows}건"
-                }
-                setSyncState(
-                    false,
-                    if (partial) "partial" else "synced",
-                    "공통 DB push ${legacyPushedRows}건 · pull ${result.sharedResult.pulledRows}건 · " +
-                        "$summaryStatus · ${result.nutritionStatus}"
-                )
-                mutableEvents.postValue(SettingsEvent.SyncCompleted(result))
-            } catch (error: Exception) {
-                setSyncState(false, "sync failed", error.message ?: "동기화에 실패했습니다.")
-                fail("수동 동기화에 실패했습니다.")
+        // Reserve before enqueueing: disabling a recomposed button does not stop rapid calls
+        // from adding whole sync runs to the single-thread executor's queue.
+        if (!accountOperationRunning.compareAndSet(false, true)) return
+        try {
+            val startingState = currentState()
+            val startingShared = startingState.sharedConfig
+            val startingNutrition = startingState.nutritionConfig
+            if (!startingShared.isConfigured) {
+                accountOperationRunning.set(false)
+                fail("Supabase 연결 설정을 저장하고 계정에 로그인하세요.")
+                return
             }
+            setSyncState(true, "syncing", "동기화를 준비하고 있습니다.")
+            executor.execute {
+                try {
+                    // Token decryption belongs on the worker. Refresh credentials within the
+                    // captured scope, and cancel if a queued run's connection/account changed.
+                    val sharedConfig = loadPinnedSyncConfig(sharedConfigStore, startingShared)
+                    val nutritionConfig = loadPinnedSyncConfig(nutritionConfigStore, startingNutrition)
+                    val result = syncApplicationService.run(sharedConfig, nutritionConfig) { detail ->
+                        setSyncState(true, "syncing", detail)
+                    }
+                    viewModelScope.launch {
+                        try {
+                            completeManualSync(result)
+                        } catch (error: Exception) {
+                            failManualSync(error)
+                        } finally {
+                            accountOperationRunning.set(false)
+                        }
+                    }
+                } catch (error: Exception) {
+                    viewModelScope.launch {
+                        failManualSync(error)
+                        accountOperationRunning.set(false)
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            failManualSync(error)
+            accountOperationRunning.set(false)
         }
+    }
+
+    private fun loadPinnedSyncConfig(store: SupabaseConfigStore, starting: SupabaseConfig): SupabaseConfig {
+        val current = store.load()
+        check(current.supabaseUrl == starting.supabaseUrl &&
+            current.supabaseAnonKey == starting.supabaseAnonKey &&
+            current.effectiveUserId() == starting.effectiveUserId()) {
+            "계정 또는 연결 설정이 변경되었습니다. 다시 동기화하세요."
+        }
+        return current
+    }
+
+    private fun completeManualSync(result: SyncApplicationService.Result) {
+        sessionCoordinator.applySync(result)
+        savedStateHandle[KEY_LAST_SYNCED_AT] = result.sharedResult.syncedAt
+        val summaryFailed = !result.sharedResult.summaryPublicationSucceeded
+        val partial = result.nutritionFailed || summaryFailed
+        val legacyPushedRows = result.sharedResult.pushedRows - result.sharedResult.summaryPublishedRows
+        val summaryStatus = if (summaryFailed) {
+            "Summary v2 실패: ${result.sharedResult.summaryPublicationError}"
+        } else {
+            "Summary v2 ${result.sharedResult.summaryPublishedRows}건"
+        }
+        setSyncState(
+            false,
+            if (partial) "partial" else "synced",
+            "공통 DB push ${legacyPushedRows}건 · pull ${result.sharedResult.pulledRows}건 · " +
+                "$summaryStatus · ${result.nutritionStatus}"
+        )
+        mutableEvents.postValue(SettingsEvent.SyncCompleted(result))
+    }
+
+    private fun failManualSync(error: Exception) {
+        setSyncState(false, "sync failed", error.message ?: "동기화에 실패했습니다.")
+        fail("수동 동기화에 실패했습니다.")
     }
 
     fun writeBackup(recordOwnerId: String, nutritionOwnerId: String, output: OutputStream) {
@@ -452,7 +497,8 @@ class SettingsViewModel @JvmOverloads constructor(
             priceTraceConnectionManaged = priceTraceConfigStore.isConnectionManaged(),
             developerSurfaceAllowed = AppSurfacePolicy.allowsDeveloperSurface(),
             isAccountOperationInProgress = preserveSyncStatus && (current?.isAccountOperationInProgress ?: false),
-            authenticationErrorDetail = retainedStatus?.authenticationErrorDetail ?: ""
+            authenticationErrorDetail = retainedStatus?.authenticationErrorDetail ?: "",
+            syncProgressDetail = if (current?.isManualSyncing == true) current.syncProgressDetail else ""
         )
     }
 
@@ -513,13 +559,14 @@ class SettingsViewModel @JvmOverloads constructor(
     }
 
     private fun setSyncState(syncing: Boolean, label: String, detail: String) {
-        mutableState.postValue(
-            currentState().copy(
-                isManualSyncing = syncing,
-                syncLabel = label,
-                syncDetail = detail
-            )
+        val next = currentState().copy(
+            isManualSyncing = syncing,
+            syncLabel = label,
+            syncDetail = detail,
+            syncProgressDetail = if (syncing) detail else ""
         )
+        if (Looper.myLooper() == Looper.getMainLooper()) mutableState.value = next
+        else mutableState.postValue(next)
     }
 
     private fun beginTransfer(detail: String) {
