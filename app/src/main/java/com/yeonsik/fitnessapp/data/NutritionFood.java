@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -89,6 +91,7 @@ public final class NutritionFood {
     public final String ownerId;
     public final String name;
     public final String brand;
+    public final PriceTraceBrandSelection priceTraceBrand;
     /** Explicit packaged-food hierarchy fields. Legacy rows may leave these null. */
     public final String manufacturerName;
     public final String brandName;
@@ -125,6 +128,7 @@ public final class NutritionFood {
         this.ownerId = builder.ownerId;
         this.name = builder.name;
         this.brand = normalizeText(builder.brand);
+        this.priceTraceBrand = builder.priceTraceBrand;
         this.manufacturerName = normalizeText(builder.manufacturerName);
         this.brandName = normalizeText(builder.brandName);
         this.subBrandName = normalizeText(builder.subBrandName);
@@ -457,6 +461,7 @@ public final class NutritionFood {
         private String ownerId;
         private String name;
         private String brand;
+        private PriceTraceBrandSelection priceTraceBrand;
         private String manufacturerName;
         private String brandName;
         private String subBrandName;
@@ -497,6 +502,11 @@ public final class NutritionFood {
 
         public Builder brand(String brand) {
             this.brand = brand;
+            return this;
+        }
+
+        public Builder priceTraceBrand(PriceTraceBrandSelection selection) {
+            this.priceTraceBrand = selection;
             return this;
         }
 

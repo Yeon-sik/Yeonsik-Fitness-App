@@ -34,6 +34,7 @@ import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionCatalogSyncSnapshot;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionComponentSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput;
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionNutrientSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionProductLinkSyncRow;
@@ -125,7 +126,7 @@ public final class NutritionCatalogRepository implements
         this(roomDatabase, userId, context);
     }
 
-    public void setUserId(String userId) {
+    public synchronized void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
     }
 
@@ -140,7 +141,40 @@ public final class NutritionCatalogRepository implements
     }
 
     @Override
+    public synchronized boolean canEditPriceTraceBrand(String foodId, String ownerId) {
+        if (!userId.equals(ownerId)) return false;
+        NutritionFoodsRoomEntity row = nutritionDao.foodForSync(foodId);
+        return row != null && ownerId.equals(row.getOwnerId()) && "private".equals(row.getVisibility())
+                && row.getDeletedAt() == null && buildFood(row, null).isPackagedFood();
+    }
+
+    @Override
+    public synchronized NutritionFood setPriceTraceBrand(String foodId, String ownerId,
+            PriceTraceBrandSelection selection) {
+        roomDatabase.runInTransaction(() -> {
+            if (!canEditPriceTraceBrand(foodId, ownerId))
+                throw new IllegalStateException("현재 계정의 비공개 제품만 브랜드를 연결할 수 있습니다.");
+            int changed = nutritionDao.updatePriceTraceBrand(foodId, ownerId,
+                    selection == null ? null : selection.getBrandId(),
+                    selection == null ? null : selection.getCanonicalName(),
+                    selection == null ? null : selection.getParentBrandId(),
+                    selection == null ? null : selection.getParentCanonicalName(), now());
+            if (changed != 1) throw new IllegalStateException("브랜드 연결을 저장하지 못했습니다.");
+        });
+        return findFoodById(foodId);
+    }
+
+    private static PriceTraceBrandSelection brandSnapshot(NutritionFoodsRoomEntity row) {
+        return PriceTraceBrandSelection.fromSnapshot(row.getPriceTraceBrandId(), row.getPriceTraceBrandNameSnapshot(),
+                row.getPriceTraceParentBrandIdSnapshot(), row.getPriceTraceParentBrandNameSnapshot());
+    }
+
+    @Override
     public NutritionFood registerFood(String ownerId, NutritionFoodInput input) {
+        if (input != null && (input.getPriceTraceBrand() != null || input.getRegistrationKind()
+                == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT)) {
+            return saveManualFoodInput(new com.yeonsik.fitness.shared.core.account.AccountScope(ownerId), input);
+        }
         if (!userId.equals(ownerId)) {
             throw new IllegalStateException("계정이 변경되었습니다. 식품 등록을 다시 여세요.");
         }
@@ -954,6 +988,7 @@ public final class NutritionCatalogRepository implements
                 .ownerId(row.getOwnerId())
                 .name(row.getName())
                 .brand(row.getBrand())
+                .priceTraceBrand(brandSnapshot(row))
                 .manufacturerName(row.getManufacturerName())
                 .brandName(row.getBrandName())
                 .subBrandName(row.getSubBrandName())
@@ -1896,7 +1931,7 @@ public final class NutritionCatalogRepository implements
     }
 
     @Override
-    public NutritionFood saveManualFoodInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
+    public synchronized NutritionFood saveManualFoodInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
             com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input) {
         String owner = scope.getOwnerId();
         if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다. 다시 입력하세요.");
@@ -1914,6 +1949,8 @@ public final class NutritionCatalogRepository implements
             throw new IllegalArgumentException("영양정보를 0 이상 숫자로 입력하세요.");
         NutritionConsistencyPolicy.validate(profile);
         boolean product = input.getRegistrationKind() == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT;
+        if (!product && input.getPriceTraceBrand() != null)
+            throw new IllegalArgumentException("제품에만 PriceTrace 브랜드를 연결할 수 있습니다.");
         String sourceType = product && "manual_estimate".equals(input.getSourceType())
                 ? "manual_product_estimate" : input.getSourceType();
         String sourceReference = null;
@@ -1932,6 +1969,7 @@ public final class NutritionCatalogRepository implements
         }
         NutritionFood.Builder builder = NutritionFood.builder().id(UUID.randomUUID().toString()).ownerId(owner)
                 .name(requireName(input.getName())).brand(emptyToNull(input.getBrand()))
+                .priceTraceBrand(input.getPriceTraceBrand())
                 .kind(product ? NutritionFood.KIND_EXTERNAL_MENU : NutritionFood.KIND_INGREDIENT)
                 .category(product ? NutritionFood.CATEGORY_PROCESSED : NutritionFood.CATEGORY_OTHER)
                 .basis(input.getBasisAmount(), basisUnit).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
@@ -2366,7 +2404,8 @@ public final class NutritionCatalogRepository implements
                     row.getVisibility(),
                     row.getCreatedAt(),
                     row.getUpdatedAt(),
-                    row.getDeletedAt()
+                    row.getDeletedAt(),
+                    brandSnapshot(row)
             ));
         }
         return rows;
@@ -2494,7 +2533,11 @@ public final class NutritionCatalogRepository implements
                         emptyToDefault(row.getVisibility(), "public"),
                         emptyToDefault(row.getCreatedAt(), now()),
                         emptyToDefault(row.getUpdatedAt(), now()),
-                        row.getDeletedAt()
+                        row.getDeletedAt(),
+                        row.getPriceTraceBrand() == null ? null : row.getPriceTraceBrand().getBrandId(),
+                        row.getPriceTraceBrand() == null ? null : row.getPriceTraceBrand().getCanonicalName(),
+                        row.getPriceTraceBrand() == null ? null : row.getPriceTraceBrand().getParentBrandId(),
+                        row.getPriceTraceBrand() == null ? null : row.getPriceTraceBrand().getParentCanonicalName()
                 ));
                 applied[0]++;
             }
@@ -2655,6 +2698,11 @@ public final class NutritionCatalogRepository implements
             String createdAt,
             String updatedAt
     ) {
+        NutritionFoodsRoomEntity previous = nutritionDao.foodForSync(food.id);
+        // 일반 영양 upsert는 명시적인 연결 해제가 아니다. 해제는 전용 API만 수행한다.
+        PriceTraceBrandSelection selection = food.priceTraceBrand;
+        if (selection == null && previous != null && java.util.Objects.equals(food.ownerId, previous.getOwnerId()))
+            selection = brandSnapshot(previous);
         return new NutritionFoodsRoomEntity(
                 food.id,
                 food.ownerId,
@@ -2692,7 +2740,11 @@ public final class NutritionCatalogRepository implements
                 "private",
                 createdAt,
                 updatedAt,
-                null
+                null,
+                selection == null ? null : selection.getBrandId(),
+                selection == null ? null : selection.getCanonicalName(),
+                selection == null ? null : selection.getParentBrandId(),
+                selection == null ? null : selection.getParentCanonicalName()
         );
     }
 

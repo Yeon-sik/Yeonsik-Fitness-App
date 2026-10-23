@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.integration.nutrition;
 
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection;
+
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionFood;
@@ -603,10 +605,21 @@ public final class NutritionCatalogSyncClient {
                     emptyToDefault(nullableString(row, "visibility"), "public"),
                     emptyToDefault(nullableString(row, "created_at"), now()),
                     emptyToDefault(nullableString(row, "updated_at"), now()),
-                    nullableString(row, "deleted_at")
+                    nullableString(row, "deleted_at"),
+                    PriceTraceBrandSelection.fromSnapshot(brandSnapshotText(row, "pricetrace_brand_id"),
+                            brandSnapshotText(row, "pricetrace_brand_name_snapshot"),
+                            brandSnapshotText(row, "pricetrace_parent_brand_id_snapshot"),
+                            brandSnapshotText(row, "pricetrace_parent_brand_name_snapshot"))
             ));
         }
         return parsed;
+    }
+
+    private static String brandSnapshotText(JSONObject row, String key) throws JSONException {
+        if (!row.has(key) || row.isNull(key)) return null;
+        Object value = row.get(key);
+        if (!(value instanceof String)) throw new JSONException("Invalid Brand snapshot field: " + key);
+        return (String) value;
     }
 
     private static List<NutritionNutrientSyncRow> parseNutrientRows(JSONArray rows)
@@ -716,6 +729,11 @@ public final class NutritionCatalogSyncClient {
             putNullable(value, "brand_name", row.getBrandName());
             putNullable(value, "sub_brand_name", row.getSubBrandName());
             putNullable(value, "product_name", row.getProductName());
+            PriceTraceBrandSelection brand = row.getPriceTraceBrand();
+            putNullable(value, "pricetrace_brand_id", brand == null ? null : brand.getBrandId());
+            putNullable(value, "pricetrace_brand_name_snapshot", brand == null ? null : brand.getCanonicalName());
+            putNullable(value, "pricetrace_parent_brand_id_snapshot", brand == null ? null : brand.getParentBrandId());
+            putNullable(value, "pricetrace_parent_brand_name_snapshot", brand == null ? null : brand.getParentCanonicalName());
             // Package metadata stays local until the remote catalog schema supports it.
             value.put("kind", row.getKind());
             value.put("category", row.getCategory());

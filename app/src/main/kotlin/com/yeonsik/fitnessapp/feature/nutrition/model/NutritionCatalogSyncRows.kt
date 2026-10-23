@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.nutrition.model
 
-data class NutritionFoodSyncRow(
+data class NutritionFoodSyncRow @JvmOverloads constructor(
     val id: String,
     val ownerId: String?,
     val name: String,
@@ -37,7 +37,8 @@ data class NutritionFoodSyncRow(
     val visibility: String,
     val createdAt: String,
     val updatedAt: String,
-    val deletedAt: String?
+    val deletedAt: String?,
+    val priceTraceBrand: PriceTraceBrandSelection? = null
 )
 
 data class NutritionNutrientSyncRow(

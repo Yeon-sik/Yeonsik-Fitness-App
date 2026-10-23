@@ -41,6 +41,9 @@ jobs:
       - name: Install integration dependencies
         run: npm ci --prefix supabase/nutrition/integration --no-audit --no-fund
 
+      - name: Verify Brand consumer SQL and legacy read contracts
+        run: npm run test:brand --prefix supabase/nutrition/integration
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v3.0.1
         with:

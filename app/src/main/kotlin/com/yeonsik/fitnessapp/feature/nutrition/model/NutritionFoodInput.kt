@@ -2,7 +2,7 @@ package com.yeonsik.fitnessapp.feature.nutrition.model
 
 import com.yeonsik.fitnessapp.data.NutritionProfile
 
-data class NutritionFoodInput(
+data class NutritionFoodInput @JvmOverloads constructor(
     val name: String,
     val brand: String?,
     val basisAmount: Double,
@@ -11,5 +11,6 @@ data class NutritionFoodInput(
     val sourceType: String,
     val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
     val packageAmount: Double? = null,
-    val packageUnit: String? = null
+    val packageUnit: String? = null,
+    val priceTraceBrand: PriceTraceBrandSelection? = null
 )

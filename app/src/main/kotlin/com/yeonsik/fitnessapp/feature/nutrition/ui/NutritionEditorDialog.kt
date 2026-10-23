@@ -33,6 +33,10 @@ internal fun NutritionEditorDialog(
     onUseRecipe: (NutritionFood) -> Unit = {}
 ) {
     if (!state.open) return
+    if (state.brandSearch != null) {
+        PriceTraceBrandPicker(state, actions)
+        return
+    }
     val title = when (state.mode) {
         NutritionEditorMode.LIBRARY -> "내 식단 · 식품"
         NutritionEditorMode.COMPOSITION -> "식단 구성"
@@ -135,6 +139,21 @@ private fun NutritionLibraryContent(state: NutritionEditorState, actions: Nutrit
             AppButton({ onUseRecipe(recipe) }, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("이번 식단에 추가") }
         }
     }
+    NutritionFormSection("등록한 제품", Modifier.fillMaxWidth(), "기존 제품의 영양정보를 유지하며 브랜드 연결을 관리하세요.") {
+        AppTextField(state.query, actions::search, Modifier.fillMaxWidth(), label = { Text("제품 이름 검색") }, enabled = !state.saving)
+        if (state.packagedFoods.isEmpty() && !state.loading) Text("등록한 제품이 없습니다.")
+    }
+    state.packagedFoods.forEach { food ->
+        NutritionFormSection(food.displayName(), Modifier.fillMaxWidth(), food.packagedVariantLabel()) {
+            food.priceTraceBrand?.let { PriceTraceBrandSnapshot(it) }
+            if (food.id in state.brandEditableFoodIds) {
+                TextButton({ actions.editFoodBrand(food.id) }, enabled = !state.saving && !state.loading,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+                    Text(if (food.priceTraceBrand == null) "PriceTrace 브랜드 연결" else "PriceTrace 브랜드 변경 · 해제")
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -184,6 +203,16 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
             label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving,
             isError = state.submitted && state.field(FoodEntryField.NAME).isBlank(), shape = FitnessShape.input)
         AppTextField(state.field(FoodEntryField.BRAND), { actions.updateField(FoodEntryField.BRAND, it) }, Modifier.fillMaxWidth(), label = { Text("브랜드 (선택)") }, enabled = !state.saving)
+    }
+    if (state.registrationKind == NutritionRegistrationKind.PRODUCT) {
+        NutritionFormSection("PriceTrace 브랜드 연결", Modifier.fillMaxWidth(), "선택 사항 · 라벨에 적힌 브랜드 이름은 그대로 보존됩니다.") {
+            state.priceTraceBrand?.let { PriceTraceBrandSnapshot(it) }
+            AppOutlinedButton(actions::openBrandSearch, Modifier.fillMaxWidth(), enabled = !state.saving) {
+                Text(if (state.priceTraceBrand == null) "브랜드 검색" else "연결 브랜드 변경")
+            }
+            if (state.priceTraceBrand != null) TextButton(actions::clearBrand, enabled = !state.saving,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("브랜드 연결 해제") }
+        }
     }
     NutritionFormSection("영양정보 기준량", Modifier.fillMaxWidth(), "포장지 또는 영양표에 적힌 기준량을 입력하세요.") {
         NutritionNumberField(state.field(FoodEntryField.BASIS), { actions.updateField(FoodEntryField.BASIS, it) }, "기준량", NutritionUnit.display(state.basisUnit),

@@ -195,7 +195,7 @@ data class MealMenuPresetsRoomEntity(
 )
 
 @Entity(tableName = "nutrition_foods", indices = [Index(name = "nutrition_foods_owner_name_idx", value = ["owner_id", "name"]), Index(name = "nutrition_foods_owner_brand_name_idx", value = ["owner_id", "brand", "name"]), Index(name = "nutrition_foods_owner_product_hierarchy_idx", value = ["owner_id", "manufacturer_name", "brand_name", "sub_brand_name", "product_name"]), Index(name = "nutrition_foods_owner_category_idx", value = ["owner_id", "category", "cooking_method", "name"]), Index(name = "nutrition_foods_visibility_name_idx", value = ["visibility", "name"])])
-data class NutritionFoodsRoomEntity(
+data class NutritionFoodsRoomEntity @JvmOverloads constructor(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "owner_id") val ownerId: String?,
     val name: String,
@@ -232,7 +232,11 @@ data class NutritionFoodsRoomEntity(
     @ColumnInfo(name = "visibility", defaultValue = "'private'") val visibility: String,
     @ColumnInfo(name = "created_at") val createdAt: String,
     @ColumnInfo(name = "updated_at") val updatedAt: String,
-    @ColumnInfo(name = "deleted_at") val deletedAt: String?
+    @ColumnInfo(name = "deleted_at") val deletedAt: String?,
+    @ColumnInfo(name = "pricetrace_brand_id") val priceTraceBrandId: String? = null,
+    @ColumnInfo(name = "pricetrace_brand_name_snapshot") val priceTraceBrandNameSnapshot: String? = null,
+    @ColumnInfo(name = "pricetrace_parent_brand_id_snapshot") val priceTraceParentBrandIdSnapshot: String? = null,
+    @ColumnInfo(name = "pricetrace_parent_brand_name_snapshot") val priceTraceParentBrandNameSnapshot: String? = null
 )
 
 @Entity(tableName = "nutrition_food_nutrients", indices = [Index(name = "nutrition_food_nutrients_food_idx", value = ["food_id", "nutrient_code"])])

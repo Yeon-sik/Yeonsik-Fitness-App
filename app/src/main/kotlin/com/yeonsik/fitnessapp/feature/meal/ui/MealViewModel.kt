@@ -213,7 +213,7 @@ class MealViewModel @JvmOverloads constructor(
     private val mealReadApi: MealReadApi? = null
 ) : ViewModel() {
     private val main = Handler(Looper.getMainLooper())
-    val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor)
+    val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor, nutritionIntegration)
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
     val uiState: LiveData<MealUiState> = mutableState
     private val mutablePriceTraceState = MutableLiveData<PriceTraceUiState>(PriceTraceUiState.Idle)
@@ -1890,6 +1890,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
     }
 
     override fun onCleared() {
+        nutritionEditor.dispose()
         ++requestVersion
         ++detailRequestVersion
         searchJob?.cancel()

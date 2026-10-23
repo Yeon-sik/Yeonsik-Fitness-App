@@ -9,6 +9,7 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
+import com.yeonsik.fitnessapp.feature.nutrition.api.PriceTraceBrandCatalog
 import com.yeonsik.fitnessapp.feature.nutrition.model.*
 import org.json.JSONObject
 import java.util.UUID
@@ -42,6 +43,11 @@ data class NutritionEditorState(
     val sourceType: String = "manual",
     val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.PRODUCT,
     val packageAmount: String = "",
+    val priceTraceBrand: PriceTraceBrandSelection? = null,
+    val brandSearch: PriceTraceBrandSearchState? = null,
+    val editingBrandFood: NutritionFood? = null,
+    val packagedFoods: List<NutritionFood> = emptyList(),
+    val brandEditableFoodIds: Set<String> = emptySet(),
     val recipeServings: String = "1",
     val cookedWeightGrams: String = "",
     val importPreview: IngredientImportPreview? = null,
@@ -74,6 +80,13 @@ interface NutritionEditorActions {
     fun updateSource(value: String)
     fun updateRegistrationKind(value: NutritionRegistrationKind) {}
     fun updatePackageAmount(value: String) {}
+    fun openBrandSearch() {}
+    fun editFoodBrand(foodId: String) {}
+    fun searchBrands(query: String) {}
+    fun moreBrands() {}
+    fun closeBrandSearch() {}
+    fun selectBrand(row: PriceTraceBrandRow) {}
+    fun clearBrand() {}
     fun updateRecipeServings(value: String) {}
     fun updateCookedWeight(value: String) {}
     fun previewIngredientFile(contents: String) {}
@@ -86,7 +99,8 @@ class NutritionEditorController(
     private val savedState: SavedStateHandle,
     private val catalog: NutritionCatalogRepositoryApi,
     private val templates: NutritionTemplateRepositoryApi?,
-    private val executor: ExecutorService
+    private val executor: ExecutorService,
+    private val brandCatalog: PriceTraceBrandCatalog? = null
 ) : NutritionEditorActions {
     private val main = Handler(Looper.getMainLooper())
     private val mutableState = MutableLiveData(NutritionEditorState())
@@ -94,10 +108,15 @@ class NutritionEditorController(
     private var version = 0L
     private var restoringPortions = false
     private val state: NutritionEditorState get() = mutableState.value ?: NutritionEditorState()
+    private val brandSearch = PriceTraceBrandSearchController(brandCatalog, catalog::currentOwnerId) { search ->
+        update { it.copy(brandSearch = search) }
+    }
 
     fun synchronizeOwner() {
         val owner = catalog.currentOwnerId()
         if (state.ownerId == owner) return
+        // 복원 전에 빈 editor state를 저장하면 기존 draft의 owner/필드가 덮어써진다.
+        brandSearch.dismiss(notify = false)
         ++version
         if (savedState.get<String>(KEY_OWNER) != owner) clearStorage()
         val fields = FoodEntryField.entries.associateWith { savedState.get<String>("$PREFIX.field.${it.name}").orEmpty() }
@@ -118,6 +137,8 @@ class NutritionEditorController(
             registrationKind = savedState.get<String>(KEY_REGISTRATION_KIND)?.let { runCatching { NutritionRegistrationKind.valueOf(it) }.getOrNull() }
                 ?: NutritionRegistrationKind.PRODUCT,
             packageAmount = savedState[KEY_PACKAGE_AMOUNT] ?: "",
+            priceTraceBrand = runCatching { PriceTraceBrandSelection.fromSnapshot(savedState[KEY_BRAND_ID],
+                savedState[KEY_BRAND_NAME], savedState[KEY_PARENT_ID], savedState[KEY_PARENT_NAME]) }.getOrNull(),
             recipeServings = savedState[KEY_RECIPE_SERVINGS] ?: "1",
             cookedWeightGrams = savedState[KEY_COOKED_WEIGHT] ?: ""
         )
@@ -134,45 +155,51 @@ class NutritionEditorController(
                 val food = catalog.findFoodById(id) ?: throw IllegalStateException("구성에 저장한 식품을 찾지 못했습니다. 다시 추가하세요.")
                 FoodPortionDraft(food, amounts.getOrElse(index) { NutritionCalculator.trim(food.basisAmount) })
             }
-            Triple(restored, listTemplates(), catalog.savedRecipes())
+            Triple(restored, listTemplates(), catalog.savedRecipes()) to libraryProducts("")
         }) { current, result ->
-            val (restored, savedTemplates, recipes) = result
-            current.copy(portions = restored, templates = savedTemplates, recipes = recipes)
+            val (restored, savedTemplates, recipes) = result.first
+            current.copy(portions = restored, templates = savedTemplates, recipes = recipes,
+                packagedFoods = result.second.first, brandEditableFoodIds = result.second.second)
         }
     }
 
     override fun close() {
         if (state.saving) return
+        brandSearch.dismiss()
         ++version
-        update { it.copy(open = false, loading = false, error = null) }
+        update { it.copy(open = false, loading = false, error = null, editingBrandFood = null) }
         restoringPortions = false
     }
 
     override fun showLibrary() {
         if (state.saving) return
+        brandSearch.dismiss()
         update { it.copy(mode = NutritionEditorMode.LIBRARY, error = null) }
-        task({ listTemplates() to catalog.savedRecipes() }) { current, (found, recipes) ->
-            current.copy(templates = found, recipes = recipes)
+        task({ Triple(listTemplates(), catalog.savedRecipes(), libraryProducts("")) }) { current, (found, recipes, products) ->
+            current.copy(templates = found, recipes = recipes, query = "", editingBrandFood = null,
+                packagedFoods = products.first, brandEditableFoodIds = products.second)
         }
     }
 
     override fun newComposition() {
         if (state.saving) return
+        brandSearch.dismiss()
         ++version
         restoringPortions = false
         update { it.copy(mode = NutritionEditorMode.COMPOSITION, compositionId = null, revision = 1, recipeServings = "1", cookedWeightGrams = "",
             name = "", memo = "", favorite = false, portions = emptyList(), query = "", results = emptyList(),
-            loading = false, submitted = false, notice = null, error = null) }
+            loading = false, submitted = false, notice = null, error = null, editingBrandFood = null) }
         search("")
     }
 
     override fun newRecipe() {
         if (state.saving) return
+        brandSearch.dismiss()
         ++version
         restoringPortions = false
         update { it.copy(mode = NutritionEditorMode.RECIPE, compositionId = null, revision = 1,
             name = "", memo = "", favorite = false, portions = emptyList(), query = "", results = emptyList(),
-            recipeServings = "1", cookedWeightGrams = "", loading = false, submitted = false, notice = null, error = null) }
+            recipeServings = "1", cookedWeightGrams = "", loading = false, submitted = false, notice = null, error = null, editingBrandFood = null) }
         search("")
     }
 
@@ -200,13 +227,20 @@ class NutritionEditorController(
 
     override fun newFood() {
         if (state.saving) return
+        brandSearch.dismiss()
         ++version
         update { it.copy(mode = NutritionEditorMode.FOOD, registrationKind = NutritionRegistrationKind.PRODUCT,
-            loading = false, submitted = false, error = null, notice = null) }
+            loading = false, submitted = false, error = null, notice = null, editingBrandFood = null) }
     }
 
     override fun search(query: String) {
         update { it.copy(query = query, error = null) }
+        if (state.mode == NutritionEditorMode.LIBRARY) {
+            task({ libraryProducts(query) }) { current, (foods, editable) ->
+                current.copy(packagedFoods = foods, brandEditableFoodIds = editable)
+            }
+            return
+        }
         task({
             (catalog.searchFoods(query) + catalog.searchPackagedFoods(query, 40))
                 .filterNot { it.isDiningOutMenu() || it.isDiningOutComponent() ||
@@ -225,11 +259,78 @@ class NutritionEditorController(
     override fun updateName(value: String) = update { it.copy(name = value, error = null) }
     override fun updateMemo(value: String) = update { it.copy(memo = value) }
     override fun updateFavorite(value: Boolean) = update { it.copy(favorite = value) }
-    override fun updateField(field: FoodEntryField, value: String) = update { it.copy(fields = it.fields + (field to value), error = null) }
+    override fun updateField(field: FoodEntryField, value: String) {
+        val changedBrand = field == FoodEntryField.BRAND && state.field(field).trim() != value.trim()
+        if (changedBrand) brandSearch.dismiss()
+        update { it.copy(fields = it.fields + (field to value), error = null,
+            priceTraceBrand = if (changedBrand) null else it.priceTraceBrand) }
+    }
     override fun updateUnit(value: String) = update { it.copy(basisUnit = value, error = null) }
     override fun updateSource(value: String) = update { it.copy(sourceType = value) }
-    override fun updateRegistrationKind(value: NutritionRegistrationKind) = update { it.copy(registrationKind = value) }
+    override fun updateRegistrationKind(value: NutritionRegistrationKind) {
+        if (value != NutritionRegistrationKind.PRODUCT) brandSearch.dismiss()
+        update { it.copy(registrationKind = value, priceTraceBrand = if (value == NutritionRegistrationKind.PRODUCT) it.priceTraceBrand else null) }
+    }
     override fun updatePackageAmount(value: String) = update { it.copy(packageAmount = value, error = null) }
+
+    override fun openBrandSearch() {
+        if (state.saving || state.mode != NutritionEditorMode.FOOD || state.registrationKind != NutritionRegistrationKind.PRODUCT) return
+        update { it.copy(editingBrandFood = null) }
+        brandSearch.open(state.field(FoodEntryField.BRAND))
+    }
+
+    override fun editFoodBrand(foodId: String) {
+        val owner = state.ownerId
+        task({
+            check(catalog.canEditPriceTraceBrand(foodId, owner)) { "현재 계정의 비공개 제품만 브랜드를 변경할 수 있습니다." }
+            catalog.findFoodById(foodId) ?: error("제품을 찾지 못했습니다.")
+        }) { current, food ->
+            // 검색은 별도 executor가 담당하며 저장된 snapshot을 자동 교체하지 않는다.
+            main.post {
+                if (state.editingBrandFood?.id == food.id && state.ownerId == owner && catalog.currentOwnerId() == owner)
+                    brandSearch.open(listOf(food.subBrandName, food.brandName, food.brand).firstOrNull { !it.isNullOrBlank() }.orEmpty())
+            }
+            current.copy(editingBrandFood = food)
+        }
+    }
+
+    override fun searchBrands(query: String) = brandSearch.search(query)
+    override fun moreBrands() { state.brandSearch?.let { brandSearch.search(it.query, append = true, delay = 0) } }
+    override fun closeBrandSearch() { brandSearch.dismiss(); update { it.copy(editingBrandFood = null) } }
+    override fun selectBrand(row: PriceTraceBrandRow) {
+        if (!brandSearch.isCurrent(row)) return
+        val food = state.editingBrandFood
+        if (food == null) {
+            update { it.copy(priceTraceBrand = row.selection) }
+            closeBrandSearch()
+        } else saveExistingBrand(food, row.selection)
+    }
+    override fun clearBrand() {
+        val food = state.editingBrandFood
+        if (food == null) { update { it.copy(priceTraceBrand = null) }; closeBrandSearch() }
+        else saveExistingBrand(food, null)
+    }
+    private fun saveExistingBrand(food: NutritionFood, selection: PriceTraceBrandSelection?) {
+        val owner = state.ownerId
+        val scope = brandCatalog?.brandCatalogScope()
+        brandSearch.dismiss()
+        task({
+            if (selection != null) check(brandCatalog?.brandCatalogScope() == scope) { "PriceTrace 연결 설정이 변경되었습니다. 다시 선택하세요." }
+            catalog.setPriceTraceBrand(food.id, owner, selection)
+        }, saving = true) { current, saved ->
+            current.copy(editingBrandFood = null, brandSearch = null,
+                packagedFoods = current.packagedFoods.map { if (it.id == saved.id) saved else it },
+                notice = if (selection == null) "PriceTrace 브랜드 연결을 해제했습니다." else "PriceTrace 브랜드를 연결했습니다.")
+        }
+    }
+
+    fun dispose() = brandSearch.close()
+
+    private fun libraryProducts(query: String): Pair<List<NutritionFood>, Set<String>> {
+        val owner = catalog.currentOwnerId()
+        val foods = catalog.searchPackagedFoods(query, 40)
+        return foods to foods.filter { catalog.canEditPriceTraceBrand(it.id, owner) }.map { it.id }.toSet()
+    }
     override fun updateRecipeServings(value: String) = update { it.copy(recipeServings = value, error = null) }
     override fun updateCookedWeight(value: String) = update { it.copy(cookedWeightGrams = value, error = null) }
 
@@ -305,11 +406,15 @@ class NutritionEditorController(
         NutritionConsistencyPolicy.validate(profile)
         val input = NutritionFoodInput(draft.field(FoodEntryField.NAME).trim(), draft.field(FoodEntryField.BRAND).trim().ifBlank { null },
             basis, draft.basisUnit, profile, draft.sourceType, draft.registrationKind,
-            draft.packageAmount.trim().takeIf(String::isNotEmpty)?.let { requiredNumber(it, "제품 1개 용량") }, draft.basisUnit)
+            draft.packageAmount.trim().takeIf(String::isNotEmpty)?.let { requiredNumber(it, "제품 1개 용량") }, draft.basisUnit,
+            draft.priceTraceBrand)
         if (draft.registrationKind == NutritionRegistrationKind.PRODUCT) require(input.packageAmount?.let { it > 0 } == true) { "제품 1개 용량을 입력하세요." }
         task({ catalog.saveManualFoodInput(AccountScope(draft.ownerId), input)
             ?: throw IllegalStateException("식품을 등록하지 못했습니다.") }, saving = true) { current, food ->
             current.copy(mode = NutritionEditorMode.LIBRARY, fields = mapOf(FoodEntryField.BASIS to "100"), packageAmount = "",
+                priceTraceBrand = null, brandSearch = null,
+                packagedFoods = if (food.isPackagedFood()) listOf(food) + current.packagedFoods else current.packagedFoods,
+                brandEditableFoodIds = if (food.isPackagedFood()) current.brandEditableFoodIds + food.id else current.brandEditableFoodIds,
                 notice = "${food.displayName()} ${draft.registrationKind.label}을 등록했습니다.")
         }
     }
@@ -374,6 +479,10 @@ class NutritionEditorController(
         savedState[KEY_SOURCE] = next.sourceType
         savedState[KEY_REGISTRATION_KIND] = next.registrationKind.name
         savedState[KEY_PACKAGE_AMOUNT] = next.packageAmount
+        savedState[KEY_BRAND_ID] = next.priceTraceBrand?.brandId
+        savedState[KEY_BRAND_NAME] = next.priceTraceBrand?.canonicalName
+        savedState[KEY_PARENT_ID] = next.priceTraceBrand?.parentBrandId
+        savedState[KEY_PARENT_NAME] = next.priceTraceBrand?.parentCanonicalName
         savedState[KEY_RECIPE_SERVINGS] = next.recipeServings
         savedState[KEY_COOKED_WEIGHT] = next.cookedWeightGrams
         if (!restoringPortions) {
@@ -399,6 +508,10 @@ class NutritionEditorController(
         const val KEY_SOURCE = "$PREFIX.source"
         const val KEY_REGISTRATION_KIND = "$PREFIX.registration_kind"
         const val KEY_PACKAGE_AMOUNT = "$PREFIX.package_amount"
+        const val KEY_BRAND_ID = "$PREFIX.pt_brand_id"
+        const val KEY_BRAND_NAME = "$PREFIX.pt_brand_name"
+        const val KEY_PARENT_ID = "$PREFIX.pt_parent_id"
+        const val KEY_PARENT_NAME = "$PREFIX.pt_parent_name"
         const val KEY_RECIPE_SERVINGS = "$PREFIX.recipe_servings"
         const val KEY_COOKED_WEIGHT = "$PREFIX.cooked_weight"
         const val KEY_FOOD_IDS = "$PREFIX.food_ids"

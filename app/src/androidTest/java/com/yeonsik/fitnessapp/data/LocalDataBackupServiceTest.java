@@ -303,6 +303,8 @@ public final class LocalDataBackupServiceTest {
             JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             legacy.put("databaseVersion", 14);
             JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("workout_manual_exercise_links");
+            tables.remove("workout_setup_notes");
             tables.remove("meal_record_item_components");
             tables.remove("meal_record_item_component_nutrients");
             tables.remove("meal_record_item_consumptions");
@@ -415,6 +417,8 @@ public final class LocalDataBackupServiceTest {
             JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             legacy.put("databaseVersion", 15);
             JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("workout_manual_exercise_links");
+            tables.remove("workout_setup_notes");
             tables.remove("meal_record_item_consumptions");
             tables.remove("composition_templates");
             tables.remove("composition_groups");

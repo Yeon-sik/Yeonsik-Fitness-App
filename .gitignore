@@ -9,6 +9,8 @@ local.properties
 .codex/
 .mcp.json
 .understand-anything/
+.serena/
+/supabase/nutrition/integration/node_modules/
 /Fitness-Image/
 /generated/exercise-images/
 

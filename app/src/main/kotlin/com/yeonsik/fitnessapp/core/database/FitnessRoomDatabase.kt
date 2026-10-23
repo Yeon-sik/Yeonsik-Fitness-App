@@ -1895,6 +1895,13 @@ interface NutritionRoomDao {
     )
     fun visibleFood(foodId: String, userId: String): NutritionFoodsRoomEntity?
 
+    @Query("UPDATE nutrition_foods SET pricetrace_brand_id=:brandId, " +
+        "pricetrace_brand_name_snapshot=:brandName, pricetrace_parent_brand_id_snapshot=:parentId, " +
+        "pricetrace_parent_brand_name_snapshot=:parentName, revision=revision+1, updated_at=:updatedAt " +
+        "WHERE id=:foodId AND owner_id=:ownerId AND visibility='private' AND deleted_at IS NULL")
+    fun updatePriceTraceBrand(foodId: String, ownerId: String, brandId: String?, brandName: String?,
+        parentId: String?, parentName: String?, updatedAt: String): Int
+
     @Query(
         "SELECT * FROM nutrition_foods WHERE deleted_at IS NULL " +
             "AND (visibility='public' OR owner_id=:userId) " +

@@ -24,7 +24,12 @@ import java.util.List;
  * accompany a PriceTrace read. MainActivity receives contract models, but never coordinates the
  * repository/client sequence itself.
  */
-public final class NutritionIntegrationService implements DiningProposalAccount {
+public final class NutritionIntegrationService implements DiningProposalAccount,
+        com.yeonsik.fitnessapp.feature.nutrition.api.PriceTraceBrandCatalog {
+    private final com.yeonsik.fitnessapp.integration.pricetrace.BrandCatalogV1Client brandCatalogClient =
+            new com.yeonsik.fitnessapp.integration.pricetrace.BrandCatalogV1Client();
+    private final java.util.concurrent.atomic.AtomicLong brandScope = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.CopyOnWriteArrayList<Runnable> brandScopeListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final NutritionCatalogSyncStore nutritionCatalogSync;
     private final NutritionCatalogRepositoryApi nutritionCatalog;
     private final ProductReadV1Client productReadClient;
@@ -84,16 +89,39 @@ public final class NutritionIntegrationService implements DiningProposalAccount 
                 : nutritionConfig;
     }
 
-    public void setNutritionConfig(SupabaseConfig nutritionConfig) {
+    public synchronized void setNutritionConfig(SupabaseConfig nutritionConfig) {
+        brandScope.incrementAndGet();
         this.nutritionConfig = nutritionConfig == null
                 ? SupabaseConfig.empty()
                 : nutritionConfig;
+        for (Runnable listener : brandScopeListeners) listener.run();
     }
 
-    public void setPriceTraceConfig(SupabaseConfig priceTraceConfig) {
+    public synchronized void setPriceTraceConfig(SupabaseConfig priceTraceConfig) {
+        brandScope.incrementAndGet();
         this.priceTraceConfig = priceTraceConfig == null
                 ? SupabaseConfig.empty()
                 : priceTraceConfig;
+        for (Runnable listener : brandScopeListeners) listener.run();
+    }
+
+    @Override public synchronized long brandCatalogScope() { return brandScope.get(); }
+
+    @Override public AutoCloseable observeBrandCatalogScope(Runnable listener) {
+        brandScopeListeners.add(listener);
+        return () -> brandScopeListeners.remove(listener);
+    }
+
+    @Override public boolean isBrandCatalogConfigured() {
+        try {
+            com.yeonsik.fitnessapp.integration.pricetrace.BrandCatalogV1Client.request(priceTraceConfig, null, 25, 0);
+            return true;
+        } catch (IllegalArgumentException error) { return false; }
+    }
+
+    @Override public List<com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow> searchPriceTraceBrands(
+            String query, int limit, int offset) throws Exception {
+        return brandCatalogClient.search(priceTraceConfig, query, limit, offset);
     }
 
     @Override

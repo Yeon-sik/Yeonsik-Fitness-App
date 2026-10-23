@@ -30,6 +30,13 @@ interface NutritionCatalogRepositoryApi {
     /** Searches reusable packaged products without exposing storage rows to Meal UI. */
     fun searchPackagedFoods(query: String, limit: Int): List<NutritionFood> = emptyList()
 
+    fun canEditPriceTraceBrand(foodId: String, ownerId: String): Boolean = false
+
+    /** null은 명시적인 연결 해제다. 일반 영양 수정은 이 API를 호출하지 않는다. */
+    fun setPriceTraceBrand(foodId: String, ownerId: String,
+        selection: com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection?): NutritionFood =
+        throw UnsupportedOperationException("브랜드 연결 변경을 지원하지 않습니다.")
+
     /** Searches the verified food catalog while preserving its source/provenance metadata. */
     fun searchVerifiedFoods(query: String, limit: Int): List<NutritionFood> = emptyList()
 

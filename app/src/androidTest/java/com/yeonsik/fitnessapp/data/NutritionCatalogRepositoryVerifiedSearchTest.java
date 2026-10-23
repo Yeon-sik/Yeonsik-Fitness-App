@@ -173,6 +173,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
                     USER_ID
             );
 
+            VerifiedFoodCatalogSeed.seedWithRoom(isolatedContext, room);
             List<NutritionFood> foods = repository.searchVerifiedFoods("밥", 10);
 
             assertEquals(VerifiedFoodCatalogSeed.RICE_EXPECTED_COUNT, foods.size());
@@ -216,6 +217,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
                     USER_ID
             );
 
+            VerifiedFoodCatalogSeed.seedWithRoom(isolatedContext, room);
             assertSeafoodSearch(
                     repository,
                     "연어",

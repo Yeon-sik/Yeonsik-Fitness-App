@@ -54,7 +54,7 @@ class WorkoutSetupNoteMigrationTest {
                 tables.associateWith { table -> rows(db, table) }
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-                .addMigrations(FitnessRoomMigrations.V55_TO_V56).build()
+                .addMigrations(FitnessRoomMigrations.V55_TO_V56, FitnessRoomMigrations.V56_TO_V57).build()
             try {
                 val db = room.openHelper.writableDatabase
                 assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.version)

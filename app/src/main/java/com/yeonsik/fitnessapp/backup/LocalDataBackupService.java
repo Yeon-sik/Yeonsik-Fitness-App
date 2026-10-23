@@ -704,6 +704,13 @@ public final class LocalDataBackupService {
         }
     }
 
+    private static String nullableBrandSnapshot(JSONObject row, String key) throws JSONException {
+        if (!row.has(key) || row.isNull(key)) return null;
+        Object value = row.get(key);
+        if (!(value instanceof String)) throw new IllegalArgumentException("Invalid Brand snapshot: " + key);
+        return (String) value;
+    }
+
     private void validateNutritionDocumentScopes(
             Map<String, JSONArray> tables,
             BackupDatabaseStorage database
@@ -718,6 +725,11 @@ public final class LocalDataBackupService {
         JSONArray foodRows = tables.get("nutrition_foods");
         for (int i = 0; i < foodRows.length(); i++) {
             JSONObject row = foodRows.getJSONObject(i);
+            com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection.fromSnapshot(
+                    nullableBrandSnapshot(row, "pricetrace_brand_id"),
+                    nullableBrandSnapshot(row, "pricetrace_brand_name_snapshot"),
+                    nullableBrandSnapshot(row, "pricetrace_parent_brand_id_snapshot"),
+                    nullableBrandSnapshot(row, "pricetrace_parent_brand_name_snapshot"));
             String foodId = row.getString("id");
             String scope = backupOwnerScope(row, foodSchema);
             if (foodScopes.put(foodId, scope) != null) {
