@@ -7,6 +7,7 @@ const { PGlite } = await import(process.argv[2] ? pathToFileURL(path.resolve(pro
 const db = new PGlite();
 const dir = fileURLToPath(new URL('../supabase/migrations/', import.meta.url));
 const migration = '20261023121311_pricetrace_brand_catalog_consumer.sql';
+const repair = '20261023143111_fix_nutrition_read_v4_contract_version.sql';
 const fields = ['pricetrace_brand_id', 'pricetrace_brand_name_snapshot', 'pricetrace_parent_brand_id_snapshot', 'pricetrace_parent_brand_name_snapshot'];
 const brand = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const parent = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -22,7 +23,7 @@ try {
     create function auth.role() returns text language sql stable as $$select nullif(current_setting('request.jwt.claim.role',true),'')$$;
     grant usage on schema public, auth to anon, authenticated, service_role;
     grant execute on all functions in schema auth to anon, authenticated, service_role;`);
-  const files = readdirSync(dir).filter(f => f.endsWith('.sql') && f !== migration).sort();
+  const files = readdirSync(dir).filter(f => f.endsWith('.sql') && f !== migration && f !== repair).sort();
   for (const name of files) {
     if (name.startsWith('20260814065823_')) {
       const fixture = sqlFile(new URL('historical-replay/pre_20260814065823_kaguri.sql', import.meta.url))
@@ -39,6 +40,14 @@ try {
   assert.equal(before.length, 3);
   await db.exec(sqlFile(new URL('historical-replay/snapshot_before_brand_catalog_v4.sql', import.meta.url)));
   await db.exec(sqlFile(path.join(dir, migration)));
+  const v4Metadata = () => query(`select pg_get_function_arguments(oid) as args,
+    pg_get_function_result(oid) as result, provolatile, prosecdef, proconfig, proacl
+    from pg_proc where oid='public.get_nutrition_read_v4(text)'::regprocedure`);
+  const metadataBefore = await v4Metadata();
+  const triggerBefore = await query("select pg_get_functiondef('public.bump_nutrition_food_revision()'::regprocedure) as definition");
+  await db.exec(sqlFile(path.join(dir, repair)));
+  assert.deepEqual(await v4Metadata(), metadataBefore, 'v4 signature, shape, stability, invoker, search_path and grants unchanged');
+  assert.deepEqual(await query("select pg_get_functiondef('public.bump_nutrition_food_revision()'::regprocedure) as definition"), triggerBefore);
   await db.exec(sqlFile(new URL('historical-replay/assert_brand_catalog_v4.sql', import.meta.url)));
   assert.deepEqual(await contracts(), before, 'v1/v2/v3 function definitions must be unchanged');
   await db.exec(`insert into nutrition_foods (id,owner_id,name,brand,manufacturer_name,brand_name,sub_brand_name,
@@ -65,13 +74,33 @@ try {
   assert.equal((await query("select revision from nutrition_foods where id='root'"))[0].revision, revision);
   await assert.rejects(db.exec("update nutrition_foods set pricetrace_brand_id=null where id='root'"), /snapshot_check/);
   await assert.rejects(db.exec("update nutrition_foods set pricetrace_brand_id='bad-uuid' where id='root'"), /uuid/);
+  const compareReads = async (search = null) => {
+    const rows = async version => (await db.query(`select * from get_nutrition_read_v${version}($1)`, [search])).rows;
+    const v3 = await rows(3), v4 = await rows(4);
+    assert.ok(v3.every(r => r.contract_version === 'nutrition-read.v3'));
+    assert.ok(v4.every(r => r.contract_version === 'nutrition-read.v4'));
+    const common = (row, omitted) => Object.fromEntries(Object.entries(row).filter(([key]) => !omitted.includes(key)));
+    assert.deepEqual(v4.map(r => common(r, ['contract_version', ...fields])),
+      v3.map(r => common(r, ['contract_version'])), 'complete ordered business projections must match');
+    return v4;
+  };
+  // Query as superuser to exercise every Brand fixture, then compare both RLS roles.
+  await compareReads();
+  await compareReads('제품');
+  await compareReads('no-matching-food');
   await db.exec(`set role anon; select set_config('request.jwt.claim.sub','',false)`);
   assert.deepEqual(new Set((await query('select nutrition_food_id from get_nutrition_read_v4(null)')).map(r => r.nutrition_food_id)),
     new Set(['public', 'historical-replay-kaguri-food']));
+  await compareReads();
   await db.exec(`reset role; set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false)`);
-  const v3 = await query('select * from get_nutrition_read_v3(null)');
-  const v4 = await query('select * from get_nutrition_read_v4(null)');
-  assert.deepEqual(v4.map(row => Object.fromEntries(Object.entries(row).filter(([key]) => !fields.includes(key)))), v3);
+  const v4 = await compareReads();
+  assert.ok(v4.some(r => r.nutrition_food_id === 'root'));
+  assert.ok(!v4.some(r => r.nutrition_food_id === 'other'));
+  const sub = v4.find(r => r.nutrition_food_id === 'sub');
+  assert.equal(sub.pricetrace_brand_id, parent);
+  assert.equal(sub.pricetrace_brand_name_snapshot, '다른 이름');
+  assert.equal(sub.pricetrace_parent_brand_id_snapshot, brand);
+  assert.equal(sub.pricetrace_parent_brand_name_snapshot, '다른 부모');
   assert.equal(v4.find(r => r.nutrition_food_id === 'root').pricetrace_parent_brand_id_snapshot, null);
   const unknown = v4.find(r => r.nutrition_food_id === 'unknown-parent');
   assert.equal(unknown.pricetrace_parent_brand_id_snapshot, parent);
@@ -86,6 +115,11 @@ try {
   const cleared = (await query("select * from get_nutrition_read_v4(null) where nutrition_food_id='root'"))[0];
   assert.ok(fields.every(f => cleared[f] === null));
   assert.equal(cleared.brand, '라벨'); assert.equal(cleared.manufacturer_name, '제조사');
+  await compareReads();
+  await db.exec(`select set_config('request.jwt.claim.sub','${other}',false)`);
+  const otherRows = await compareReads();
+  assert.ok(otherRows.some(r => r.nutrition_food_id === 'other'));
+  assert.ok(!otherRows.some(r => r.nutrition_food_id === 'root'));
   console.log(JSON.stringify({pass:true, baselineMigrations:files.length, v1v2v3DefinitionsUnchanged:true,
-    v4CommonProjectionEqualsV3:true, revisionFields:4, rootSubUnknownAndClear:true, ownerAndAnonymousRls:true}));
+    v3Discriminator:'nutrition-read.v3', v4Discriminator:'nutrition-read.v4', v4BusinessProjectionEqualsV3:true, revisionFields:4, rootSubUnknownAndClear:true, ownerAndAnonymousRls:true}));
 } finally { await db.close(); }

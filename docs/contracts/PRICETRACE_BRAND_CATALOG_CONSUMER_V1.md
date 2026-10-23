@@ -89,13 +89,16 @@ catalog_product_id uuid, standard_product_id uuid,
 manufacturer_name text, brand_name text, sub_brand_name text, product_name text
 ```
 
-followed by exactly the four Brand fields listed above. The function is `STABLE SECURITY INVOKER`, uses an empty `search_path`, revokes default PUBLIC execution and grants execution to `anon` and `authenticated`. It wraps the current v3 projection under the same row visibility and ordering. In particular, it inherits v3's `contract_version` value so the required literal equality holds:
+followed by exactly the four Brand fields listed above. The function is `STABLE SECURITY INVOKER`, uses an empty `search_path`, revokes default PUBLIC execution and grants execution to `anon` and `authenticated`. It wraps the current v3 projection under the same row visibility and ordering. Each RPC identifies its own wire contract. The discriminator is excluded from business-field compatibility comparisons:
 
 ```text
-v4 row minus the four Brand keys == current v3 row
+v3.contract_version == "nutrition-read.v3"
+v4.contract_version == "nutrition-read.v4"
+v4 row minus contract_version and the four Brand keys
+  == v3 row minus contract_version
 ```
 
-The v4 RPC name identifies the added wire shape. No existing v1/v2/v3 definition or return field is edited. No import v4, publication rewrite or product-link change is introduced. Normal Fitness catalog sync continues to use its existing row transport.
+Both the v4 RPC name and its `nutrition-read.v4` discriminator identify the added wire shape. The already-deployed `20261023121311_pricetrace_brand_catalog_consumer.sql` is immutable; forward migration `20261023143111_fix_nutrition_read_v4_contract_version.sql` explicitly selects the v4 discriminator followed by all 23 existing fields in order. No existing v1/v2/v3 definition or return field is edited. No import v4, publication rewrite or product-link change is introduced. Normal Fitness catalog sync continues to use its existing row transport.
 
 ## UX and offline behavior
 
@@ -119,7 +122,7 @@ npm.cmd ci --ignore-scripts
 npm.cmd run test:brand
 ```
 
-The SQL harness pins a test-only PGlite runtime and replays the 35 baseline migrations plus this migration. It uses the existing synthetic prerequisite for the historical Kaguri repair. Git LF SQL is replayed independent of Windows checkout line endings. Tests compare real PostgreSQL function definitions and full v3/v4 projections, exercise all four revision changes, null/parent variants, malformed tuples, atomic clear and anonymous/owner RLS. There are no remote writes in this test.
+The SQL harness pins a test-only PGlite runtime and replays the 35 baseline migrations plus the Brand migration and discriminator repair. It uses the existing synthetic prerequisite for the historical Kaguri repair. Git LF SQL is replayed independent of Windows checkout line endings. Tests compare real PostgreSQL function definitions and version-specific discriminators and complete ordered v3/v4 business projections, as well as bidirectional SQL `EXCEPT ALL` comparisons, exercise all four revision changes, null/parent variants, malformed tuples, atomic clear and anonymous/owner RLS. There are no remote writes in this test.
 
 JVM strict JSON tests use a pinned test-only `org.json` implementation rather than Android's stub. The optional `BrandCatalogLiveSmokeTest` uses the production client and parser with `PRICETRACE_LIVE_SMOKE=1`, `PRICETRACE_SMOKE_URL` and `PRICETRACE_SMOKE_ANON_KEY`, without a user session. Runtime keys are never committed.
 
@@ -129,7 +132,7 @@ Regression fixture maintenance keeps the assertions and production validation in
 
 ## Remote deployment boundary
 
-Use existing legitimate Fitness Nutrition access only. Inspect actual migration history, function definitions and advisors first. This environment has historical differences between the repository and linked migration ledger, so remote history is fetched into an isolated staging directory; the repository's history is not repaired, rewritten or pushed wholesale. A dry-run must list only this migration before deployment.
+Use existing legitimate Fitness Nutrition access only. Inspect actual migration history, function definitions and advisors first. This environment has historical differences between the repository and linked migration ledger, so remote history is fetched into an isolated staging directory; the repository's history is not repaired, rewritten or pushed wholesale. A dry-run for this repair must list only `20261023143111_fix_nutrition_read_v4_contract_version.sql` before deployment.
 
 Post-deploy validation compares v1/v2/v3 hashes, checks all four columns and v4 privileges/RLS, and exercises a synthetic private Nutrition fixture inside a transaction that rolls back. Simulated roles prove database policy behavior; they are not a claim of a real user's authenticated HTTP session. PriceTrace verification remains anonymous/read-only. Real user nutrition rows are never relabeled or backfilled.
 
@@ -140,9 +143,9 @@ Post-deploy validation compares v1/v2/v3 hashes, checks all four columns and v4 
 - Dedicated Android 36.1 / 16 KB emulator: 39 related instrumentation tests passed; the two Compose UI tests passed again after the final title/contrast adjustment. Screens covered registration, existing private/read-only metadata, aliases and unknown parent labels.
 - Actual Room v56 fixture → v57: food, nutrients, meal rows/items, product links and workout rows/sets retained their original columns. The resulting nutrition table matches generated Room creation and the production pre-Room fresh schema.
 - New, legacy-without-Brand and rejected partial backup documents passed round-trip/state-preservation checks. Existing composition and optional-nutrient drafts also restore successfully.
-- SQL: all 35 baseline migrations plus the new migration replayed successfully in PostgreSQL/PGlite. Shared SQL assertions also belong to the native disposable Supabase replay, and the Brand SQL gate is wired into its PR workflow.
+- SQL: all 35 baseline migrations plus both Brand forward migrations replayed successfully in PostgreSQL/PGlite. Shared SQL assertions also belong to the native disposable Supabase replay, and the Brand SQL gate is wired into its PR workflow.
 - The Fitness Nutrition migration was deployed using existing CLI authorization after a one-migration dry-run. Remote ledger contains `20261023121311` exactly once; all four columns have the expected nullable UUID/text types.
-- Remote `get_nutrition_read_v4(text)` is invoker, callable by anon/authenticated. Anonymous HTTP returned 15 public rows; deleting the four added keys yields the exact v3 response.
+- Remote `get_nutrition_read_v4(text)` is invoker, callable by anon/authenticated. Anonymous HTTP returned 15 public rows; v3 identifies itself as `nutrition-read.v3` and repaired v4 as `nutrition-read.v4`. Removing the discriminator from both responses and the four added keys from v4 yields identical ordered business projections.
 - Remote synthetic private fixture: set/change/clear, revision advancement, v4 common projection and cross-owner/anonymous RLS checks passed inside a transaction that rolled back. Retained Brand-linked Nutrition rows after the smoke: 0. No real-user row was edited.
 - Nutrition RLS remained enabled and the policy hash stayed `10997508929411f33299c4a4509091e4`. Advisors reported no new findings; 18 pre-existing warnings remain outside this feature.
 
@@ -155,3 +158,15 @@ The deployed legacy RPC definition hashes were identical before and after deploy
 | `get_nutrition_read_v3(text)` | `d54d97684f42b0b2a806f65b1745c4d9` |
 
 Unverified boundaries: a physical Android device, a real-user authenticated HTTP sync session, and local full Docker/Supabase replay. The physical device and existing AVD data were preserved; a separate AVD was used for tests. Docker Desktop was unavailable locally, so the SQL evidence is PostgreSQL/PGlite plus the deployed database checks, rather than a claim of a local Docker run. Remote migration application and its ledger were independently confirmed despite the CLI's optional local catalog-cache warning.
+
+## Discriminator repair evidence — 2026-10-23
+
+- Baselines fetched before editing: main `d0f93a10371061e5fc06b7c948c39a55810120f9`, feature `46ceec31de59091ae630a352e0f276424d21eef5`.
+- The updated executable discriminator assertion failed against the deployed Brand migration before the repair, then passed after the forward repair. PGlite replays 35 baseline migrations and both forward migrations; legacy definitions, v4 signature/column order/types/grants/security/search path, revision trigger, root/sub-brand/unknown parent/null/clear and anonymous/two-owner visibility checks pass. Query filtering and no-result queries retain exact ordered business equality.
+- `:app:testDebugUnitTest`, `:app:assembleDebug` and `:app:lintDebug` rerun successfully; the forced JVM rerun reports 576 tests, 574 passed, two skipped (the existing ignored test and the opt-in live Brand smoke) using the existing ASCII build mirror; all 1,367 tracked application/build files were compared to this worktree and matched. Android/domain/UI/Room/sync/backup code is unchanged. Instrumentation was not rerun for this SQL-only repair.
+- Native historical replay source preflight passes with 28 recovered and 9 forward migrations. Full local Docker replay remains unverified.
+- Before repair, anonymous HTTP returned 15 v3 and 15 v4 rows, both labeled `nutrition-read.v3`; the actual remote ledger contains the original Brand migration.
+- Repair dry-run listed only `20261023143111_fix_nutrition_read_v4_contract_version.sql`; deployment succeeded and the remote ledger contains it exactly once alongside the original Brand migration. The CLI optional local catalog-cache step warned because Docker Desktop is unavailable; remote application was independently confirmed.
+- Post-repair anonymous HTTP returned 15 v3 rows labeled `nutrition-read.v3` and 15 v4 rows labeled `nutrition-read.v4`. Complete ordered business projections are equal after removing the discriminator from both and the four Brand keys from v4.
+- Remote v1/v2/v3 definition hashes remain identical to the table above. The revision trigger, all nutrition columns, RLS enabled flag and policy definitions are unchanged. v4 retains its exact signature/result types/order, `STABLE SECURITY INVOKER`, empty search path and existing execution ACL. Advisors are identical before/after (18 pre-existing warnings).
+- Independent final SOL review found no actionable issues and reran Brand SQL/PGlite successfully. This repair performs no user-row writes and no main merge.

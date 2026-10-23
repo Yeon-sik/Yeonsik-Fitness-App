@@ -23,7 +23,7 @@ const remote = [
 ];
 const relationGuardsVersion = '20261013065001';
 const canonicalV2EvidenceFixVersion = '20261013072000';
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311'];
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111'];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -317,6 +317,9 @@ async function replay(label, final, kaguriId) {
     await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_brand_catalog_v4.sql'), 'utf8'));
     stage('20261023121311', project.migrationsDir);
     console.log('Applying optional PriceTrace Brand snapshots and Nutrition read v4 locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    stage('20261023143111', project.migrationsDir);
+    console.log('Applying Nutrition read v4 discriminator forward repair locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_brand_catalog_v4.sql'), 'utf8'));
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
