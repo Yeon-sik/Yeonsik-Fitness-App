@@ -193,10 +193,11 @@ internal fun MealCartContent(actions: MealScreenActions, editor: MealUiState.Rea
             val expanded = rowKey == expandedKey
             MealCartRow(menu.draft.menu.ifBlank { "입력 중인 메뉴" },
                 listOf("외식", menu.draft.store, menu.draft.branch, mealDiningPortionSummary(menu)).filter(String::isNotBlank).joinToString(" · "),
-                mealMacroTotalText(NutritionTotals.builder().add(diningMenuNutritionProfile(menu)).build().total(NutritionProfile.CALORIES_KCAL)),
+                mealMacroTotalText(diningMenuNutritionTotals(menu).total(NutritionProfile.CALORIES_KCAL)),
                 expanded, { onExpandedChange(if (expanded) null else rowKey) }, enabled,
                 Modifier.testTag("meal-cart-$rowKey")) {
                 MealDiningAmountEditor(menu, actions::updateDiningMenu, enabled)
+                MealDiningComponentEditor(menu, editor, actions, enabled)
                 TextButton({ onAddAtStore(menu.id) }, enabled = enabled,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                     modifier = Modifier.testTag("meal-dining-add-at-${menu.id}")) { Text("이 식당의 다른 메뉴 담기") }

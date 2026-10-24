@@ -84,6 +84,7 @@ interface MealScreenActions {
     fun startAnotherDiningMenu(menuId: String) {}
     fun clearCurrentDiningMenu() {}
     fun updateDiningMenu(menu: MealDiningDraftItem) {}
+    fun loadDiningComponentChoices(menuId: String) {}
     fun removeDiningMenu(menuId: String) {}
     fun undoRemoveItem() {}
     fun openNutritionEditor() {}
@@ -562,6 +563,7 @@ internal fun DiningOutEditor(
         MealOptionalPercent(editor.diningConsumedPercent, actions::updateDiningConsumedPercent,
             enabled = !editor.saving, tag = "meal-dining-current-percent")
         if (portionError != null) MealInputNotice(portionError)
+        MealDiningComponentEditor(currentDiningMenu(editor), editor, actions, !editor.saving)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
         MealInputNotice(com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy.LABEL_GUIDANCE)
         MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)

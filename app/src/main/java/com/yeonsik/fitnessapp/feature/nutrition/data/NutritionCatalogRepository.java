@@ -592,6 +592,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Source-compatible all-group component search. */
+    @Override
     public List<NutritionFood> savedDiningOutComponents(
             String storeName,
             DiningOutIdentity identity,
