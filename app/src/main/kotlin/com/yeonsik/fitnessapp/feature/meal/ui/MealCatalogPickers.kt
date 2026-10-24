@@ -76,6 +76,31 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
 }
 
 @Composable
+internal fun DiningStoreMenuSuggestions(actions: MealScreenActions, editor: MealUiState.Ready,
+    onReviewFood: (NutritionFood) -> Unit = {}) {
+    val focus = LocalFocusManager.current
+    val enabled = !editor.saving && !editor.draftLoading
+    Column(Modifier.fillMaxWidth().testTag("meal-store-saved-menus"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("이 상호의 저장된 메뉴", style = MaterialTheme.typography.titleSmall)
+        when {
+            editor.searchLoading -> MealCatalogProgress("저장된 외식 메뉴를 찾는 중")
+            editor.searchError != null -> {
+                MealCatalogFeedback(editor.searchError)
+                TextButton({ actions.searchFood(editor.storeLookupQuery.orEmpty()) }, enabled = enabled) { Text("저장된 메뉴 다시 찾기") }
+            }
+            editor.searchResults.isEmpty() -> Text("이 상호로 저장된 메뉴가 없어요. 식당 검색 결과에서 선택하거나 직접 입력하세요.",
+                style = MaterialTheme.typography.bodyMedium)
+            else -> MealCatalogResultList(editor.searchResults, {
+                focus.clearFocus()
+                actions.useDiningOutFood(it)
+            }, Modifier.fillMaxWidth().testTag("meal-store-menu-results"), enabled = enabled,
+                includedFoodIds = diningMealMenus(editor).mapNotNull { it.nutritionFoodId }.toSet(),
+                actionLabel = "불러오기", onReviewFood = onReviewFood)
+        }
+    }
+}
+
+@Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun MealFoodPortionDialog(food: NutritionFood, enabled: Boolean,
     onDismiss: () -> Unit, onAdd: (FoodPortionDraft) -> Unit) {

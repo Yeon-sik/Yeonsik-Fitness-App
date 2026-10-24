@@ -153,7 +153,8 @@ sealed interface MealUiState {
         val diningComponents: List<MealDiningComponentDraft> = emptyList(),
         val componentChoices: List<DiningOutComponent> = emptyList(),
         val componentChoicesLoading: Boolean = false,
-        val componentChoicesError: String? = null
+        val componentChoicesError: String? = null,
+        val storeLookupQuery: String? = null
     ) : MealUiState
 }
 
@@ -234,7 +235,7 @@ class MealViewModel @JvmOverloads constructor(
     @Volatile private var date = ""
     @Volatile private var requestVersion = 0L
     private var catalogRequestVersion = 0L
-    private var priceTraceRequestVersion = 0L
+    @Volatile private var priceTraceRequestVersion = 0L
     private var nutritionPublicationRequestVersion = 0L
     @Volatile private var nutritionAnalysisRequestVersion = 0L
     private var detailRequestVersion = 0L
@@ -242,12 +243,14 @@ class MealViewModel @JvmOverloads constructor(
     private var selectedFood: NutritionFood? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
+    private var storeSearch: Runnable? = null
     private var draftBeforeRecordEdit: MealUiState.Ready? = null
 
     fun enter(scope: AccountScope, date: String) {
         val activeEdit = mutableState.value as? MealUiState.Ready
         if (activeEdit?.ownerId == scope.ownerId && activeEdit.date == date && activeEdit.recordEditor != null) return
         searchJob?.cancel()
+        cancelPendingStoreSearch()
         val previousOwner = ownerId.ifEmpty { savedStateHandle[KEY_DRAFT_OWNER] ?: "" }
         val previousDate = this.date.ifEmpty { savedStateHandle[KEY_DRAFT_DATE] ?: "" }
         val dateChanged = previousOwner != scope.ownerId || previousDate != date
@@ -371,6 +374,7 @@ class MealViewModel @JvmOverloads constructor(
         } else if (ready().editing && !ready().saving) {
             search(ready().query)
         }
+        if (ready().editing && ready().diningOut && ready().storeLookupQuery != null) scheduleStoreSearch()
     }
 
     fun startDraft() {
@@ -414,7 +418,40 @@ fun chooseFood() = chooseCategory(MealCatalogCategory.INGREDIENT)
     }
 
 fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
-    fun updateStore(value: String) = draft(KEY_STORE, value)
+    fun updateStore(value: String) {
+        val state = ready()
+        if (state.saving || state.draftLoading || state.draft.store == value) return
+        draft(KEY_STORE, value)
+        if (!state.editing || !state.diningOut) return
+        update { it.copy(storeLookupQuery = value.takeIf(String::isNotBlank)) }
+        // Reuse the owner-scoped local menu search before queuing remote discovery.
+        search(value)
+        updatePriceTraceQuery(value)
+        if (value.isNotBlank()) scheduleStoreSearch()
+    }
+
+    private fun scheduleStoreSearch() {
+        cancelPendingStoreSearch()
+        val state = ready()
+        val query = state.storeLookupQuery ?: return
+        val request = priceTraceRequestVersion
+        val work = Runnable {
+            storeSearch = null
+            val current = ready()
+            if (current.ownerId == state.ownerId && current.date == state.date && current.editing &&
+                current.diningOut && !current.saving && current.storeLookupQuery == query &&
+                priceTraceReady().query == query && request == priceTraceRequestVersion) {
+                searchPriceTraceRestaurants()
+            }
+        }
+        storeSearch = work
+        mainHandler.postDelayed(work, searchDelayMillis)
+    }
+
+    private fun cancelPendingStoreSearch() {
+        storeSearch?.let(mainHandler::removeCallbacks)
+        storeSearch = null
+    }
     fun updateBranch(value: String) = draft(KEY_BRANCH, value)
     fun updateMenu(value: String) = draft(KEY_MENU, value)
     fun updateCalories(value: String) = draft(KEY_CALORIES, value)
@@ -484,6 +521,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
 
     fun clearCurrentDiningMenu() {
         if (ready().saving) return
+        cancelStoreLookup()
         val state = ready()
         listOf(KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS,
             KEY_SATURATED_FAT, KEY_TRANS_FAT, KEY_FOOD_ID, KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
@@ -869,6 +907,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun updatePriceTraceQuery(value: String) {
+        cancelPendingStoreSearch()
         savedStateHandle[KEY_PRICE_TRACE_QUERY] = value
         update { it.copy(priceTraceQuery = value) }
         val current = priceTraceReady()
@@ -879,6 +918,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun searchPriceTraceRestaurants() {
+        cancelPendingStoreSearch()
         val current = priceTraceReady()
         val query = current.query.trim()
         if (query.isEmpty()) {
@@ -891,6 +931,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         mutablePriceTraceState.value = current.copy(loading = true, error = null, detail = null,
             restaurants = emptyList(), selectedRestaurantId = null, searchedQuery = null)
         executor.execute {
+            if (request != priceTraceRequestVersion || ownerId != requestedOwner) return@execute
             val result = runCatching { nutritionIntegration.searchRestaurants(query) }
             main.post {
                 if (request != priceTraceRequestVersion || ownerId != requestedOwner) return@post
@@ -904,12 +945,14 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun loadPriceTraceRestaurant(restaurantId: String) {
+        cancelPendingStoreSearch()
         if (priceTraceReady().loading) return
         val request = ++priceTraceRequestVersion
         val requestedOwner = ownerId
         mutablePriceTraceState.value = priceTraceReady().copy(loading = true, error = null, detail = null,
             selectedRestaurantId = restaurantId)
         executor.execute {
+            if (request != priceTraceRequestVersion || ownerId != requestedOwner) return@execute
             val result = runCatching { nutritionIntegration.loadRestaurant(restaurantId) }
             main.post {
                 if (request != priceTraceRequestVersion || ownerId != requestedOwner) return@post
@@ -1290,6 +1333,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                 it.restaurantMenuId != menuId || it.catalogProductId != catalogProductId
         }
         if (targetChanged && !keepPendingDiningMenu()) return
+        cancelStoreLookup()
         if (targetChanged) {
             listOf(KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TRANS_FAT)
                 .forEach { savedStateHandle.remove<String>(it) }
@@ -1331,14 +1375,9 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             executor.execute {
                 if (request != requestVersion) return@execute
                 val result = runCatching {
-                    val term = value.trim()
                     val dining = if (state.category == MealCatalogCategory.ALL || state.category == MealCatalogCategory.DINING_OUT) {
                         nutritionCatalog.savedDiningOutMenus().filter { food ->
-                            val branch = food.sourceReference?.let { source ->
-                                runCatching { JSONObject(source).optString("branch_name", "") }.getOrDefault("")
-                            }.orEmpty()
-                            listOf(food.displayName(), food.name, food.brand.orEmpty(), branch)
-                                .any { it.contains(term, ignoreCase = true) }
+                            matchesDiningMenuQuery(food, value, storeOnly = state.storeLookupQuery == value)
                         }
                     } else emptyList()
                     if (state.category == MealCatalogCategory.DINING_OUT) dining else {
@@ -1376,9 +1415,18 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     private fun cancelSearch() {
+        cancelStoreLookup()
         searchJob?.cancel()
         searchJob = null
         ++requestVersion
+    }
+
+    private fun cancelStoreLookup() {
+        cancelPendingStoreSearch()
+        if (ready().storeLookupQuery == null) return
+        ++priceTraceRequestVersion
+        mutablePriceTraceState.value = priceTraceReady().copy(loading = false)
+        update { it.copy(storeLookupQuery = null) }
     }
 
     fun openManualFood() {
@@ -1832,6 +1880,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             else -> proposed
         }
         mutableState.value = next
+        savedStateHandle[KEY_STORE_LOOKUP_QUERY] = next.storeLookupQuery
         savedStateHandle[KEY_EDITING] = next.editing
         savedStateHandle[KEY_DINING_OUT] = next.diningOut
         savedStateHandle[KEY_CATEGORY] = next.category.name
@@ -1891,7 +1940,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         diningComponents = savedStateHandle.get<String>(KEY_DINING_COMPONENTS)?.let(::decodeDiningComponents).orEmpty(),
         priceTraceQuery = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: "",
         manualFoodDraft = savedManualFoodDraft(),
-        manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false
+        manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false,
+        storeLookupQuery = savedStateHandle[KEY_STORE_LOOKUP_QUERY]
     )
 
     private fun priceTraceReady(): PriceTraceUiState.Ready =
@@ -1930,7 +1980,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TRANS_FAT, KEY_TIME, KEY_QUERY,
             KEY_FOOD_ID, KEY_QUANTITY, KEY_RESTAURANT_ID, KEY_RESTAURANT_LOCATION_ID,
             KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID, KEY_SOURCE_NAMESPACE,
-            KEY_SOURCE_LOCATION_CODE, KEY_PRICE_TRACE_QUERY)
+            KEY_SOURCE_LOCATION_CODE, KEY_PRICE_TRACE_QUERY, KEY_STORE_LOOKUP_QUERY)
             .forEach { savedStateHandle.remove<String>(it) }
         listOf(KEY_EDITING, KEY_DINING_OUT, KEY_DINING_PORTION, KEY_DINING_PERCENT, KEY_DINING_MENUS, KEY_DINING_COMPONENTS,
             KEY_PORTION_IDS, KEY_PORTION_AMOUNTS, KEY_PORTION_PERCENTS, KEY_PORTION_MODES, KEY_CATEGORY, "meal.consumed_percent")
@@ -1953,6 +2003,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         ++requestVersion
         ++detailRequestVersion
         searchJob?.cancel()
+        cancelPendingStoreSearch()
+        ++priceTraceRequestVersion
         mainHandler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
     }
@@ -2022,6 +2074,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         const val KEY_SOURCE_NAMESPACE = "meal.source_namespace"
         const val KEY_SOURCE_LOCATION_CODE = "meal.source_location_code"
         const val KEY_PRICE_TRACE_QUERY = "meal.price_trace_query"
+        const val KEY_STORE_LOOKUP_QUERY = "meal.store_lookup_query"
         const val KEY_EDITING = "meal.editing"
         const val KEY_DINING_OUT = "meal.dining_out"
         const val KEY_DINING_PORTION = "meal.dining_portion"

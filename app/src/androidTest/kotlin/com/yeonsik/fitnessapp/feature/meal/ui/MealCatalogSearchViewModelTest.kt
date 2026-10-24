@@ -20,6 +20,58 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 
 class MealCatalogSearchViewModelTest {
+    @Test fun storeTypingFindsSavedMenusAndSearchesOnlyTheLatestRestaurantName() = withModel { vm, _, queue ->
+        main { vm.chooseDiningOut(); vm.updateStore("버"); vm.updateStore("버거킹") }
+        queue.drain()
+        main {
+            assertEquals("버거킹", state(vm).storeLookupQuery)
+            assertEquals("dining", state(vm).searchResults.single().id)
+            assertNull(state(vm).selectedFood)
+            assertEquals("", state(vm).draft.restaurantId)
+            val prices = vm.priceTraceState.value as PriceTraceUiState.Ready
+            assertEquals("버거킹", prices.query)
+            assertEquals("버거킹", prices.searchedQuery)
+        }
+    }
+
+    @Test fun selectingAStoreMatchLoadsExactSavedIdentityAndNutrition() = withModel { vm, catalog, queue ->
+        main { vm.chooseDiningOut(); vm.updateStore("버거킹") }; queue.drain()
+        main {
+            vm.useDiningOutFood(state(vm).searchResults.single())
+            assertEquals(catalog.menu.id, state(vm).selectedFood!!.id)
+            assertEquals("restaurant", state(vm).draft.restaurantId)
+            assertEquals("branch", state(vm).draft.restaurantLocationId)
+            assertEquals("menu", state(vm).draft.restaurantMenuId)
+            assertEquals("product", state(vm).draft.catalogProductId)
+            assertEquals("600", state(vm).draft.calories)
+            assertEquals("", state(vm).draft.sodium)
+            assertNull(state(vm).storeLookupQuery)
+        }
+    }
+
+    @Test fun clearingStoreInputCancelsAutomaticRestaurantSearch() = withModel { vm, _, queue ->
+        main { vm.chooseDiningOut(); vm.updateStore("버거킹"); vm.updateStore("") }; queue.drain()
+        main {
+            assertNull(state(vm).storeLookupQuery)
+            val prices = vm.priceTraceState.value as PriceTraceUiState.Ready
+            assertEquals("", prices.query)
+            assertNull(prices.searchedQuery)
+            assertFalse(prices.loading)
+        }
+    }
+
+    @Test fun ownerSwitchDiscardsStoreMatchesAndPendingRestaurantSearch() = withModel { vm, _, queue ->
+        main { vm.chooseDiningOut(); vm.updateStore("버거킹"); vm.enter(AccountScope("other-owner"), "2026-10-04") }; queue.drain()
+        main {
+            assertNull(state(vm).storeLookupQuery)
+            assertTrue(state(vm).searchResults.isEmpty())
+            val prices = vm.priceTraceState.value as PriceTraceUiState.Ready
+            assertEquals("other-owner", prices.ownerId)
+            assertNull(prices.searchedQuery)
+            assertTrue(prices.restaurants.isEmpty())
+        }
+    }
+
     @Test fun rapidQueriesShowOnlyTheNewestResults() = withModel { vm, _, queue ->
         main { vm.startDraft(); vm.search("밥"); vm.search("계란"); assertTrue(state(vm).searchLoading); assertTrue(state(vm).searchResults.isEmpty()) }
         queue.drain()
@@ -127,7 +179,10 @@ class MealCatalogSearchViewModelTest {
         override fun savedDiningOutMenus(): List<NutritionFood> { check(!failReads) { "Storage unavailable" }; return listOf(menu) }
         override fun findFoodById(foodId: String) = listOf(rice, egg, menu).firstOrNull { it.id == foodId }
         private fun food(id: String, name: String, kind: String) = NutritionFood.builder().id(id).ownerId(currentOwnerId()).name(name).kind(kind)
-            .source("manual_estimate", null).basis(if (kind == NutritionFood.KIND_EXTERNAL_MENU) 1.0 else 100.0,
+            .brand(if (kind == NutritionFood.KIND_EXTERNAL_MENU) "버거킹" else null)
+            .source("manual_estimate", if (kind == NutritionFood.KIND_EXTERNAL_MENU)
+                """{"restaurant_id":"restaurant","restaurant_location_id":"branch","restaurant_menu_id":"menu","catalog_product_id":"product"}""" else null)
+            .basis(if (kind == NutritionFood.KIND_EXTERNAL_MENU) 1.0 else 100.0,
                 if (kind == NutritionFood.KIND_EXTERNAL_MENU) NutritionUnit.SERVING else NutritionUnit.GRAM)
             .profile(NutritionProfile.ofMacros(600.0, 30.0, 80.0, 15.0)).build()
     }
