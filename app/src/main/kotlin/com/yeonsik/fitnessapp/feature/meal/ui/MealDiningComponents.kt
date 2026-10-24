@@ -17,11 +17,20 @@ data class MealDiningComponentDraft(
     val nutrients: Map<String, String> = emptyMap(),
     val catalogFoodId: String? = null,
     val sourceReference: String? = null,
-    val groupKey: String = DiningOutOption.DEFAULT_GROUP_KEY,
-    val groupLabel: String = DiningOutOption.DEFAULT_GROUP_LABEL,
+    val groupKey: String = CompositionGroupType.normalize(groupType),
+    val groupLabel: String = CompositionGroupType.labelOf(groupType),
     val role: String = DiningOutOption.DEFAULT_ROLE,
     val memberId: String? = null
 ) {
+    /** Identity edits detach the selection; portion/provision edits keep its original definition. */
+    fun reconcileIdentity(previous: MealDiningComponentDraft): MealDiningComponentDraft {
+        val type = CompositionGroupType.normalize(groupType)
+        if (name.trim() == previous.name.trim() && type == CompositionGroupType.normalize(previous.groupType)) return this
+        return copy(groupType = type, groupKey = type, groupLabel = CompositionGroupType.labelOf(type),
+            catalogFoodId = null, memberId = null, role = DiningOutOption.DEFAULT_ROLE,
+            sourceReference = independentDiningComponentSourceReference(sourceReference))
+    }
+
     fun profile(): NutritionProfile = NutritionProfile.builder().apply {
         nutrients.forEach { (key, raw) -> value(key, raw.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0 }) }
     }.build()
@@ -50,6 +59,20 @@ data class MealDiningComponentDraft(
             catalogFoodId = component.catalogFoodId, sourceReference = component.sourceReference,
             groupKey = component.groupKey, groupLabel = component.groupLabel, role = component.role, memberId = component.memberId)
     }
+}
+
+/** Catalog component references are flat JSON. Keep unrelated context, including PriceTrace menu ids. */
+private fun independentDiningComponentSourceReference(raw: String?): String? {
+    val source = runCatching { JSONObject(raw ?: "{}") }.getOrNull() ?: return null
+    source.keys().asSequence().toList().forEach { key ->
+        val normalized = key.replace("_", "").lowercase(java.util.Locale.ROOT)
+        val definition = listOf("composition", "template", "member", "component").any(normalized::startsWith) ||
+            normalized in setOf("catalogfoodid", "nutritionfoodid")
+        val definitionContract = normalized == "contractversion" &&
+            (source.optString(key).startsWith("dining-out-component.") || source.optString(key).startsWith("composition-template."))
+        if (definition || definitionContract) source.remove(key)
+    }
+    return source.takeIf { it.length() > 0 }?.toString()
 }
 
 internal fun encodeDiningComponents(items: List<MealDiningComponentDraft>): String = JSONArray().apply {

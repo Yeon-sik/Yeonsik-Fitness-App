@@ -19,7 +19,7 @@ internal fun MealDiningComponentEditor(menu: MealDiningDraftItem, state: MealUiS
         menu.components.forEach { item -> key(item.id) {
             var expanded by rememberSaveable(item.id) { mutableStateOf(item.name.isBlank()) }
             fun change(next: MealDiningComponentDraft) = actions.updateDiningMenu(menu.copy(components =
-                menu.components.map { if (it.id == item.id) next else it }))
+                menu.components.map { if (it.id == item.id) next.reconcileIdentity(item) else it }))
             TextButton({ expanded = !expanded }, enabled = enabled,
                 modifier = Modifier.testTag("meal-component-edit-${item.id}")) {
                 Text("${item.name.ifBlank { "새 구성품" }} · ${CompositionGroupType.labelOf(item.groupType)} · " +
@@ -28,7 +28,7 @@ internal fun MealDiningComponentEditor(menu: MealDiningDraftItem, state: MealUiS
             if (expanded) {
                 ComponentChoice("종류", item.groupType, CompositionGroupType.values().map { it.value() to it.label() },
                     enabled) { change(item.copy(groupType = it)) }
-                AppTextField(item.name, { name -> change(item.copy(name = name, catalogFoodId = null, memberId = null)) },
+                AppTextField(item.name, { name -> change(item.copy(name = name)) },
                     Modifier.fillMaxWidth().testTag("meal-component-name-${item.id}"), label = { Text("구성품") }, enabled = enabled)
                 MealQuantityAdjuster(item.quantity, "개", 1.0, { change(item.copy(quantity = it)) }, enabled,
                     "meal-component-quantity-${item.id}", item.name.ifBlank { "구성품" })

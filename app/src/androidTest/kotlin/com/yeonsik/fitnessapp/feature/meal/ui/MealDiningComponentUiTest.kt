@@ -47,6 +47,8 @@ class MealDiningComponentUiTest {
         compose.runOnIdle {
             val item = menu.components.single()
             assertEquals("beverage", item.groupType)
+            assertEquals("beverage", item.groupKey)
+            assertEquals("음료", item.groupLabel)
             assertEquals("review_event", item.provisionType)
             assertEquals("3", item.quantity)
             assertEquals("33.3333", item.consumedPercent)

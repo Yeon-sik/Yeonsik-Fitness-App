@@ -496,8 +496,13 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             diningConsumedPercent = "100", diningComponents = emptyList(), error = null, catalogNotice = null) }
     }
 
-    fun updateDiningMenu(menu: MealDiningDraftItem) {
+    fun updateDiningMenu(updatedMenu: MealDiningDraftItem) {
         if (ready().saving) return
+        val previousComponents = diningMealMenus(ready()).firstOrNull { it.id == updatedMenu.id }
+            ?.components.orEmpty().associateBy { it.id }
+        val menu = updatedMenu.copy(components = updatedMenu.components.map { component ->
+            previousComponents[component.id]?.let(component::reconcileIdentity) ?: component
+        })
         if (menu.id == "current-menu") {
             val previous = currentDiningMenu(ready())
             val renamed = previous.draft.store != menu.draft.store || previous.draft.branch != menu.draft.branch ||

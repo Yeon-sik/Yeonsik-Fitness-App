@@ -20,6 +20,46 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 
 class MealConsumedPercentViewModelTest {
+    @Test fun groupEditInvalidatesTemplateIdentityInCurrentDraftAndSavedInput() = withFixture {
+        main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
+        queue.drain()
+        main {
+            val selected = MealDiningComponentDraft.from(state().componentChoices.single())
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(selected)))
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(selected.copy(groupType = "beverage"))))
+            val changed = currentDiningMenu(state()).components.single()
+            assertEquals("beverage", changed.groupKey); assertEquals("음료", changed.groupLabel)
+            assertNull(changed.catalogFoodId); assertNull(changed.memberId); assertNull(changed.sourceReference)
+            vm.save(scope) {}
+        }
+        queue.drain()
+        val saved = savedDining.single().components!!.single()
+        assertEquals("beverage", saved.groupType); assertEquals("beverage", saved.groupKey)
+        assertNull(saved.catalogFoodId); assertNull(saved.memberId); assertNull(saved.sourceReference)
+    }
+
+    @Test fun nameEditInvalidatesTemplateIdentityInQueuedMenuAndRestoredDraft() = withFixture {
+        main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
+        queue.drain()
+        main {
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(MealDiningComponentDraft.from(state().componentChoices.single()))))
+            vm.addDiningMenu()
+            val menu = state().diningMenus.single()
+            vm.updateDiningMenu(menu.copy(components = listOf(menu.components.single().copy(name = "새 구성품"))))
+            vm = createModel(); vm.enter(scope, date)
+        }
+        queue.drain()
+        main {
+            val restored = state().diningMenus.single().components.single()
+            assertEquals("새 구성품", restored.name)
+            assertNull(restored.catalogFoodId); assertNull(restored.memberId); assertNull(restored.sourceReference)
+            vm.save(scope) {}
+        }
+        queue.drain()
+        val saved = savedDining.single().components!!.single()
+        assertNull(saved.catalogFoodId); assertNull(saved.memberId); assertNull(saved.sourceReference)
+    }
+
     @Test fun savedTemplateMembersCanBeSelectedWithoutChangingTheirDefinition() = withFixture {
         main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
         queue.drain()
@@ -30,11 +70,18 @@ class MealConsumedPercentViewModelTest {
             assertEquals(3.0, choice.quantity, 0.0)
             assertEquals(20.0, choice.profile.calories(), 0.0)
             assertEquals("dining-template", org.json.JSONObject(choice.sourceReference!!).getString("composition_template_id"))
-            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(MealDiningComponentDraft.from(choice).copy(quantity = "4"))))
+            val component = MealDiningComponentDraft.from(choice)
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(component)))
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(component.copy(quantity = "4", provisionType = "review_event", consumedPercent = "50"))))
             vm.save(scope) {}
         }
         queue.drain()
         assertEquals(4.0, savedDining.single().components!!.single().quantity, 0.0)
+        assertEquals("review_event", savedDining.single().components!!.single().provisionType)
+        assertEquals(0.5, savedDining.single().components!!.single().consumedFraction, 0.0)
+        assertEquals("shrimp", savedDining.single().components!!.single().catalogFoodId)
+        assertEquals("dining-member", savedDining.single().components!!.single().memberId)
+        assertEquals("dining-template", org.json.JSONObject(savedDining.single().components!!.single().sourceReference!!).getString("composition_template_id"))
         assertEquals(3.0, diningTemplate.groups.single().members.single().quantity, 0.0)
     }
 

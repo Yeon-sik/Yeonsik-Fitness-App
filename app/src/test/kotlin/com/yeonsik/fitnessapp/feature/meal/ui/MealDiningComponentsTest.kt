@@ -5,6 +5,65 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MealDiningComponentsTest {
+    @Test fun newManualBeverageUsesStableGroupMetadata() {
+        val draft = MealDiningComponentDraft(name = "콜라", groupType = "BEVERAGE")
+        assertEquals("beverage", draft.groupKey)
+        assertEquals(CompositionGroupType.labelOf("beverage"), draft.groupLabel)
+        assertEquals("beverage", draft.selection().groupKey)
+        assertEquals("음료", draft.selection().groupLabel)
+    }
+
+    @Test fun templateQuantityChangePreservesDefinitionIdentity() {
+        val original = templateComponent()
+        assertDefinitionPreserved(original, original.copy(quantity = "4").reconcileIdentity(original))
+    }
+
+    @Test fun templateProvisionChangePreservesDefinitionIdentity() {
+        val original = templateComponent()
+        assertDefinitionPreserved(original, original.copy(provisionType = "review_event").reconcileIdentity(original))
+    }
+
+    @Test fun templateConsumedFractionChangePreservesDefinitionIdentity() {
+        val original = templateComponent()
+        assertDefinitionPreserved(original, original.copy(consumedPercent = "33.3333").reconcileIdentity(original))
+    }
+
+    @Test fun nameChangeDetachesCatalogMemberAndTemplateButKeepsPriceTraceContext() {
+        val original = templateComponent()
+        val changed = original.copy(name = "새 구성품").reconcileIdentity(original)
+        assertDefinitionDetached(changed)
+        assertEquals(original.nutrients, changed.nutrients)
+        assertEquals(original.quantity, changed.quantity)
+        val restored = decodeDiningComponents(encodeDiningComponents(listOf(changed))).single()
+        assertDefinitionDetached(restored)
+        assertNull(restored.selection().catalogFoodId)
+        assertNull(restored.selection().memberId)
+    }
+
+    @Test fun groupChangeDetachesDefinitionAndRealignsGroupMetadata() {
+        val original = templateComponent()
+        val changed = original.copy(groupType = "beverage").reconcileIdentity(original)
+        assertDefinitionDetached(changed)
+        assertEquals("beverage", changed.groupKey)
+        assertEquals("음료", changed.groupLabel)
+        assertEquals(original.name, changed.name)
+        assertEquals(original.nutrients, changed.nutrients)
+        val selected = changed.selection()
+        assertEquals("beverage", selected.groupType)
+        assertEquals("beverage", selected.groupKey)
+        assertEquals("음료", selected.groupLabel)
+    }
+
+    @Test fun unchangedIdentityKeepsDefinitionAndDefinitionOnlyOrOpaqueSourceIsRemovedOnEdit() {
+        val original = templateComponent()
+        assertDefinitionPreserved(original, original.copy(name = " ${original.name} ", groupType = "ADD_ON").reconcileIdentity(original))
+        listOf("{\"composition_template_id\":\"burger-template\",\"composition_member_id\":\"shrimp-member\"}",
+            "template:burger-template/shrimp-member").forEach { source ->
+            val draft = original.copy(sourceReference = source)
+            assertNull(draft.copy(name = "수동 입력").reconcileIdentity(draft).sourceReference)
+        }
+    }
+
     @Test fun quantityAndFractionStayIndependentThroughSelectionAndDraftRestore() {
         val draft = MealDiningComponentDraft(name = "뼈 추가", quantity = "2", consumedPercent = "33.33333333333333",
             nutrients = mapOf(NutritionProfile.CALORIES_KCAL to "300", NutritionProfile.PROTEIN_GRAMS to "30"),
@@ -73,6 +132,43 @@ class MealDiningComponentsTest {
         assertEquals("template", source.getString("composition_template_id"))
         assertEquals("restaurant", source.getString("restaurant_id"))
         assertEquals("pricetrace", source.getString("source_namespace"))
+        assertEquals("seoul-1", source.getString("source_location_code"))
+    }
+
+    private fun templateComponent() = MealDiningComponentDraft(name = "통새우 추가", groupType = "add_on", quantity = "3",
+        catalogFoodId = "shrimp-food", memberId = "shrimp-member", groupKey = "add-ons", groupLabel = "버거 추가 구성",
+        nutrients = mapOf("calories_kcal" to "20"), sourceReference = """{
+            "contract_version":"dining-out-component.v1","composition_contract":"composition-template.v1",
+            "composition_template_id":"burger-template","composition_template_revision":2,
+            "composition_group_key":"add-ons","composition_group_type":"add_on","composition_group_label":"버거 추가 구성",
+            "composition_member_id":"shrimp-member","composition_role":"optional","component_id":"shrimp-component",
+            "catalog_food_id":"shrimp-food","templateId":"burger-template","memberId":"shrimp-member",
+            "namespace":"pricetrace","restaurant_id":"restaurant","restaurant_location_id":"location",
+            "restaurant_menu_id":"burger","catalog_product_id":"product","source_location_code":"seoul-1"
+        }""".trimIndent())
+
+    private fun assertDefinitionPreserved(original: MealDiningComponentDraft, changed: MealDiningComponentDraft) {
+        assertEquals(original.catalogFoodId, changed.catalogFoodId)
+        assertEquals(original.memberId, changed.memberId)
+        assertEquals(original.sourceReference, changed.sourceReference)
+        assertEquals(original.groupKey, changed.groupKey)
+        assertEquals(original.groupLabel, changed.groupLabel)
+        val selected = changed.selection()
+        assertEquals("shrimp-food", selected.catalogFoodId)
+        assertEquals("shrimp-member", selected.memberId)
+    }
+
+    private fun assertDefinitionDetached(changed: MealDiningComponentDraft) {
+        assertNull(changed.catalogFoodId)
+        assertNull(changed.memberId)
+        val source = org.json.JSONObject(changed.sourceReference!!)
+        assertEquals(setOf("namespace", "restaurant_id", "restaurant_location_id", "restaurant_menu_id", "catalog_product_id",
+            "source_location_code"), source.keys().asSequence().toSet())
+        assertEquals("pricetrace", source.getString("namespace"))
+        assertEquals("restaurant", source.getString("restaurant_id"))
+        assertEquals("location", source.getString("restaurant_location_id"))
+        assertEquals("burger", source.getString("restaurant_menu_id"))
+        assertEquals("product", source.getString("catalog_product_id"))
         assertEquals("seoul-1", source.getString("source_location_code"))
     }
 
