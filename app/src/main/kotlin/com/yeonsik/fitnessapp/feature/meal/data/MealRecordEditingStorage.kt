@@ -28,6 +28,9 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
         val nutrients = dao.visibleMealItemNutrients(recordId, scope.ownerId).groupBy { it.mealRecordItemId }
         val consumptions = dao.visibleMealConsumptions(recordId, scope.ownerId).associateBy { it.mealRecordItemId }
         val rows = dao.visibleMealItems(recordId, scope.ownerId)
+        val components = dao.visibleMealComponents(recordId, scope.ownerId).groupBy { it.mealRecordItemId }
+        val componentNutrients = dao.visibleMealComponentNutrients(recordId, scope.ownerId)
+            .groupBy { it.mealRecordItemComponentId }
         val items = rows.map { row ->
             require(row.quantity.isFinite() && row.quantity > 0) { "기록한 음식의 섭취량을 확인할 수 없습니다." }
             val dining = row.foodKindSnapshot == NutritionFood.KIND_EXTERNAL_MENU ||
@@ -46,7 +49,26 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
                 .profile(profile(row, nutrients[row.id].orEmpty()).scaled(basis / quantity))
                 .source(row.sourceTypeSnapshot, row.sourceReferenceSnapshot).sourceVersion(row.sourceVersionSnapshot)
                 .dataVersion(row.foodDataVersionSnapshot?.toInt() ?: NutritionFood.DATA_VERSION_MACROS_ONLY).build()
-            MealRecordEditItem(row.id, food, quantity, consumptions[row.id]?.consumedFraction ?: 1.0, dining, row.foodId)
+            val consumption = consumptions[row.id]?.let {
+                DiningOutConsumption.fromSnapshot(it.dinerCount.toInt(), it.consumedFraction, it.shareMethod, it.confidence)
+            }
+            val selections = if (!dining) emptyList() else components[row.id].orEmpty().map { component ->
+                val profile = NutritionProfile.builder()
+                    .value("calories_kcal", component.calories).value("protein_grams", component.proteinGrams)
+                    .value("carbs_grams", component.carbsGrams).value("fat_grams", component.fatGrams)
+                    .value("sodium_mg", component.sodiumMg).value("sugars_grams", component.sugarsGrams)
+                    .value("saturated_fat_grams", component.saturatedFatGrams).value("trans_fat_grams", component.transFatGrams)
+                    .value("fiber_grams", component.fiberGrams).value("added_sugars_grams", component.addedSugarsGrams)
+                    .value("cholesterol_mg", component.cholesterolMg)
+                componentNutrients[component.id].orEmpty().forEach { profile.value(it.nutrientCode, it.amount) }
+                DiningOutComponent(component.foodNameSnapshot, profile.build().scaled(1.0 / component.quantity),
+                    component.foodId, component.sourceReferenceSnapshot, component.compositionGroupKeySnapshot,
+                    component.compositionGroupTypeSnapshot, CompositionGroupType.labelOf(component.compositionGroupTypeSnapshot),
+                    component.compositionRoleSnapshot, component.compositionMemberIdSnapshot, component.provisionTypeSnapshot,
+                    component.quantity, component.consumedFraction ?: 1.0)
+            }
+            MealRecordEditItem(row.id, food, quantity, consumption?.consumedFraction ?: 1.0, dining, row.foodId,
+                selections, consumption)
         }.ifEmpty {
             // Old summary-only records have no catalog identity or recoverable portion basis.
             val profile = NutritionProfile.builder().value("calories_kcal", record.calories.toDouble())
@@ -118,7 +140,8 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
         private val componentNutrients = dao.visibleMealComponentNutrients(record.id, record.userId).groupBy { it.mealRecordItemComponentId }
         private val consumptions = dao.visibleMealConsumptions(record.id, record.userId).associateBy { it.mealRecordItemId }
 
-        fun preserve(originalId: String?, newId: String, dining: Boolean) {
+        @JvmOverloads
+        fun preserve(originalId: String?, newId: String, dining: Boolean, replaceComponents: Boolean = false) {
             var row = dao.visibleMealItems(record.id, record.userId).first { it.id == newId }
             if (originalId == null) {
                 require(row.foodId?.startsWith("meal-record-item:") != true) { "원래 음식의 연결을 확인할 수 없습니다. 식단을 다시 여세요." }
@@ -160,7 +183,7 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
                     amount = nutrient.amount * ratio, createdAt = timestamp, updatedAt = timestamp, deletedAt = null,
                     deviceId = "android-local"))
             }
-            if (sameProfile) components[originalId].orEmpty().forEach { component ->
+            if (sameProfile && !replaceComponents) components[originalId].orEmpty().forEach { component ->
                 val id = UUID.randomUUID().toString()
                 dao.insertComponent(component.copy(id = id, mealRecordItemId = newId, quantity = component.quantity * ratio,
                     calories = component.calories?.times(ratio), proteinGrams = component.proteinGrams?.times(ratio),

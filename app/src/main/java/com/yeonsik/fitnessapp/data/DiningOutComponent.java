@@ -11,6 +11,22 @@ import org.json.JSONObject;
  * menu-to-component possibility link.</p>
  */
 public final class DiningOutComponent extends DiningOutOption {
+    /** Ordered units, independent from this user's consumed fraction. */
+    public final double quantity;
+
+    public DiningOutComponent(
+            String name, NutritionProfile profile, String catalogFoodId, String sourceReference,
+            String groupKey, String groupType, String groupLabel, String role, String memberId,
+            String provisionType, double quantity, double consumedFraction
+    ) {
+        super(name, profile, catalogFoodId, sourceReference, groupKey, groupType, groupLabel,
+                role, memberId, provisionType, consumedFraction);
+        if (!Double.isFinite(quantity) || quantity <= 0d) {
+            throw new IllegalArgumentException("Component quantity must be finite and positive.");
+        }
+        this.quantity = quantity;
+    }
+
     public DiningOutComponent(
             String name,
             NutritionProfile profile,
@@ -24,7 +40,7 @@ public final class DiningOutComponent extends DiningOutOption {
             String provisionType,
             double consumedFraction
     ) {
-        super(
+        this(
                 name,
                 profile,
                 catalogFoodId,
@@ -35,6 +51,7 @@ public final class DiningOutComponent extends DiningOutOption {
                 role,
                 memberId,
                 provisionType,
+                1d,
                 consumedFraction
         );
     }
@@ -341,6 +358,7 @@ public final class DiningOutComponent extends DiningOutOption {
                 role,
                 memberId,
                 provisionType,
+                quantity,
                 fraction
         );
     }
@@ -358,8 +376,25 @@ public final class DiningOutComponent extends DiningOutOption {
                 role,
                 memberId,
                 type,
+                quantity,
                 consumedFraction
         );
+    }
+
+    public DiningOutComponent withQuantity(double value) {
+        return new DiningOutComponent(name, profile, catalogFoodId, sourceReference, groupKey,
+                groupType, groupLabel, role, memberId, provisionType, value, consumedFraction);
+    }
+
+    @Override
+    public NutritionProfile consumedProfile() {
+        return profile.scaled(quantity * consumedFraction);
+    }
+
+    @Override
+    public MealCompositionItem asMealCompositionItem(String ownerId, String restaurantName) {
+        MealCompositionItem unit = super.asMealCompositionItem(ownerId, restaurantName);
+        return MealCompositionItem.from(unit.food, quantity);
     }
 
     private static JSONObject sourceObject(String sourceReference) {

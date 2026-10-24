@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.feature.meal.model
 
 import com.yeonsik.fitnessapp.data.NutritionFood
+import com.yeonsik.fitnessapp.data.DiningOutComponent
+import com.yeonsik.fitnessapp.data.DiningOutConsumption
 
 /** Foods come from the consumed snapshots, including foods no longer in the catalog. */
 data class MealRecordEditSnapshot(
@@ -12,13 +14,15 @@ data class MealRecordEditSnapshot(
     val items: List<MealRecordEditItem>
 )
 
-data class MealRecordEditItem(
+data class MealRecordEditItem @JvmOverloads constructor(
     val itemId: String?,
     val food: NutritionFood,
     val quantity: Double,
     val consumedFraction: Double = 1.0,
     val diningOut: Boolean = false,
-    val sourceFoodId: String? = null
+    val sourceFoodId: String? = null,
+    val components: List<DiningOutComponent> = emptyList(),
+    val consumption: DiningOutConsumption? = null
 )
 
 /** Original item ids retain provenance; new additions have no original id. */

@@ -33,6 +33,11 @@ public final class DiningOutConsumption {
                 : confidence.trim();
     }
 
+    /** Restores the original sharing context without deriving a new fraction. */
+    public static DiningOutConsumption fromSnapshot(int dinerCount, double fraction, String method, String confidence) {
+        return new DiningOutConsumption(dinerCount, fraction, method, confidence);
+    }
+
     /** Uses equal splitting only as the input default, never as a permanent denominator. */
     public static DiningOutConsumption equalByDiners(int dinerCount) {
         int normalizedDinerCount = requireDinerCount(dinerCount);
