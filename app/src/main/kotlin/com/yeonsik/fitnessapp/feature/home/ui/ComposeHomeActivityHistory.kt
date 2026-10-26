@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,7 +49,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -128,6 +129,12 @@ internal fun HomeActivityHistorySection(
                                 onSelectPage,
                                 interactive
                             )
+                            key(page.identity) {
+                                HomeActivityOverview(page.cells, interactive) { date ->
+                                    if (selectedDate != date) onSelectDate(date)
+                                    selectedDate = date
+                                }
+                            }
                             ActivityGrid(
                                 cells = page.cells,
                                 selectedDate = selectedDate.takeIf { interactive },
@@ -160,7 +167,7 @@ internal fun HomeActivityHistorySection(
                                 is HomeActivityUiState.Error -> {
                                     Text("활동 내역을 불러오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
                                     TextButton(onClick = onRetry, modifier = Modifier.testTag("home-activity-retry")) {
-                                        Text("다시 시도")
+                                        Text("다시 시도", color = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
                                 else -> Text("활동 내역을 불러오는 중입니다.", style = MaterialTheme.typography.bodyMedium)
@@ -186,15 +193,17 @@ private fun ActivityWindowNavigation(
         IconButton(
             onClick = onPrevious,
             enabled = enabled && window.canGoPrevious,
-            modifier = Modifier.width(48.dp).testTag("home-activity-previous")
+            modifier = Modifier.width(48.dp).heightIn(min = 48.dp).testTag("home-activity-previous")
                 .semantics { contentDescription = "이전 기간" }
         ) { Icon(FitnessBackIcon, contentDescription = null, modifier = Modifier.size(24.dp)) }
         Box(Modifier.weight(1f)) {
             TextButton(
                 onClick = { expanded = true },
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth().testTag("home-activity-period")
-            ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("home-activity-period")
+            ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
             DropdownMenu(
                 expanded = expanded && enabled,
                 onDismissRequest = { expanded = false },
@@ -205,7 +214,7 @@ private fun ActivityWindowNavigation(
             ) {
                 HomeActivityWindowPolicy.windows(window.today, window.firstRecordedDate).forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option.periodLabel, style = MaterialTheme.typography.bodySmall) },
+                        text = { Text(option.periodLabel, style = MaterialTheme.typography.bodyMedium) },
                         onClick = {
                             expanded = false
                             onSelectPage(option.pageOffset)
@@ -218,7 +227,7 @@ private fun ActivityWindowNavigation(
         IconButton(
             onClick = onNext,
             enabled = enabled && window.canGoNext,
-            modifier = Modifier.width(48.dp).testTag("home-activity-next")
+            modifier = Modifier.width(48.dp).heightIn(min = 48.dp).testTag("home-activity-next")
                 .semantics { contentDescription = "다음 기간" }
         ) { Icon(FitnessActionNextIcon, contentDescription = null, modifier = Modifier.size(24.dp)) }
     }
@@ -410,8 +419,8 @@ private fun ActivityDayPreview(
             Column(
                 modifier = Modifier.shadow(8.dp, RoundedCornerShape(12.dp))
                     .background(colors.surface, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 9.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -419,33 +428,26 @@ private fun ActivityDayPreview(
                 ) {
                     Text(
                         date,
-                        modifier = Modifier.testTag("home-activity-preview-date")
+                        modifier = Modifier.weight(1f).testTag("home-activity-preview-date")
                             .semantics { contentDescription = date.replace('-', ' ') },
                         color = colors.onSurface,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Text(
-                        "기록 보기 ›",
-                        modifier = Modifier
-                            .clickable(role = Role.Button, onClick = onOpenRecords)
-                            .padding(horizontal = 3.dp, vertical = 2.dp)
-                            .testTag("home-activity-open-records"),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1
-                    )
+                    IconButton(onClick = onDismissRequest,
+                        modifier = Modifier.size(48.dp).testTag("home-activity-preview-close")) {
+                        Icon(Icons.Default.Close, contentDescription = "기록 요약 닫기",
+                            tint = colors.onSurface)
+                    }
                 }
                 when {
                     isLoading || details == null && !error ->
-                        Text("기록을 불러오는 중", color = colors.onSurface, style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("기록을 불러오는 중", color = colors.onSurface, style = MaterialTheme.typography.bodyMedium)
                     error -> Text("기록을 불러오지 못했어요", color = colors.onSurface,
-                        style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        style = MaterialTheme.typography.bodyMedium)
                     details?.records?.isEmpty() != false || rows.isEmpty() ->
                         Text("기록 없음", modifier = Modifier.testTag("home-activity-preview-empty"),
-                            color = colors.onSurface, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            color = colors.onSurface, style = MaterialTheme.typography.bodyMedium)
                     else -> key(expectedOwnerId, date) {
                         Column(
                             Modifier.fillMaxWidth().heightIn(max = 180.dp)
@@ -464,14 +466,20 @@ private fun ActivityDayPreview(
                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
                                     Text(row.kind.label, color = colors.onSurface,
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Text("·", color = colors.onSurface, style = MaterialTheme.typography.labelSmall)
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    Text("·", color = colors.onSurface, style = MaterialTheme.typography.bodyMedium)
                                     Text(row.summary, color = colors.onSurface,
-                                        style = MaterialTheme.typography.labelSmall)
+                                        style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
                     }
+                }
+                TextButton(onClick = onOpenRecords,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("home-activity-open-records")) {
+                    Text("기록 보기 ›", color = colors.onSurface,
+                        style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -505,7 +513,12 @@ private class ActivityCalloutPositionProvider(
 
 @Composable
 private fun ActivityLegend() {
-    Column(Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)) {
+    Column(Modifier.fillMaxWidth().padding(top = FitnessSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("하루 기록 종류 · 운동 / 식단 / 체중",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth().testTag("home-activity-legend-meaning"))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             (0..3).forEach { count ->
                 val kinds = HomeActivityCoveragePolicyV1.baselineKinds.take(count).toSet()
@@ -515,14 +528,14 @@ private fun ActivityLegend() {
                         if (count == 0) MaterialTheme.colorScheme.surfaceContainerHighest
                         else HomeActivityCoverageColor.copy(alpha = alpha), RoundedCornerShape(2.dp)
                     ))
-                    Text("${count}종", style = MaterialTheme.typography.labelSmall)
+                    Text("${count}종", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
         Text(
-            "사선: 첫 기록 이전 · 빈 칸: 미래 날짜", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = FitnessSpacing.small)
+            "사선: 첫 기록 이전 · 빈 칸: 미래 날짜\n집계는 첫 기록 이후부터 오늘까지의 날짜만 포함해요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

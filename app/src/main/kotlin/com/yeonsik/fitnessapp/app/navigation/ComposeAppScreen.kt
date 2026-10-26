@@ -1072,6 +1072,7 @@ private fun AppRoot(
                                     onActivityNext = viewModels.getHome()::nextActivityPage,
                                     onActivitySelectPage = viewModels.getHome()::selectActivityPage,
                                     onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                    onRetry = { viewModels.getHome().enter(AccountScope(ownerId), pageDate) },
                                     activityDayDetails = homeActivityDayDetails,
                                     onActivityDateSelected = viewModels.getHome()::selectActivityDay,
                                     onActivityOpenRecords = { date ->
@@ -1945,6 +1946,9 @@ private fun AppDestination(
     val recordsToday = navigation.uiState.value?.today ?: today
     val recordsSelectedDate = navigation.uiState.value?.selectedRecordsDate ?: today
     val recordsActions = object : RecordsScreenActions {
+        override fun retry() = viewModels.getRecords().refresh(
+            AccountScope(ownerId), recordsToday, recordsSelectedDate
+        )
         override fun selectDate(date: String) {
             val scope = AccountScope(ownerId)
             viewModels.getRecords().rememberSelectedDate(scope, date)
