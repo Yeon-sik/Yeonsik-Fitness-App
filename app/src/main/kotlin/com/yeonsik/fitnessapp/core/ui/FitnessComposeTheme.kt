@@ -47,6 +47,7 @@ private val DarkSemantic = FitnessSemanticColors(
     Color(FitnessUiTokens.COLOR_D_POSITIVE), Color(FitnessUiTokens.COLOR_D_WARNING)
 )
 val LocalFitnessColors = staticCompositionLocalOf { LightSemantic }
+internal val LocalFitnessDarkTheme = staticCompositionLocalOf { false }
 
 private fun colors(dark: Boolean) = run {
     val surface = Color(if (dark) FitnessUiTokens.COLOR_D_SURFACE else FitnessUiTokens.COLOR_SURFACE)
@@ -60,8 +61,8 @@ private fun colors(dark: Boolean) = run {
     val semantic = if (dark) DarkSemantic else LightSemantic
     val base = if (dark) darkColorScheme() else lightColorScheme()
     base.copy(
-        primary = semantic.action,
-        onPrimary = semantic.onAction,
+        primary = if (dark) semantic.action else Color(FitnessUiTokens.COLOR_BRAND_BLUE_TEXT),
+        onPrimary = if (dark) semantic.onAction else Color(FitnessUiTokens.COLOR_ON_BRAND_BLUE_TEXT),
         primaryContainer = blueContainer, onPrimaryContainer = blueInk, inversePrimary = semantic.action,
         secondary = muted, onSecondary = surface, secondaryContainer = subtle, onSecondaryContainer = ink,
         tertiary = muted, onTertiary = surface, tertiaryContainer = subtle, onTertiaryContainer = ink,
@@ -96,7 +97,10 @@ private val DarkColors = colors(true)
 /** Mode persistence and system-bar appearance remain the Activity's responsibility. */
 @Composable
 fun FitnessComposeTheme(dark: Boolean, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalFitnessColors provides if (dark) DarkSemantic else LightSemantic) {
+    CompositionLocalProvider(
+        LocalFitnessColors provides if (dark) DarkSemantic else LightSemantic,
+        LocalFitnessDarkTheme provides dark
+    ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors, typography = FitnessTypography,
             shapes = Shapes(

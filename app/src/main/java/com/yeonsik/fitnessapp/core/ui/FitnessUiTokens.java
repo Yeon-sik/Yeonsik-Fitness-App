@@ -17,7 +17,22 @@ public final class FitnessUiTokens {
 
     // Fixed brand and activity coverage colors are shared across light and dark modes.
     public static final int COLOR_BRAND_BLUE = 0xFF38BDF8;
+    /** Foreground blue with WCAG AA contrast on the light theme surfaces. */
+    public static final int COLOR_BRAND_BLUE_TEXT = 0xFF0369A1;
+    public static final int COLOR_ON_BRAND_BLUE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_HOME_ACTIVITY_FULL_COVERAGE = 0xFF00FFFF;
+
+    // Orb colors are independent of semantic text and control colors.
+    public static final int COLOR_ORB_0 = COLOR_BRAND_BLUE;
+    public static final int COLOR_ORB_1 = 0xFF06B6D4;
+    public static final int COLOR_ORB_2 = 0xFF6366F1;
+    public static final int COLOR_ORB_3 = 0xFF0EA5E9;
+    public static final int COLOR_D_ORB_0 = COLOR_BRAND_BLUE;
+    public static final int COLOR_D_ORB_1 = 0xFF22D3EE;
+    public static final int COLOR_D_ORB_2 = 0xFFA5B4FC;
+    public static final int COLOR_D_ORB_3 = 0xFFE0F2FE;
+    public static final float ORB_GLOW_ALPHA_LIGHT = 0.16f;
+    public static final float ORB_GLOW_ALPHA_DARK = 0.26f;
 
     // Light semantic tokens
     public static final int COLOR_BACKGROUND = 0xFFF5F5F7;
@@ -113,12 +128,47 @@ public final class FitnessUiTokens {
     public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
-    public static final int NAV_GLASS_BLUR_RADIUS_DP = 7;
+    public static final int GLASS_PLAIN_BLUR_DP = 7;
+    /** @deprecated Use GLASS_PLAIN_BLUR_DP. */
+    @Deprecated
+    public static final int NAV_GLASS_BLUR_RADIUS_DP = GLASS_PLAIN_BLUR_DP;
     public static final int NAV_ITEM_GAP_DP = 4;
     public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
     public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
     public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
+
+    // Liquid glass: preserve the current appearance when sharing these effects.
+    public static final float GLASS_BAR_BLUR_DP = 8f;
+    public static final float GLASS_BAR_LENS_HEIGHT_DP = 10f;
+    public static final float GLASS_BAR_LENS_AMOUNT_DP = 16f;
+    public static final float GLASS_BAR_HIGHLIGHT_ALPHA = 0.65f;
+    public static final float GLASS_BAR_SURFACE_ALPHA_LIGHT = 0.30f;
+    public static final float GLASS_BAR_SURFACE_ALPHA_DARK = 0.34f;
+    public static final float GLASS_BAR_SHEEN_TOP_ALPHA_LIGHT = 0.28f;
+    public static final float GLASS_BAR_SHEEN_TOP_ALPHA_DARK = 0.10f;
+    public static final float GLASS_BAR_SHEEN_BOTTOM_ALPHA = 0.10f;
+    public static final float GLASS_SELECTION_BLUR_DP = 3f;
+    public static final float GLASS_SELECTION_LENS_HEIGHT_DP = 4f;
+    public static final float GLASS_SELECTION_LENS_AMOUNT_DP = 7f;
+    public static final float GLASS_SELECTION_HIGHLIGHT_ALPHA = 0.55f;
+    public static final float GLASS_SELECTION_TINT_ALPHA = 0.72f;
+    public static final float GLASS_PLAIN_SATURATION = 1.04f;
+    public static final float GLASS_PLAIN_SURFACE_ALPHA = 0.72f;
+    public static final float GLASS_PRESS_ALPHA_LIGHT = 0.10f;
+    public static final float GLASS_PRESS_ALPHA_DARK = 0.08f;
+    public static final float GLASS_FOCUS_ALPHA_LIGHT = 0.09f;
+    public static final float GLASS_FOCUS_ALPHA_DARK = 0.07f;
+    public static final float GLASS_HOVER_ALPHA = 0.05f;
+    public static final int GLASS_PRESS_TINT_LIGHT = 0xFF28313A;
+    public static final int GLASS_BADGE_STROKE_DARK = 0xFF343C43;
+    public static final int GLASS_PRESS_IN_MILLIS = 80;
+    public static final int GLASS_PRESS_OUT_MILLIS = 160;
+    public static final float GLASS_SHEET_SURFACE_ALPHA_LIGHT = 0.78f;
+    public static final float GLASS_SHEET_SURFACE_ALPHA_DARK = 0.72f;
+    public static final int GLASS_SHEET_WINDOW_BLUR_DP = 24;
+    public static final float GLASS_STROKE_ALPHA_LIGHT = 0.55f;
+    public static final float GLASS_STROKE_ALPHA_DARK = 0.18f;
 
     public static int pageBackground(boolean dark) {
         return dark ? COLOR_D_BACKGROUND : COLOR_BACKGROUND;

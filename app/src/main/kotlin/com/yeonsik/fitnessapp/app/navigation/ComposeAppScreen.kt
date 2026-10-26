@@ -1401,11 +1401,11 @@ private fun Modifier.navigationGlassSurface(
             backdrop = backdrop,
             shape = { CircleShape },
             effects = {
-                colorControls(saturation = 1.04f)
-                blur(FitnessUiTokens.NAV_GLASS_BLUR_RADIUS_DP.dp.toPx())
+                colorControls(saturation = FitnessUiTokens.GLASS_PLAIN_SATURATION)
+                blur(FitnessUiTokens.GLASS_PLAIN_BLUR_DP.dp.toPx())
             },
             highlight = { Highlight.Plain },
-            onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.72f)) }
+            onDrawSurface = { drawRect(colors.surface.copy(alpha = FitnessUiTokens.GLASS_PLAIN_SURFACE_ALPHA)) }
         )
     } else {
         clip(CircleShape)
@@ -1436,9 +1436,10 @@ private fun Modifier.bottomNavigationGlassSurface(
     val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     val sheen = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = if (dark) 0.10f else 0.28f),
+            Color.White.copy(alpha = if (dark) FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_DARK
+                else FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_LIGHT),
             Color.Transparent,
-            colors.surface.copy(alpha = 0.10f)
+            colors.surface.copy(alpha = FitnessUiTokens.GLASS_BAR_SHEEN_BOTTOM_ALPHA)
         )
     )
     return clip(CircleShape).drawBackdrop(
@@ -1446,14 +1447,16 @@ private fun Modifier.bottomNavigationGlassSurface(
         shape = { CircleShape },
         effects = {
             if (fullEffects) vibrancy()
-            blur(8.dp.toPx())
+            blur(FitnessUiTokens.GLASS_BAR_BLUR_DP.dp.toPx())
             if (fullEffects) {
-                lens(10.dp.toPx(), 16.dp.toPx())
+                lens(FitnessUiTokens.GLASS_BAR_LENS_HEIGHT_DP.dp.toPx(),
+                    FitnessUiTokens.GLASS_BAR_LENS_AMOUNT_DP.dp.toPx())
             }
         },
-        highlight = { Highlight.Ambient.copy(alpha = 0.65f) },
+        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_BAR_HIGHLIGHT_ALPHA) },
         onDrawSurface = {
-            drawRect(colors.surface.copy(alpha = if (dark) 0.34f else 0.30f))
+            drawRect(colors.surface.copy(alpha = if (dark) FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_DARK
+                else FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_LIGHT))
             drawRect(sheen)
         }
     )
@@ -1471,13 +1474,14 @@ private fun Modifier.bottomNavigationGlassSelection(
         backdrop = backdrop,
         shape = { CircleShape },
         effects = {
-            blur(3.dp.toPx())
+            blur(FitnessUiTokens.GLASS_SELECTION_BLUR_DP.dp.toPx())
             if (fullEffects) {
-                lens(4.dp.toPx(), 7.dp.toPx())
+                lens(FitnessUiTokens.GLASS_SELECTION_LENS_HEIGHT_DP.dp.toPx(),
+                    FitnessUiTokens.GLASS_SELECTION_LENS_AMOUNT_DP.dp.toPx())
             }
         },
-        highlight = { Highlight.Ambient.copy(alpha = 0.55f) },
-        onDrawSurface = { drawRect(tint.copy(alpha = 0.72f)) }
+        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_SELECTION_HIGHLIGHT_ALPHA) },
+        onDrawSurface = { drawRect(tint.copy(alpha = FitnessUiTokens.GLASS_SELECTION_TINT_ALPHA)) }
     )
 }
 
@@ -1491,14 +1495,15 @@ private fun Modifier.glassTabFeedback(
     val hovered by interactionSource.collectIsHoveredAsState()
     val opacity by animateFloatAsState(
         targetValue = when {
-            pressed -> if (dark) 0.08f else 0.10f
-            focused -> if (dark) 0.07f else 0.09f
-            hovered -> 0.05f
+            pressed -> if (dark) FitnessUiTokens.GLASS_PRESS_ALPHA_DARK else FitnessUiTokens.GLASS_PRESS_ALPHA_LIGHT
+            focused -> if (dark) FitnessUiTokens.GLASS_FOCUS_ALPHA_DARK else FitnessUiTokens.GLASS_FOCUS_ALPHA_LIGHT
+            hovered -> FitnessUiTokens.GLASS_HOVER_ALPHA
             else -> 0f
         },
-        animationSpec = tween(durationMillis = if (pressed) 80 else 160)
+        animationSpec = tween(durationMillis = if (pressed) FitnessUiTokens.GLASS_PRESS_IN_MILLIS
+            else FitnessUiTokens.GLASS_PRESS_OUT_MILLIS)
     )
-    val tint = if (dark) Color.White else Color(0xFF28313A)
+    val tint = if (dark) Color.White else Color(FitnessUiTokens.GLASS_PRESS_TINT_LIGHT)
     // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
     return drawWithCache {
         val radius = size.minDimension / 2f
@@ -1658,7 +1663,7 @@ private fun BottomNavigation(
                                         .background(progressTint, CircleShape)
                                         .border(
                                             1.dp,
-                                            if (dark) Color(0xFF343C43) else Color.White,
+                                            if (dark) Color(FitnessUiTokens.GLASS_BADGE_STROKE_DARK) else Color.White,
                                             CircleShape
                                         )
                                 )

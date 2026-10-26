@@ -37,7 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -77,9 +80,15 @@ private val orbParticles = List(88) { index ->
 
 @Composable
 internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
-    val scheme = MaterialTheme.colorScheme
-    val colors = remember(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant) {
-        arrayOf(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant)
+    val dark = LocalFitnessDarkTheme.current
+    val colors = remember(dark) {
+        (if (dark) intArrayOf(
+            FitnessUiTokens.COLOR_D_ORB_0, FitnessUiTokens.COLOR_D_ORB_1,
+            FitnessUiTokens.COLOR_D_ORB_2, FitnessUiTokens.COLOR_D_ORB_3
+        ) else intArrayOf(
+            FitnessUiTokens.COLOR_ORB_0, FitnessUiTokens.COLOR_ORB_1,
+            FitnessUiTokens.COLOR_ORB_2, FitnessUiTokens.COLOR_ORB_3
+        )).map(::Color)
     }
     // Keep the particle design, but avoid 88 Compose Color/DrawScope conversions per frame.
     val paints = remember(colors) { colors.map { color -> Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() } } }
@@ -94,7 +103,19 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
         )
     } else null
 
-    Canvas(modifier.size(size).testTag("thinking-orb")) {
+    val glowAlpha = if (dark) FitnessUiTokens.ORB_GLOW_ALPHA_DARK else FitnessUiTokens.ORB_GLOW_ALPHA_LIGHT
+    Canvas(modifier.size(size).testTag("thinking-orb").drawWithCache {
+        val glowRadius = this.size.minDimension * 0.5f
+        val glow = Brush.radialGradient(
+            listOf(Color(FitnessUiTokens.COLOR_BRAND_BLUE), Color.Transparent),
+            center = Offset(this.size.width / 2f, this.size.height / 2f),
+            radius = glowRadius.coerceAtLeast(0.01f)
+        )
+        onDrawBehind {
+            val pulse = if (animate) 0.85f + 0.15f * sin(rotationState?.value ?: 0f) else 1f
+            drawCircle(glow, radius = glowRadius, alpha = glowAlpha * pulse)
+        }
+    }) {
         val rotation = rotationState?.value ?: 0f
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
         val radius = this.size.minDimension * 0.38f *
