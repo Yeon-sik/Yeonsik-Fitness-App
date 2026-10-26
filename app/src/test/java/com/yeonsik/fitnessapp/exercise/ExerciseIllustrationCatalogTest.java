@@ -9,7 +9,7 @@ import org.junit.Test;
 
 public final class ExerciseIllustrationCatalogTest {
     @Test
-    public void mapsSupportedExerciseIdsToTheirDrawables() {
+    public void mapsSupportedExerciseIdsToTheirDrawables() throws ReflectiveOperationException {
         assertArrayEquals(
                 new int[]{
                         R.drawable.exercise_barbell_flat_bench_press_a,
@@ -56,13 +56,18 @@ public final class ExerciseIllustrationCatalogTest {
                         ExerciseIllustrationCatalog.BARBELL_BENT_OVER_ROW_ID
                 )
         );
+        // The bundled export and the optional image pipeline use different slugs for
+        // this same catalog identity. Both must map to their actual A/B resources.
+        String shoulderStem = existingDrawableStem(
+                "shoulders_dumbbell_shoulder_press", "dumbbell_shoulder_press"
+        );
         assertArrayEquals(
                 new int[]{
-                        R.drawable.exercise_dumbbell_shoulder_press_a,
-                        R.drawable.exercise_dumbbell_shoulder_press_b
+                        drawable(shoulderStem, "a"),
+                        drawable(shoulderStem, "b")
                 },
                 ExerciseIllustrationCatalog.detailDrawablesFor(
-                        ExerciseIllustrationCatalog.DUMBBELL_SHOULDER_PRESS_ID
+                        "shoulders_dumbbell_shoulder_press"
                 )
         );
         assertArrayEquals(
@@ -72,15 +77,15 @@ public final class ExerciseIllustrationCatalogTest {
     }
 
     @Test
-    public void mapsCanonicalIllustrationKeysToTheSameAAndBDrawables() {
+    public void mapsCanonicalIllustrationKeysToTheSameAAndBDrawables() throws ReflectiveOperationException {
         assertArrayEquals(
                 ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.PULL_UP_ID),
                 ExerciseIllustrationCatalog.detailDrawablesFor("pull-up")
         );
-        assertArrayEquals(
-                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.DUMBBELL_CURL_ID),
-                ExerciseIllustrationCatalog.detailDrawablesFor("dumbbell-curl")
-        );
+        String curlStem = existingDrawableStem("arms_dumbbell_curl", "dumbbell_curl");
+        int[] curlFrames = {drawable(curlStem, "a"), drawable(curlStem, "b")};
+        assertArrayEquals(curlFrames, ExerciseIllustrationCatalog.detailDrawablesFor("arms_dumbbell_curl"));
+        assertArrayEquals(curlFrames, ExerciseIllustrationCatalog.detailDrawablesFor(curlStem.replace('_', '-')));
         assertArrayEquals(
                 ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.BARBELL_BACK_SQUAT_ID),
                 ExerciseIllustrationCatalog.detailDrawablesFor("barbell-back-squat")
@@ -127,5 +132,21 @@ public final class ExerciseIllustrationCatalogTest {
                 new int[0],
                 ExerciseIllustrationCatalog.detailDrawablesFor("unsupported_exercise")
         );
+    }
+
+    private static String existingDrawableStem(String... candidates) throws NoSuchFieldException {
+        for (String candidate : candidates) {
+            try {
+                R.drawable.class.getField("exercise_" + candidate + "_a");
+                return candidate;
+            } catch (NoSuchFieldException ignored) {
+                // Try the other supported export spelling. Missing both is a test failure.
+            }
+        }
+        throw new NoSuchFieldException("No supported illustration resource for " + candidates[0]);
+    }
+
+    private static int drawable(String stem, String frame) throws ReflectiveOperationException {
+        return R.drawable.class.getField("exercise_" + stem + "_" + frame).getInt(null);
     }
 }
