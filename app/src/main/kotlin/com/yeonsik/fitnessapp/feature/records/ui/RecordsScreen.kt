@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.records.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -390,7 +391,7 @@ private fun RecordsDayDetailSection(
 @Composable
 private fun RecordsMealSummaryDialog(meal: MealReadSummary, onDismiss: () -> Unit) {
     val nutritionRecorded = meal.nutritionStatus != "unknown"
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag("records-meal-dialog"),
         title = { Text("${meal.mealLabel} 정보") },

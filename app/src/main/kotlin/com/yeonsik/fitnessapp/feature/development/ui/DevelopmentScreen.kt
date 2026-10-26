@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.development.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
@@ -124,7 +126,7 @@ fun DevelopmentProfileEditorDialog(
         mutableStateOf(editor.weightKg?.let { MassFormatter.formatInput(it, unit) } ?: "")
     }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("바디 정보 수정") },
         text = {
@@ -215,7 +217,7 @@ fun DevelopmentGoalEditorDialog(
     var objectiveExpanded by remember { mutableStateOf(false) }
     var focusExpanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("발전 목표 수정") },
         text = {

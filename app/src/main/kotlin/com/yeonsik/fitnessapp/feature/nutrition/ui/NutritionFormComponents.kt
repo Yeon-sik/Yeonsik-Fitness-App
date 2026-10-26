@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.nutrition.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessDialogSurface
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
@@ -50,12 +52,12 @@ internal fun NutritionEntryFrame(
     val showSummary by remember(introductionPadding) {
         derivedStateOf { introductionHeight > 0 && scrollState.value >= introductionHeight + introductionPadding }
     }
-    Dialog(
+    FitnessDialog(
         onDismissRequest = { if (closeEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         CompositionLocalProvider(LocalDensity provides entryDensity) {
-        Surface(modifier.fillMaxSize().semantics { paneTitle = title }, color = MaterialTheme.colorScheme.background) {
+        FitnessDialogSurface(modifier.fillMaxSize().semantics { paneTitle = title }, color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = 640.dp).fillMaxHeight().fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

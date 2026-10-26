@@ -1,12 +1,13 @@
 package com.yeonsik.fitnessapp.feature.development.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -64,7 +65,7 @@ internal fun RecoveryNutritionGoalEditorDialog(
     }
     var phaseExpanded by rememberSaveable(ready.requestId, "phase-expanded") { mutableStateOf(false) }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismissRecovery,
         icon = { Icon(FitnessMealIcon, null) },
         title = { Text("영양·단백질 기준") },
@@ -166,7 +167,7 @@ internal fun RecoveryCheckInEditorDialog(
         mutableStateOf(current.note)
     }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismissRecovery,
         icon = { Icon(FitnessRecoveryIcon, null) },
         title = { Text("컨디션 기록 · ${ready.date}") },

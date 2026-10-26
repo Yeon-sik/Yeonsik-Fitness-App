@@ -22,4 +22,12 @@ class FitnessGlassArchitectureTest {
         assertTrue(fitnessGlassSupported(31, false))
         assertTrue(fitnessGlassSupported(33, false))
     }
+
+    @Test fun modalTransparencyRequiresItsOwnSupportedWindowAndSystemBlur() {
+        assertFalse(fitnessDialogGlassSupported(30, true, true, true))
+        assertFalse(fitnessDialogGlassSupported(31, false, true, true))
+        assertFalse(fitnessDialogGlassSupported(31, true, false, true))
+        assertFalse(fitnessDialogGlassSupported(31, true, true, false))
+        assertTrue(fitnessDialogGlassSupported(31, true, true, true))
+    }
 }

@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.development.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessModalBottomSheet
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -181,7 +184,7 @@ internal fun DevelopmentOverviewContent(
             })
     }
     if (selectedExercise != null || selectedAdvice != null) {
-        ModalBottomSheet(onDismissRequest = closeDetail,
+        FitnessModalBottomSheet(onDismissRequest = closeDetail,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             key(selectedExercise?.key, selectedAdvice?.id) {
                 Column(Modifier.fillMaxWidth().fillMaxHeight(0.9f).verticalScroll(rememberScrollState())
@@ -471,7 +474,7 @@ private fun FollowedExerciseDialog(
     onDismiss: () -> Unit, onSave: (List<String>) -> Unit
 ) {
     var pending by rememberSaveable(ownerId, selected) { mutableStateOf(ArrayList(selected)) }
-    AlertDialog(onDismissRequest = onDismiss, icon = { Icon(FitnessTrendIcon, null) },
+    FitnessAlertDialog(onDismissRequest = onDismiss, icon = { Icon(FitnessTrendIcon, null) },
         title = { Text("변화를 볼 운동 선택") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             Text("${pending.size}/5개 선택 · 최근 8주에 기록한 운동이에요.", style = MaterialTheme.typography.bodyMedium)
@@ -502,7 +505,7 @@ private fun DevelopmentSettingsDialog(
     report: DevelopmentReport, onDismiss: () -> Unit,
     onAction: (() -> Unit) -> Unit, actions: DevelopmentScreenActions
 ) {
-    AlertDialog(onDismissRequest = onDismiss, icon = { Icon(FitnessSettingsIcon, null) },
+    FitnessAlertDialog(onDismissRequest = onDismiss, icon = { Icon(FitnessSettingsIcon, null) },
         title = { Text("발전 설정") }, text = {
         Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {

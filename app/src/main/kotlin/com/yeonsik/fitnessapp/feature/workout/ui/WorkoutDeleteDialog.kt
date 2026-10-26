@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
-import androidx.compose.material3.AlertDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,7 +21,7 @@ fun WorkoutDeleteConfirmationDialog(
     val ready = state as? WorkoutDeleteConfirmationUiState.Ready
     if (ready == null || ready.ownerId != ownerId) return
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text(if (ready.cancelWorkout) "운동을 취소할까요?" else "운동 기록 삭제") },
         text = {

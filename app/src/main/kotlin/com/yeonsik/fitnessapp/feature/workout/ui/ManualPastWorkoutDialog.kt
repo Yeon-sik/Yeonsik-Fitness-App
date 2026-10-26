@@ -1,11 +1,12 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
@@ -67,7 +68,7 @@ fun ManualPastWorkoutDialog(
     var routineExpanded by remember { mutableStateOf(false) }
     val selectedRoutine = routines.firstOrNull { it.id == selectedRoutineId }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("지난 운동 수동 등록") },
         text = {

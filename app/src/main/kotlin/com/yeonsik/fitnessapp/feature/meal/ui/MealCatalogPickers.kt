@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -89,7 +91,7 @@ private fun MealFoodPortionDialog(food: NutritionFood, enabled: Boolean,
         PortionInputMode.GRAMS -> (recipeGramsPerServing(food) ?: 100.0) / 4.0
         PortionInputMode.BASIS -> food.basisAmount / 4.0
     }
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(food.displayName()) },
         text = {

@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -63,7 +65,7 @@ internal fun WorkoutExerciseGroupDialog(detail: WorkoutExerciseDetail, actions: 
             else error = "운동 연결을 저장하지 못했습니다. 다시 시도하세요."
         }
     }
-    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("운동 연결 설정") },
+    FitnessAlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("운동 연결 설정") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 WorkoutExerciseGroupType.entries.forEach { type ->

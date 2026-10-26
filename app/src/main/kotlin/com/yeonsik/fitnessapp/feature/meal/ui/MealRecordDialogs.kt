@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -42,7 +44,7 @@ internal fun MealRecordEditDialog(
     var showDatePicker by rememberSaveable(editor.recordId) { mutableStateOf(false) }
     val dateError = mealRecordDateError(date)
     if (!showDatePicker) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { if (!saving) onDismiss() },
             title = { Text("식단 수정") },
             text = {
@@ -108,7 +110,7 @@ internal fun MealSnapshotDetailDialog(
     onEditDateTime: (() -> Unit)?
 ) {
     if (state == MealDetailState.Idle) return
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("메뉴 자세히 보기") },
         text = {

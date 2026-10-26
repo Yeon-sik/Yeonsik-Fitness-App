@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.exercise.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessModalBottomSheet
+
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -20,10 +23,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -387,7 +388,7 @@ private fun FilterPopupRow(
     }
 
     if (isOpen) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { isOpen = false },
             title = { Text(title) },
             text = {
@@ -551,7 +552,7 @@ private fun ExercisePickerVariantSheet(
         }
     }
 
-    ModalBottomSheet(
+    FitnessModalBottomSheet(
         onDismissRequest = { actions.selectFamily(familyId) },
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("exercise-variant-handle")) }

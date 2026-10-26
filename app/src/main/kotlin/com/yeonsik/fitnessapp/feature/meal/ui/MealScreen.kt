@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -416,7 +418,7 @@ internal fun MealScreen(
     val deleteTarget = deleteTargetId?.takeIf { recordActionsEnabled }
         ?.let { id -> currentReady?.snapshot?.todayMeals?.firstOrNull { it.id == id } }
     if (deleteTarget != null) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { deleteTargetId = null },
             title = { Text("식단 기록 삭제") },
             text = { Text("${deleteTarget.previewTitle} 기록을 삭제할까요?") },
@@ -718,7 +720,7 @@ internal fun DiningProposalControls(state: NutritionPublicationUiState, priceTra
             })
     }
     if (publishConfirmation) {
-        AlertDialog(onDismissRequest = { if (!busy) publishConfirmation = false },
+        FitnessAlertDialog(onDismissRequest = { if (!busy) publishConfirmation = false },
             title = { Text("승인된 메뉴에 공개 연결") },
             text = { Text("${food.displayName()}의 추정 영양정보를 승인된 PT 메뉴에 공개합니다. 식사 기록은 공개되지 않습니다.") },
             confirmButton = { TextButton(enabled = enabled, onClick = {
@@ -741,7 +743,7 @@ private fun DiningProposalConfirmation(food: NutritionFood, target: DiningPropos
     var businessNumber by remember(target) { mutableStateOf(merchant?.optString("business_registration_number").orEmpty()) }
     var menuName by remember(target) { mutableStateOf(request?.optString("p_menu_name") ?: food.name) }
     var reconfirmed by remember(target, name, branch, address, phone, businessNumber, menuName) { mutableStateOf(false) }
-    AlertDialog(onDismissRequest = { if (!busy) onDismiss() },
+    FitnessAlertDialog(onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(if (target.previous != null) "거절된 제안 수정·재확인"
             else if (target.merchant) "가게 등록 제안" else "메뉴 등록 제안") },
         text = {

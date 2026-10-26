@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.routine.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessDialogSurface
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,7 +13,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
@@ -23,9 +25,9 @@ internal fun RoutineExerciseHistoryDialog(
     onClose: () -> Unit,
     onRetry: () -> Unit
 ) {
-    Dialog(onDismissRequest = onClose,
+    FitnessDialog(onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize().testTag("routine-exercise-history")
+        FitnessDialogSurface(Modifier.fillMaxSize().testTag("routine-exercise-history")
             .semantics { paneTitle = "종목 기록" }, color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 20.dp)) {
                 FitnessHeader("종목 기록", subtitle = state.exercise.nameKo, back = onClose)

@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessDialogSurface
+
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -37,7 +40,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -142,9 +144,9 @@ internal fun WorkoutExerciseImageViewer(
         pan = if (scale > 1f) pan * ((zoom - 1f) / (scale - 1f)) else Offset.Zero
         scale = zoom
     }
-    Dialog(onDismissRequest = onDismiss,
+    FitnessDialog(onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        FitnessDialogSurface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.small),
                     verticalAlignment = Alignment.CenterVertically) {

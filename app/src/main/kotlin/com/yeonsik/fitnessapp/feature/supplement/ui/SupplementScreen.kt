@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.supplement.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -357,7 +358,7 @@ private fun SupplementHistoryCorrectionDialog(
     onUpdate: (String) -> Unit,
     onDelete: () -> Unit
 ) {
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${entry.typeName} 기록 수정") },
         text = {
@@ -383,7 +384,7 @@ private fun SupplementHistoryCorrectionDialog(
 private fun SupplementEvidenceDialog(plan: SupplementPlan, onDismiss: () -> Unit) {
     val evidence = SupplementEvidenceCatalog.forType(plan.typeCode)
     val uriHandler = LocalUriHandler.current
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${plan.typeName} 논문 근거") },
         text = {
@@ -441,7 +442,7 @@ private fun SupplementEffectDialog(
     var score by rememberSaveable(plan.itemId, date) { mutableStateOf(existing?.effectScore ?: 3) }
     var adverse by rememberSaveable(plan.itemId, date) { mutableStateOf(existing?.adverseEffects.orEmpty()) }
     var note by rememberSaveable(plan.itemId, date) { mutableStateOf(existing?.note.orEmpty()) }
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${plan.typeName} 경과 점검") },
         text = {
@@ -511,7 +512,7 @@ private fun SupplementPlanEditorDialog(
     }
     var validationMessage by rememberSaveable(editorKey) { mutableStateOf<String?>(null) }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "복용 계획 추가" else "복용 계획 수정") },
         text = {

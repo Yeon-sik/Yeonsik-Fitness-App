@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -262,7 +264,7 @@ internal fun NutritionPublicationDialog(
     val confirmationMenu = menu
     if (confirmation && confirmationFood != null && confirmationDetail != null &&
         confirmationLocation != null && confirmationMenu != null) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { confirmation = false },
             title = { Text("공개 연결 확인") },
             text = {

@@ -1,11 +1,12 @@
 package com.yeonsik.fitnessapp.feature.body.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,7 +58,7 @@ fun BodyMetricsEditorDialog(
     val parsedWeight = weight.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
     val weightErrorMessage = bodyMetricsWeightErrorMessage(weight, weightSaveAttempted)
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text(if (editor.exists()) "체중 수정" else "체중 기록") },
         text = {
