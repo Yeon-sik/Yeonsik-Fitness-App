@@ -111,7 +111,8 @@ internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> U
         NutritionProfile.PROTEIN_GRAMS, NutritionProfile.FAT_GRAMS)
     val incomplete = totals.itemCount() > 0 && keys.any { totals.total(it).missingCount() > 0 }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onReview, enabled = enabled, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.testTag("meal-cart-review").heightIn(min = 48.dp)) {
                 Text("담은 음식 ${totals.itemCount()}개 보기")
@@ -123,7 +124,8 @@ internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> U
                 else -> "${NutritionCalculator.trim(calories.knownSum())} kcal${if (calories.missingCount() > 0) " 이상" else ""}"
             },
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                modifier = Modifier.alignByBaseline().padding(vertical = 12.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.End)
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             listOf("탄수" to NutritionProfile.CARBS_GRAMS, "단백질" to NutritionProfile.PROTEIN_GRAMS,

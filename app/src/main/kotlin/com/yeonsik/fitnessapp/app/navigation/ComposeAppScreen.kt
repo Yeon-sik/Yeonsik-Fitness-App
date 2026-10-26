@@ -2065,6 +2065,7 @@ private fun AppDestination(
                 today,
                 unit,
                 object : WorkoutOverviewActions {
+                    override fun retryOverview() = viewModels.getHome().enter(AccountScope(ownerId), today)
                     override fun continueWorkout() = viewModels.getWorkoutSession()
                         .continueIfAvailable(AccountScope(ownerId))
                     override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
@@ -2084,6 +2085,10 @@ private fun AppDestination(
                 routineState,
                 ownerId,
                 object : StrengthActions {
+                    override fun retryRoutines() {
+                        viewModels.getHome().enter(AccountScope(ownerId), today)
+                        viewModels.getRoutineEntry().enter(AccountScope(ownerId))
+                    }
                     override fun createRoutine(name: String) {
                         viewModels.getRoutineEntry().createRoutine(AccountScope(ownerId), name)
                     }

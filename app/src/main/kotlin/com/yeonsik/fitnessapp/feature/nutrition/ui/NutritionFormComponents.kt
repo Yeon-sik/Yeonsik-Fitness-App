@@ -41,6 +41,7 @@ internal fun NutritionEntryFrame(
     introduction: (@Composable ColumnScope.() -> Unit)? = null,
     collapsedSummary: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
+    adaptiveFooter: Boolean = false,
     scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -58,7 +59,9 @@ internal fun NutritionEntryFrame(
     ) {
         CompositionLocalProvider(LocalDensity provides entryDensity) {
         FitnessDialogSurface(modifier.fillMaxSize().semantics { paneTitle = title }, color = MaterialTheme.colorScheme.background) {
-            Box(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+            BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+                // Opt-in for meal entry: keep the form usable with the IME, landscape or large text.
+                val scrollFooter = adaptiveFooter && (maxHeight < 600.dp || entryDensity.fontScale >= 1.5f)
                 Column(Modifier.widthIn(max = 640.dp).fillMaxHeight().fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f).padding(start = 8.dp)) {
@@ -84,6 +87,10 @@ internal fun NutritionEntryFrame(
                             if (introduction != null) Column(Modifier.fillMaxWidth().onSizeChanged { introductionHeight = it.height },
                                 verticalArrangement = Arrangement.spacedBy(16.dp), content = introduction)
                             content()
+                            if (scrollFooter && footer != null) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { footer() }
+                            }
                         }
                         if (showScrollToTop && canScrollToTop) {
                             FloatingActionButton(
@@ -95,7 +102,7 @@ internal fun NutritionEntryFrame(
                             ) { Text("TOP", style = MaterialTheme.typography.labelLarge) }
                         }
                     }
-                    if (footer != null) {
+                    if (footer != null && !scrollFooter) {
                         Surface(color = MaterialTheme.colorScheme.surface) {
                             Column {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

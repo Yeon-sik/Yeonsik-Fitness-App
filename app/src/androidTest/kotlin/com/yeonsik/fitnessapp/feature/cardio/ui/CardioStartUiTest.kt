@@ -54,6 +54,9 @@ class CardioStartUiTest {
             CardioStartContent(state, {}, {}, {}, { _, _ -> starts++ }, { backs++ }, starting = true)
         } }
         compose.onNodeWithTag("cardio_start").assertIsNotEnabled()
+        compose.onNodeWithTag("cardio_search").assertIsNotEnabled()
+        compose.onNodeWithTag("cardio_activities").performScrollToNode(hasTestTag("cardio_activity_stair_stepper"))
+        compose.onNodeWithTag("cardio_activity_stair_stepper").assertIsNotEnabled()
         compose.onNodeWithContentDescription("뒤로").performClick()
         compose.runOnIdle { assertEquals(1, backs); assertEquals(0, starts) }
     }

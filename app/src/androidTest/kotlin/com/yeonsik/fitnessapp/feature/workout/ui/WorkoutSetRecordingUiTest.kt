@@ -194,10 +194,11 @@ class WorkoutSetRecordingUiTest {
 
     @Test fun inlineRemovalKeepsFirstSetAndExistingMenuUsesTheSameProtection() {
         val fixture = show(detail(listOf(set("set-1", 1, 45), set("set-2", 2, 60))))
-        compose.onNodeWithTag("workout-set-remove-set-1").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("workout-set-remove-set-2").performScrollTo().performClick()
+        compose.onNodeWithTag("workout-set-record-box").performScrollTo()
+        compose.onNodeWithTag("workout-set-remove-set-1").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithTag("workout-set-remove-set-2").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf("set-1"), fixture.state.value.detail.sets.map { it.id }) }
-        compose.onNodeWithContentDescription("1세트 설정").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("1세트 설정").assertIsDisplayed().performClick()
         compose.onNodeWithText("세트 삭제").assertIsNotEnabled()
     }
 
@@ -228,7 +229,7 @@ class WorkoutSetRecordingUiTest {
         compose.onAllNodesWithTag("workout-set-record-box").assertCountEquals(1)
         compose.onAllNodes(weight).assertCountEquals(2)
         compose.onAllNodes(weight)[0].assertTextEquals("22.5")
-        compose.onAllNodesWithText("세트 기록").assertCountEquals(1)
+        compose.onAllNodesWithTag("workout-set-table-header").assertCountEquals(1)
         compose.onAllNodesWithText("세트", useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithTag("exercise-rest-seconds").performScrollTo().replaceValue("150")
         compose.onNodeWithText("적용").performClick()
@@ -253,10 +254,10 @@ class WorkoutSetRecordingUiTest {
         compose.mainClock.autoAdvance = false
         show(detail())
         compose.mainClock.advanceTimeBy(32)
-        val frameA = compose.onNodeWithTag("workout-exercise-frame-0")
+        val frameA = compose.onNodeWithTag("workout-exercise-frame-0", useUnmergedTree = true)
         val boundsA = frameA.fetchSemanticsNode().boundsInRoot
         val density = context.resources.displayMetrics.density
-        assertTrue("The image must not reserve the old 360 dp area", boundsA.height <= 220f * density + 1f)
+        assertTrue("The active image must leave room for set input", boundsA.height <= 120f * density + 1f)
         assertTrue(boundsA.height > 0f)
         val textLayout = mutableListOf<TextLayoutResult>()
         compose.onNodeWithText(occurrence.name).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) {
@@ -264,11 +265,11 @@ class WorkoutSetRecordingUiTest {
         }
         assertEquals(21f, textLayout.single().layoutInput.style.fontSize.value, 0.1f)
         waitForImageFrame(1)
-        compose.onNodeWithTag("workout-exercise-frame-1").assertExists()
-        val boundsB = compose.onNodeWithTag("workout-exercise-frame-1").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("workout-exercise-frame-1", useUnmergedTree = true).assertExists()
+        val boundsB = compose.onNodeWithTag("workout-exercise-frame-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(boundsA, boundsB)
         compose.mainClock.advanceTimeBy(1000)
-        compose.onNodeWithTag("workout-exercise-frame-0").assertExists()
+        compose.onNodeWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertExists()
     }
 
     @Test fun listImageDefaultsToFrameAAndDoesNotAdvance() {
@@ -281,16 +282,16 @@ class WorkoutSetRecordingUiTest {
         }
         waitForImageFrame(0)
         compose.mainClock.advanceTimeBy(3200)
-        compose.onNodeWithTag("workout-exercise-frame-0").assertExists()
-        compose.onNodeWithTag("workout-exercise-frame-1").assertDoesNotExist()
+        compose.onNodeWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("workout-exercise-frame-1", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun completedExerciseDetailKeepsFrameA() {
         compose.mainClock.autoAdvance = false
         show(detail(), readOnly = true)
         compose.mainClock.advanceTimeBy(3200)
-        compose.onNodeWithTag("workout-exercise-frame-0").assertExists()
-        compose.onNodeWithTag("workout-exercise-frame-1").assertDoesNotExist()
+        compose.onNodeWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("workout-exercise-frame-1", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun liveImagePausesAtFrameADuringNavigationAndResumesAfterwards() {
@@ -308,8 +309,8 @@ class WorkoutSetRecordingUiTest {
         waitForImageFrame(1)
         compose.runOnIdle { playback.value = false }
         compose.mainClock.advanceTimeBy(3200)
-        compose.onNodeWithTag("workout-exercise-frame-0").assertExists()
-        compose.onNodeWithTag("workout-exercise-frame-1").assertDoesNotExist()
+        compose.onNodeWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("workout-exercise-frame-1", useUnmergedTree = true).assertDoesNotExist()
         compose.runOnIdle { playback.value = true }
         waitForImageFrame(1)
     }
@@ -327,14 +328,14 @@ class WorkoutSetRecordingUiTest {
         val fixture = show(detail().copy(activeExercise = incline, exercises = listOf(incline)))
         compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("운동 이미지 없음").assertExists()
-        compose.onAllNodesWithTag("workout-exercise-frame-0").assertCountEquals(0)
+        compose.onAllNodesWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertCountEquals(0)
         compose.runOnIdle {
             fixture.state.value = fixture.state.value.copy(detail = fixture.state.value.detail.copy(
                 activeExercise = incline.copy(familyIdentity = null), exercises = listOf(incline)))
         }
         compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("운동 이미지 없음").assertExists()
-        compose.onAllNodesWithTag("workout-exercise-frame-0").assertCountEquals(0)
+        compose.onAllNodesWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertCountEquals(0)
         compose.runOnIdle {
             fixture.state.value = fixture.state.value.copy(detail = fixture.state.value.detail.copy(
                 activeExercise = flat, exercises = listOf(flat)))
@@ -496,7 +497,8 @@ class WorkoutSetRecordingUiTest {
             dark = true, fontScale = 1.3f)
         compose.onNodeWithTag("workout-set-load-state-set-1").performScrollTo()
         val layouts = mutableListOf<TextLayoutResult>()
-        compose.onAllNodesWithText("외부 중량", useUnmergedTree = true)[0]
+        compose.onNode(hasText("외부 중량", substring = true) and
+            hasAnyAncestor(hasTestTag("workout-set-load-state-set-1")), useUnmergedTree = true)
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals(1, layouts.single().lineCount)
         compose.onAllNodesWithTag("workout-set-record-box").assertCountEquals(1)
@@ -549,7 +551,7 @@ class WorkoutSetRecordingUiTest {
         }
         compose.waitUntil(5000) {
             compose.mainClock.advanceTimeByFrame()
-            compose.onAllNodesWithTag("workout-exercise-frame-0").fetchSemanticsNodes().isNotEmpty() ||
+            compose.onAllNodesWithTag("workout-exercise-frame-0", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("운동 이미지 없음").fetchSemanticsNodes().isNotEmpty()
         }
         return fixture
@@ -565,7 +567,7 @@ class WorkoutSetRecordingUiTest {
     private fun waitForImageFrame(frame: Int) {
         compose.waitUntil(5000) {
             compose.mainClock.advanceTimeByFrame()
-            compose.onAllNodesWithTag("workout-exercise-frame-$frame").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("workout-exercise-frame-$frame", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
     }
     private fun screenshot(name: String) {

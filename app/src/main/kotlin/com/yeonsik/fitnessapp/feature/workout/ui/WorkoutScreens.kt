@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -91,133 +90,6 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 @Composable
-internal fun WorkoutOverview(
-    state: HomeUiState,
-    ownerId: String,
-    today: String,
-    unit: MassUnit,
-    actions: WorkoutOverviewActions,
-    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("WORKOUT"),
-    entranceToken: Long? = null,
-    isActualActive: Boolean = true,
-    inProgressIsCardio: Boolean? = null
-) {
-    val ready = state as? HomeUiState.Ready
-    val entrance = rememberTopLevelEntranceMotion(
-        entranceState, entranceToken, isActualActive,
-        contentReady = ready != null && ready.snapshot.ownerId == ownerId
-    )
-    if (ready == null || ready.snapshot.ownerId != ownerId) {
-        StateMessage("운동", "오늘 기록을 불러오는 중입니다.")
-        return
-    }
-    val snapshot = ready.snapshot
-    val metrics = snapshot.dayMetrics[today]
-    val strengthInProgress = snapshot.inProgressSessionId != null && inProgressIsCardio == false
-    val cardioInProgress = snapshot.inProgressSessionId != null && inProgressIsCardio == true
-    var order = 0
-    TopLevelEntranceContent(entrance, order++) { AppHeader("운동", today) }
-    TopLevelEntranceContent(entrance, order++) {
-        FitnessFactRow(
-            first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
-            second = { FitnessFactCard("식단", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
-        )
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-        WorkoutOverviewAction(
-            "무산소 운동",
-            FitnessStrengthIcon,
-            { if (strengthInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.STRENGTH) },
-            entrance, order++, Modifier.weight(1f),
-            supportingText = if (strengthInProgress) "운동 진행중 >" else null
-        )
-        WorkoutOverviewAction(
-            "유산소 운동",
-            FitnessCardioIcon,
-            { if (cardioInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.CARDIO) },
-            entrance, order++, Modifier.weight(1f),
-            supportingText = if (cardioInProgress) "운동 진행중 >" else null
-        )
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-        WorkoutOverviewAction(
-            "체중 기록", FitnessBodyMetricIcon, actions::showBodyMetric, entrance, order++, Modifier.weight(1f)
-        )
-        WorkoutOverviewAction(
-            "식단 기록", FitnessMealIcon, actions::openMeals, entrance, order, Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun WorkoutOverviewAction(
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    entrance: TopLevelEntranceMotion,
-    order: Int,
-    modifier: Modifier = Modifier,
-    supportingText: String? = null
-) {
-    val colors = LocalFitnessColors.current
-    TopLevelEntranceContent(entrance, order, modifier.aspectRatio(1f)) {
-        Button(
-            onClick = onClick,
-            modifier = Modifier.fillMaxSize(),
-            shape = FitnessShape.card,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.action,
-                contentColor = colors.onAction
-            ),
-            contentPadding = PaddingValues(horizontal = FitnessSpacing.micro * 4, vertical = AppSpacing.card)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
-                    Icon(
-                        FitnessActionNextIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        label,
-                        modifier = Modifier.alignByBaseline(),
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (supportingText != null) {
-                        Text(
-                            supportingText,
-                            modifier = Modifier.weight(1f).alignByBaseline(),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 20.sp),
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 internal fun StrengthScreen(
     home: HomeUiState,
     routine: RoutineEntryUiState,
@@ -226,29 +98,37 @@ internal fun StrengthScreen(
 ) {
     val ready = home as? HomeUiState.Ready
     val routineReady = routine as? RoutineEntryUiState.Ready
-    var newRoutineName by rememberSaveable { mutableStateOf("") }
+    var newRoutineName by rememberSaveable(ownerId) { mutableStateOf("") }
+    var creatingRoutine by rememberSaveable(ownerId) { mutableStateOf(false) }
     FitnessHeader("무산소", "루틴을 선택해 운동을 시작하세요.",
         back = { actions.navigate(FitnessScreen.WORKOUT) })
-    if (ready == null || ready.snapshot.ownerId != ownerId || routineReady?.ownerId != ownerId) {
-        Text("루틴을 불러오는 중입니다.")
+    val unavailable = ready == null || ready.snapshot.ownerId != ownerId || routineReady?.ownerId != ownerId
+    val failed = (home is HomeUiState.Error && home.ownerId == ownerId) ||
+        (routine is RoutineEntryUiState.Error && routine.ownerId == ownerId)
+    val loading = unavailable && !failed
+    val showLoading = rememberDelayedLoadingVisible(loading, ownerId)
+    if (loading || showLoading) {
+        FitnessLoadingState(listOf("루틴을 불러오는 중"), FitnessLoadingVariant.SECTION,
+            Modifier.fillMaxWidth(), showLoading)
         return
     }
-    AppTextField(
-        newRoutineName,
-        { newRoutineName = it },
-        Modifier.fillMaxWidth(),
-        label = { Text("새 루틴 이름") }
-    )
-    AppOutlinedButton(
-        onClick = {
-            actions.createRoutine(newRoutineName)
-            newRoutineName = ""
-        },
-        enabled = newRoutineName.isNotBlank(),
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("루틴 만들기") }
-    AppButton(onClick = actions::startEmptyWorkout, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
-    AppOutlinedButton(onClick = actions::showPastWorkout, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
+    if (unavailable) {
+        Text("루틴을 불러오지 못했습니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        if (failed) AppOutlinedButton(actions::retryRoutines,
+            Modifier.fillMaxWidth().testTag("strength-retry")) { Text("다시 불러오기") }
+        return
+    }
+    routineReady.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+    Text("내 루틴 · ${ready.snapshot.routines.size}개",
+        Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold)
+    if (ready.snapshot.routines.isEmpty()) {
+        Text("저장한 루틴이 없습니다. 루틴 없이 시작하거나 새 루틴을 만들어 보세요.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
     val bodyPartColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         Color(0xFFFFD666)
     } else {
@@ -257,7 +137,8 @@ internal fun StrengthScreen(
     ready.snapshot.routines.forEach { routineRow ->
         val exercises = ready.snapshot.routineExercises[routineRow.id].orEmpty()
         val muscleLabel = routineDominantMuscleLabel(exercises)
-        AppCard(Modifier.fillMaxWidth().clickable {
+        AppCard(Modifier.fillMaxWidth().testTag("strength-routine-${routineRow.id}").clickable(
+            role = Role.Button, onClickLabel = "루틴 확인") {
             actions.selectRoutine(routineRow.id)
             actions.navigate(FitnessScreen.ROUTINE_DETAIL)
         }) {
@@ -267,34 +148,27 @@ internal fun StrengthScreen(
                     .padding(AppSpacing.card),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
-                    FlowRow(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             routineRow.name.ifBlank { "나만의 루틴" },
-                            modifier = Modifier.alignByBaseline(),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             muscleLabel,
-                            modifier = Modifier.alignByBaseline(),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = bodyPartColor
                         )
-                    }
                     Text(
                         "${routineRow.exerciseCount}개 종목",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
                         routineLastWorkoutLabel(
                             ready.snapshot.latestRoutineDates[routineRow.id],
                             ready.snapshot.today
                         ),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -307,6 +181,22 @@ internal fun StrengthScreen(
             }
         }
     }
+    AppButton(onClick = actions::startEmptyWorkout,
+        Modifier.fillMaxWidth().testTag("strength-start-empty")) { Text("루틴 없이 운동 시작") }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    TextButton(onClick = { creatingRoutine = !creatingRoutine },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("strength-create-toggle")
+            .semantics { stateDescription = if (creatingRoutine) "펼쳐짐" else "접힘" }) {
+        Text(if (creatingRoutine) "새 루틴 만들기 닫기" else "새 루틴 만들기")
+    }
+    if (creatingRoutine) {
+        AppTextField(newRoutineName, { newRoutineName = it },
+            Modifier.fillMaxWidth().testTag("strength-routine-name"), label = { Text("새 루틴 이름") })
+        AppOutlinedButton(onClick = { actions.createRoutine(newRoutineName); newRoutineName = "" },
+            enabled = newRoutineName.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("루틴 만들기") }
+    }
+    AppOutlinedButton(onClick = actions::showPastWorkout,
+        Modifier.fillMaxWidth().testTag("strength-past")) { Text("지난 운동 수동 등록") }
 }
 
 private fun routineLastWorkoutLabel(date: String?, today: String): String {
@@ -392,7 +282,8 @@ internal fun WorkoutDetailScreen(
     if (imageExerciseId != null) {
         WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
             animate = ready != null && !ready.readOnly && !showImageViewer, sharedAnchor = imageAnchor,
-            onClick = { showImageViewer = true })
+            onClick = { showImageViewer = true },
+            maxImageHeight = if (ready != null && !ready.readOnly) 120.dp else 220.dp)
         if (showImageViewer) WorkoutExerciseImageViewer(imageExerciseId, imageIdentity, title,
             animate = ready != null && !ready.readOnly) {
             showImageViewer = false
@@ -419,11 +310,8 @@ internal fun WorkoutDetailScreen(
     val activeIndex = orderedExercises.indexOfFirst { it.id == detail.activeExercise.id }
     Text(
         workoutExerciseMetadata(detail.activeExercise),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        softWrap = false,
-        overflow = TextOverflow.Ellipsis
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     if (!ready.readOnly) {
         WorkoutSetRecordCard(detail, ownerId, unit, actions, drafts)

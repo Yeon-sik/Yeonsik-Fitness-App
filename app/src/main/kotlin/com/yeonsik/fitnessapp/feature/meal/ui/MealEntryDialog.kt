@@ -61,7 +61,7 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
     }
     NutritionEntryFrame(
         if (recordId != null) "$mealLabel 수정" else "$mealLabel 기록", actions::closeDraft,
-        subtitle = editor.date, closeEnabled = !editor.saving,
+        subtitle = editor.date, closeEnabled = !editor.saving, adaptiveFooter = true,
         scrollState = if (showCart) cartScroll else searchScroll,
         introduction = {
             MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
@@ -93,7 +93,7 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
                 text = { Text("음식 찾기") }, modifier = Modifier.testTag("meal-entry-find"))
             Tab(selected = showCart, onClick = { focusManager.clearFocus(); showCart = true }, enabled = inputEnabled,
                 selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text("기록 (${totals.itemCount()})") }, modifier = Modifier.testTag("meal-entry-cart"))
+                text = { Text("이번 식단 (${totals.itemCount()})") }, modifier = Modifier.testTag("meal-entry-cart"))
         }
         if (editor.draftLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (recordId != null && editor.recordEditor?.updatedAt?.isNotBlank() == true) Text("기록한 음식과 양을 수정한 뒤 저장하세요.",
@@ -147,9 +147,12 @@ internal fun MealTimeControl(value: String, onChange: (String) -> Unit, modifier
         TimePickerDialog(context, { _, hour, minute -> onChange(String.format(Locale.ROOT, "%02d:%02d", hour, minute)) },
             time.hour, time.minute, android.text.format.DateFormat.is24HourFormat(context)).show()
     }, modifier = modifier.fillMaxWidth(), enabled = enabled) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
-            Text("섭취 시각", style = MaterialTheme.typography.labelMedium)
-            Text(value.ifBlank { "시간 선택" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("섭취 시각", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.alignByBaseline())
+            Text(value.ifBlank { "시간 선택" }, style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.alignByBaseline())
+            Text("변경", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.alignByBaseline())
         }
     }
 }

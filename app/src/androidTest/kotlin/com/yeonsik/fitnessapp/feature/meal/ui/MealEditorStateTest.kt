@@ -354,7 +354,8 @@ class MealEditorStateTest {
         val meal = HomeMealSummary(id, date, "1끼", food.name, 100, 10.0, 10.0, 1.0, 1,
             food.name, "12:30", "food", null, "", "", "", "recorded", "", "", true, null, "", "")
         onMain {
-            model.openRecordEditor(meal)
+            model.closeDraft()
+            model.openMealDateTimeEditor(meal)
             model.saveMealDateTime(scope, id, target, "19:20")
             assertTrue(state().recordActionSaving)
         }
@@ -458,7 +459,7 @@ class MealEditorStateTest {
             model.selectFood(food)
             assertEquals(1, mealFoodItems(state()).size)
             val menu = NutritionFood.builder().id("mixed-menu").ownerId(nutritionOwner).name("외식 메뉴")
-                .brand("식당").kind(NutritionFood.KIND_EXTERNAL_MENU).basis(1.0, NutritionUnit.SERVING)
+                .brand("식당").kind(NutritionFood.KIND_EXTERNAL_MENU).source("manual_estimate", null).basis(1.0, NutritionUnit.SERVING)
                 .profile(NutritionProfile.ofMacros(200.0, 20.0, 25.0, 4.0)).build()
             model.selectFood(menu)
             assertFalse(state().diningOut)

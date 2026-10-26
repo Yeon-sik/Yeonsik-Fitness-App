@@ -93,7 +93,7 @@ class MealCartUiTest {
         compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
     }
 
-    @Test fun darkLargeTextShowsPartialNutritionWithoutHidingSave() {
+    @Test fun darkLargeTextKeepsPartialNutritionAndSaveReachable() {
         val missing = NutritionFood.builder().id("missing").ownerId("nutrition-owner").name("영양정보 미확인 음식")
             .kind(NutritionFood.KIND_INGREDIENT).basis(100.0, NutritionUnit.GRAM).profile(NutritionProfile.empty()).build()
         val initial = state(1).copy(foodPortions = listOf(FoodPortionDraft(food(0), "100"), FoodPortionDraft(missing, "100")))
@@ -105,8 +105,8 @@ class MealCartUiTest {
         }
         compose.onNodeWithTag("meal-cart-review").performClick()
         compose.onNode(hasText("150 kcal 이상") and hasAnyAncestor(hasTestTag("meal-entry-totals"))).assertIsDisplayed()
-        compose.onNodeWithText("확인된 합계 · 일부 영양정보 미확인").assertIsDisplayed()
-        compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithText("확인된 합계 · 일부 영양정보 미확인").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-entry-save").performScrollTo().assertIsDisplayed().assertIsEnabled()
         savePreview("meal-cart-dark-large-text.png")
     }
 
