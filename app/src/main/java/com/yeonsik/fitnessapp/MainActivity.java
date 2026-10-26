@@ -160,6 +160,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         registerBackCallback();
         restoreNavigationState(savedInstanceState);
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(buildRootView());
         configureWindow();
         // Keep system icon contrast in step with the live Compose theme.
@@ -604,10 +605,10 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         // surface should show through the bars instead of relying on bar color
         // APIs that are ignored or transformed by the platform.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            window.setStatusBarColor(statusBarColor);
-            window.setNavigationBarColor(navigationBarColor);
+            window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+            window.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                window.setNavigationBarDividerColor(navigationBarColor);
+                window.setNavigationBarDividerColor(android.graphics.Color.TRANSPARENT);
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -630,7 +631,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
         // API 26~29 fallback. The null-controller branch keeps the appearance
         // safe if a pre-draw window has no controller yet on a newer API.
-        int systemUiVisibility = dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        int systemUiVisibility = window.getDecorView().getSystemUiVisibility()
+                & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        if (!dark) systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (!dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
