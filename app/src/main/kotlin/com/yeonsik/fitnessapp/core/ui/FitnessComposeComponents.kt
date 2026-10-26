@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +25,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -42,14 +47,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
+fun FitnessBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "뒤로"
+) {
+    IconButton(onClick, modifier.sizeIn(minWidth = FitnessSpacing.touch, minHeight = FitnessSpacing.touch)) {
+        Icon(FitnessBackIcon, contentDescription, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
 fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null,
                   titleStyle: TextStyle = MaterialTheme.typography.headlineLarge,
                   titleModifier: Modifier = Modifier) {
     Column(Modifier.fillMaxWidth().padding(bottom = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         if (back != null) {
-            TextButton(onClick = back, contentPadding = PaddingValues(horizontal = 0.dp),
-                modifier = Modifier.heightIn(min = FitnessSpacing.touch)) { Text("‹ 뒤로") }
+            FitnessBackButton(back, Modifier.offset(x = (-12).dp))
         }
         Text(title, titleModifier.semantics { heading() }, style = titleStyle)
         if (!subtitle.isNullOrBlank()) {
@@ -75,9 +90,7 @@ internal fun FitnessSessionTopBar(
             .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(onClick = onBack) {
-            Text("←", style = MaterialTheme.typography.headlineSmall)
-        }
+        FitnessBackButton(onBack)
         Text(
             title,
             modifier = Modifier.weight(1f),
@@ -105,15 +118,24 @@ fun FitnessSection(title: String, content: @Composable () -> Unit) {
 
 @Composable
 fun FitnessCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null,
+                outlined: Boolean = false,
                 content: @Composable ColumnScope.() -> Unit) {
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    val border = if (outlined) {
+        val alpha = when {
+            rememberHighContrastTextEnabled() -> 1f
+            LocalFitnessDarkTheme.current -> FitnessUiTokens.CARD_HAIRLINE_ALPHA_DARK
+            else -> FitnessUiTokens.CARD_HAIRLINE_ALPHA_LIGHT
+        }
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = alpha))
+    } else null
     if (onClick == null) {
         Card(modifier, shape = FitnessShape.card, colors = colors,
-            elevation = elevation, content = content)
+            elevation = elevation, border = border, content = content)
     } else {
         Card(onClick, modifier, shape = FitnessShape.card, colors = colors,
-            elevation = elevation, content = content)
+            elevation = elevation, border = border, content = content)
     }
 }
 

@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,6 +63,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
+import com.yeonsik.fitnessapp.core.ui.FitnessBackIcon
+import com.yeonsik.fitnessapp.core.ui.FitnessActionNextIcon
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
@@ -179,12 +183,12 @@ private fun ActivityWindowNavigation(
 ) {
     var expanded by rememberSaveable(window.today, window.firstRecordedDate) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(
+        IconButton(
             onClick = onPrevious,
             enabled = enabled && window.canGoPrevious,
             modifier = Modifier.width(48.dp).testTag("home-activity-previous")
                 .semantics { contentDescription = "이전 기간" }
-        ) { Text("‹", style = MaterialTheme.typography.titleMedium) }
+        ) { Icon(FitnessBackIcon, contentDescription = null, modifier = Modifier.size(24.dp)) }
         Box(Modifier.weight(1f)) {
             TextButton(
                 onClick = { expanded = true },
@@ -211,12 +215,12 @@ private fun ActivityWindowNavigation(
                 }
             }
         }
-        TextButton(
+        IconButton(
             onClick = onNext,
             enabled = enabled && window.canGoNext,
             modifier = Modifier.width(48.dp).testTag("home-activity-next")
                 .semantics { contentDescription = "다음 기간" }
-        ) { Text("›", style = MaterialTheme.typography.titleMedium) }
+        ) { Icon(FitnessActionNextIcon, contentDescription = null, modifier = Modifier.size(24.dp)) }
     }
 }
 

@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -452,13 +454,13 @@ fun FitnessMonthHeader(
             .heightIn(min = FitnessSpacing.touch),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
+        IconButton(
             onClick = onPrevious,
             modifier = Modifier
                 .heightIn(min = FitnessSpacing.touch)
                 .semantics { contentDescription = "이전 달" }
         ) {
-            Text("‹", style = MaterialTheme.typography.titleLarge)
+            Icon(FitnessBackIcon, contentDescription = null, modifier = Modifier.size(24.dp))
         }
         Text(
             text = formatFitnessMonth(month, locale),
@@ -466,13 +468,13 @@ fun FitnessMonthHeader(
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center
         )
-        TextButton(
+        IconButton(
             onClick = onNext,
             modifier = Modifier
                 .heightIn(min = FitnessSpacing.touch)
                 .semantics { contentDescription = "다음 달" }
         ) {
-            Text("›", style = MaterialTheme.typography.titleLarge)
+            Icon(FitnessActionNextIcon, contentDescription = null, modifier = Modifier.size(24.dp))
         }
     }
 }

@@ -99,7 +99,8 @@ private val DarkColors = colors(true)
 fun FitnessComposeTheme(dark: Boolean, content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalFitnessColors provides if (dark) DarkSemantic else LightSemantic,
-        LocalFitnessDarkTheme provides dark
+        LocalFitnessDarkTheme provides dark,
+        LocalFitnessHeroColors provides if (dark) DarkHeroColors else LightHeroColors
     ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors, typography = FitnessTypography,

@@ -140,12 +140,33 @@ internal val FitnessMealIcon = ImageVector.Builder(
     }
 }.build()
 
+internal val FitnessBackIcon = ImageVector.Builder(
+    name = "FitnessBack",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+    autoMirror = true
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(15f, 6f)
+        lineTo(9f, 12f)
+        lineTo(15f, 18f)
+    }
+}.build()
+
 internal val FitnessActionNextIcon = ImageVector.Builder(
     name = "FitnessActionNext",
     defaultWidth = 24.dp,
     defaultHeight = 24.dp,
     viewportWidth = 24f,
-    viewportHeight = 24f
+    viewportHeight = 24f,
+    autoMirror = true
 ).apply {
     path(
         stroke = SolidColor(Color.Black),

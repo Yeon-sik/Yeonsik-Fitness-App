@@ -296,11 +296,11 @@ internal fun StrengthScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    "›",
-                    modifier = Modifier.padding(start = AppSpacing.small),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    FitnessActionNextIcon,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = AppSpacing.small).size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

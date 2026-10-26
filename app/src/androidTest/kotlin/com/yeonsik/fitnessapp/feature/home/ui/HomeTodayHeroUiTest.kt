@@ -38,6 +38,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
+import com.yeonsik.fitnessapp.core.ui.LightHeroColors
+import com.yeonsik.fitnessapp.core.ui.DarkHeroColors
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
@@ -82,15 +84,17 @@ class HomeTodayHeroUiTest {
                 compose.onNodeWithText("어제보다 $delta kg", useUnmergedTree = true).assertIsDisplayed()
                 val detail = textLayout("home-hero-detail-body")
                 assertFalse(detail.hasVisualOverflow)
+                val heroColors = if (dark) DarkHeroColors else LightHeroColors
                 val expected = when (weight) {
-                    80.5 -> HomeHeroWeightIncreaseColor
-                    79.5 -> HomeHeroWeightDecreaseColor
+                    80.5 -> heroColors.increase
+                    79.5 -> heroColors.decrease
                     else -> textLayout("home-hero-detail-workout").layoutInput.style.color
                 }
                 assertEquals(expected, detail.layoutInput.style.color)
                 if (weight != 80.0) {
                     assertTrue("Weight change must remain legible on Hero", contrast(expected,
-                        Color(FitnessUiTokens.COLOR_BRAND_BLUE)) >= 4.5f)
+                        Color(if (dark) FitnessUiTokens.COLOR_D_HERO_SURFACE_TOP
+                            else FitnessUiTokens.COLOR_HERO_SURFACE)) >= 4.5f)
                     captureHero("${if (dark) "dark" else "light"}-completed-${if (weight > 80.0) "gain" else "loss"}")
                 }
             }

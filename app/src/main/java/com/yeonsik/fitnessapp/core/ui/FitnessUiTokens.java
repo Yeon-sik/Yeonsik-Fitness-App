@@ -45,6 +45,8 @@ public final class FitnessUiTokens {
     // Retained names are compatibility aliases for the fixed brand color.
     public static final int COLOR_PASTEL_BLUE = COLOR_BRAND_BLUE;
     public static final int COLOR_BLUE_CONTAINER = 0xFFE0F2FE;
+    public static final int COLOR_HERO_SURFACE = 0xFFF0F9FF;
+    public static final int COLOR_HERO_BORDER = 0xFFBAE6FD;
     public static final int COLOR_BLUE_INK = 0xFF173B55;
     public static final int COLOR_PRIMARY = COLOR_BRAND_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
@@ -78,6 +80,8 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
     public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
     public static final int COLOR_D_HERO_END = 0xFF214A63;
+    public static final int COLOR_D_HERO_SURFACE_TOP = 0xFF12394D;
+    public static final int COLOR_D_HERO_SURFACE_BOTTOM = 0xFF10324A;
     public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
     public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
     public static final int COLOR_D_POSITIVE = 0xFF69D39E;
@@ -101,6 +105,8 @@ public final class FitnessUiTokens {
     public static final int DEPTH_FLAT_DP = 0;
     public static final int DEPTH_SURFACE_DP = 1;
     public static final int DEPTH_EMPHASIS_DP = 3;
+    public static final float CARD_HAIRLINE_ALPHA_LIGHT = 0.60f;
+    public static final float CARD_HAIRLINE_ALPHA_DARK = 0.50f;
 
     // Layout/spacing tokens
     public static final int PAGE_HORIZONTAL_PADDING_DP = 20;

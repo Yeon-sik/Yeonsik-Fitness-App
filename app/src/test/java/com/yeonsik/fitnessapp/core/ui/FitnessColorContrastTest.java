@@ -26,6 +26,27 @@ public final class FitnessColorContrastTest {
         assertContrast(FitnessUiTokens.COLOR_BRAND_BLUE, FitnessUiTokens.COLOR_D_SUBTLE, 4.5);
     }
 
+    @Test
+    public void heroTextIsReadableAcrossBothThemesAndBothGradientEnds() {
+        for (int foreground : new int[]{
+                FitnessUiTokens.COLOR_TEXT, FitnessUiTokens.COLOR_MUTED,
+                FitnessUiTokens.COLOR_POSITIVE, FitnessUiTokens.COLOR_NEGATIVE
+        }) {
+            assertContrast(foreground, FitnessUiTokens.COLOR_HERO_SURFACE, 4.5);
+        }
+        for (int background : new int[]{
+                FitnessUiTokens.COLOR_D_HERO_SURFACE_TOP,
+                FitnessUiTokens.COLOR_D_HERO_SURFACE_BOTTOM
+        }) {
+            for (int foreground : new int[]{
+                    FitnessUiTokens.COLOR_D_BLUE_INK, FitnessUiTokens.COLOR_D_HERO_MUTED,
+                    FitnessUiTokens.COLOR_D_POSITIVE, FitnessUiTokens.COLOR_D_NEGATIVE
+            }) {
+                assertContrast(foreground, background, 4.5);
+            }
+        }
+    }
+
     private static void assertContrast(int foreground, int background, double minimum) {
         double a = luminance(foreground);
         double b = luminance(background);

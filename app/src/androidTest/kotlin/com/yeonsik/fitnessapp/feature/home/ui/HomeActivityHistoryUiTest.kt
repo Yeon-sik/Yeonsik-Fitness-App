@@ -102,7 +102,7 @@ class HomeActivityHistoryUiTest {
             }
         }
         compose.onNodeWithText("오늘 상태").assertExists()
-        compose.onNodeWithText("빠른 이동").assertExists()
+        compose.onNodeWithText("빠른 이동").assertDoesNotExist()
         compose.onNodeWithText("활동 내역").assertExists()
         val weight = compose.onNodeWithTag("home-quick-weight").fetchSemanticsNode().boundsInRoot
         val history = compose.onNodeWithTag("home-activity-history").fetchSemanticsNode().boundsInRoot

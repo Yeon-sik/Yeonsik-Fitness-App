@@ -41,7 +41,7 @@ internal fun AppHeader(title: String, subtitle: String? = null, back: (() -> Uni
         Modifier.fillMaxWidth().padding(bottom = AppSpacing.small),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
     ) {
-        if (back != null) TextButton(onClick = back) { Text("뒤로") }
+        if (back != null) FitnessBackButton(back)
         Text(title, style = MaterialTheme.typography.headlineLarge)
         if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
