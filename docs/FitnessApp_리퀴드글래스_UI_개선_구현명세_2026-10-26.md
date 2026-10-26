@@ -690,9 +690,11 @@ internal fun FitnessDialogWindowGlass()   // 현재 창을 찾아 블러를 설�
 
 ### 9.3 TARGET 구조
 
+2026-10-27 보완: 예약 토큰의 영속 저장과 단일 소비, STARTED 수명주기를 포함한다. 구현·검증 범위는 작업 현황 문서의 C–G 기록을 따른다.
+
 | 구성요소 | 위치 | 책임 |
 |---|---|---|
-| `RestTimerAlarmScheduler` (interface) | `feature/workout/api/RestTimerAlarmScheduler.kt` | `schedule(endsAtMillis: Long)`, `cancel()` |
+| `RestTimerAlarmScheduler` (interface) | `feature/workout/api/RestTimerAlarmScheduler.kt` | `schedule(RestTimerSchedule)`, `pendingTimer()`, `claimCompletion(ownerId, endsAtMillis, nowMillis)`, `cancel()` |
 | `AndroidRestTimerAlarmScheduler` | `feature/workout/application/AndroidRestTimerAlarmScheduler.kt` | `AlarmManager`로 예약·취소 |
 | `RestTimerAlarmReceiver` | `feature/workout/application/RestTimerAlarmReceiver.kt` | 알람 수신, 포그라운드 여부 판단, 알림 게시 |
 | `RestTimerNotifications` | `feature/workout/application/RestTimerNotifications.kt` | 채널 생성, 알림 게시·취소. 채널·알림 ID 상수 |
@@ -705,12 +707,12 @@ internal fun FitnessDialogWindowGlass()   // 현재 창을 찾아 블러를 설�
 
 **예약**
 
-- `WorkoutSessionViewModel.startRestTimer`가 상태를 저장한 뒤 `scheduler.schedule(endsAtMillis)`를 호출한다.
+- `WorkoutSessionViewModel.startRestTimer`가 상태를 저장한 뒤 `scheduler.schedule(RestTimerSchedule(ownerId, endsAtMillis, totalSeconds))`를 호출한다.
 - 같은 `PendingIntent`(요청 코드 고정, `FLAG_UPDATE_CURRENT | FLAG_IMMUTABLE`)를 써서 새 타이머가 이전 예약을 덮어쓴다.
 - 예약 방식:
   - API 31 이상이면서 `alarmManager.canScheduleExactAlarms()`가 참: `setExactAndAllowWhileIdle(RTC_WAKEUP, endsAtMillis, pi)`
   - API 30 이하: `setExactAndAllowWhileIdle(...)`. 권한이 필요 없다.
-  - 그 외(정확 알람 미허용): `setWindow(RTC_WAKEUP, endsAtMillis, 10_000L, pi)`. Android 공식 가이드의 권한 미승인 시 우아한 저하 방식이다. 수 초~수십 초 늦을 수 있다.
+  - 그 외(정확 알람 미허용): `setAndAllowWhileIdle(RTC_WAKEUP, endsAtMillis, pi)`. 정확한 시각을 보장하지 않는다. OS·Doze 정책에 따라 크게 늦어질 수 있으며 수 초~수십 초 지연으로 단정하지 않는다. `canScheduleExactAlarms` 확인 후 권한이 회수된 경우에도 이 경로를 사용한다.
 - 매니페스트에 `android.permission.SCHEDULE_EXACT_ALARM`을 추가한다. 앱이 이 권한을 요청하는 설정 화면으로 사용자를 보내지 않는다. `USE_EXACT_ALARM`은 Play 정책 제한 권한이므로 추가하지 않는다.
 
 **취소**
@@ -720,15 +722,15 @@ internal fun FitnessDialogWindowGlass()   // 현재 창을 찾아 블러를 설�
 - `stopRestTimer()`(건너뛰기, 0초 휴식 포함)
 - 운동 완료·취소·삭제로 세션이 끝날 때
 - 로그아웃·계정 전환 때(`SettingsSessionCoordinator` 등 계정 경계 처리 지점)
-- 앱이 포그라운드로 돌아올 때 이미 게시된 휴식 알림(오래된 알림 정리)
+- 앱이 포그라운드로 돌아올 때는 이미 게시된 알림만 취소한다. 진행 중 예약은 유지한다.
 
 **수신**
 
 - `RestTimerAlarmReceiver`는 매니페스트에 `android:exported="false"`로 등록한다.
 - `onReceive`에서:
-  1. 앱 프로세스가 포그라운드인지 확인한다. `ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)`. 이를 위해 `androidx.lifecycle:lifecycle-process:2.8.7`(기존 lifecycle과 같은 버전)을 추가한다.
+  1. 단일 MainActivity의 시작·정지 카운터로 포그라운드 여부를 확인한다. 지연된 ProcessLifecycleOwner ON_STOP을 쓰지 않으며 새 의존성을 추가하지 않는다.
   2. 포그라운드면 아무것도 하지 않는다. 앱 레벨 종료 판정이 토스트를 띄운다.
-  3. 아니면 알림 권한(API 33 이상 `POST_NOTIFICATIONS`)과 `NotificationManagerCompat.areNotificationsEnabled()`를 확인한다. 허용돼 있을 때만 게시한다.
+  3. 아니면 SharedPreferences의 owner·종료 시각 토큰과 수신 extras가 일치하고 종료 시각이 지난 경우에만 토큰을 한 번 소비한다. 알림 권한(API 33 이상 `POST_NOTIFICATIONS`), 앱 알림과 채널 허용 여부가 모두 참일 때만 게시한다. Activity 정지 시 이미 끝난 미소비 예약도 같은 경로로 처리한다.
 - 프로세스가 종료돼 있으면 수신기가 새 프로세스에서 실행된다. 이때 포그라운드 판단은 거짓이므로 알림을 게시한다.
 
 **채널**
@@ -757,7 +759,7 @@ internal fun FitnessDialogWindowGlass()   // 현재 창을 찾아 블러를 설�
 
 - `RestTimerBar` 안의 종료 판정 `LaunchedEffect`를 `ComposeAppScreen`의 루트 레벨로 옮긴다.
 - 조건: `restState is Active && restState.ownerId == ownerId`. 현재 화면(`screen`)과 무관하다.
-- 종료 시 `stopRestTimer()` 후 `host.toast("휴식 종료. 다음 세트를 시작하세요.")`
+- STARTED 수명주기에서만 종료를 판정한다. `completeRestTimerIfDue`가 같은 예약 토큰을 소비한 경우에만 토스트를 표시한다. 백그라운드 수신기에서 이미 소비했다면 UI만 정리하며 다시 알리지 않는다.
 - `RestTimerBar`는 남은 시간 표시용 시계만 유지한다.
 
 ### 9.5 테스트
@@ -767,7 +769,7 @@ internal fun FitnessDialogWindowGlass()   // 현재 창을 찾아 블러를 설�
   - 백그라운드이고 권한이 있으면 게시한다.
   - 백그라운드이고 권한이 없으면 게시하지 않는다.
   - 정확 알람 허용 여부와 API 레벨에 따른 예약 방식 선택
-- JVM 단위 테스트(`WorkoutSessionViewModel`): 가짜 `RestTimerAlarmScheduler`로
+- Android ViewModel 테스트(`WorkoutSessionViewModelTest`): 가짜 `RestTimerAlarmScheduler`로 (이번 검증 범위는 소스 컴파일)
   - `startRestTimer`가 `schedule(endsAtMillis)`를 호출한다.
   - `stopRestTimer`, `restSeconds == 0`, 세션 종료가 `cancel()`을 호출한다.
 - 회귀 테스트(결함 수정): 홈 탭에 있는 상태에서 타이머가 끝나면 토스트 이벤트가 발생한다.

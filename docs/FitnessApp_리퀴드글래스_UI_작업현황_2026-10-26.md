@@ -1,8 +1,8 @@
 # 리퀴드 글래스 UI 구현 현황과 재개 지점
 
-작성일: 2026-10-26. 코드 근거는 **`287e2e193e2c7b2a4a1b3ad19c87198873851e0b`**다.
+작성일: 2026-10-26. 갱신일: 2026-10-27. C–G 구현 근거는 **`64ea924`**다. A·B의 기존 검증 기록은 아래에 보존한다.
 
-**다음 시작점은 원 명세 6장의 PR-C(edge-to-edge)다. A·B의 코드 구현과 로컬 검증은 완료했다. A·B를 다시 구현하지 않는다.**
+**A–G 코드 구현과 허용된 로컬 검증을 완료했다. 실기기·계측 실행·APK 생성은 미수행이다. 다음 작업은 별도로 보관한 PriceTrace 변경의 통합이다.**
 
 ## 1. 연결 문서와 작업 기준
 
@@ -10,7 +10,8 @@
 - 필수 구조 규칙: [FitnessApp 정돈 리팩터링 규칙](FitnessApp_정돈_리팩터링_규칙.md)
 - 디자인 기준: [UI 디자인 시스템](UI_DESIGN_SYSTEM.md)
 - 원 명세 출처: `docs/liquid-glass-ui-spec`의 `5bef90233e0387b19be59523a908a8e5a9cf118c`. 이 브랜치에도 원 명세를 가져오고 위 현황 링크를 연결했다.
-- 작업 브랜치: `feat/liquid-glass-home-navigation`
+- 작업 브랜치: `feat/fitness-glass-completion`
+- 이어받은 원격 기준: `origin/feat/liquid-glass-home-navigation`의 `3dfdbb02703ee8bfbc63e791f6951debb66ea77c`
 - 분기 기준: `main`의 `f15d22dd15aa5be3a22412b4495600953a959714`
 - A의 로컬 분기점: `feat/liquid-glass-ui-foundation` / `139be22`. 현재 작업 브랜치는 해당 커밋을 포함한다.
 
@@ -30,12 +31,12 @@
 | 원 명세 | 항목 | 코드 상태 | 후속 작업 |
 |---|---|---|---|
 | PR-A / 4장 | P0-1, P0-3, P2-11 | 구현, 로컬 검증 통과 | 재구현하지 않음 |
-| PR-B / 5장 | P0-2, P1-6, P2-8, P2-10 | 구현, 로컬 검증 통과 | 다음은 PR-C |
-| PR-C / 6장 | P1-5 edge-to-edge | 미구현 | **다음 시작점** |
-| PR-D / 7장 | P1-4 바·타이머, P2-12 라이브러리 격리 | 미구현 | C 이후, 6.1절 보완 반영 |
-| PR-E / 8장 | 다이얼로그·시트 | 미구현 | 창 획득·블러 대체 경로부터 확인 |
-| PR-F / 9장 | P2-7 휴식 종료 알림 | 미구현 | 6.3절의 예약·수명주기 설계를 먼저 수정 |
-| PR-G / 10장 | P2-9 로딩 통일 | 미구현 | A 기반 구현 가능, 지연 중 콘텐츠 조건 보완 |
+| PR-B / 5장 | P0-2, P1-6, P2-8, P2-10 | 구현, 기존 로컬 검증 통과 | 기기 검증 미수행 |
+| PR-C / 6장 | P1-5 edge-to-edge | 구현, 컴파일·JVM 통과 | IME·회전·cutout 기기 검증 미수행 |
+| PR-D / 7장 | P1-4 바·타이머, P2-12 라이브러리 격리 | 구현, 컴파일·JVM 통과 | 글래스·대체 표면 시각 검증 미수행 |
+| PR-E / 8장 | 다이얼로그·시트 | 구현, 컴파일·JVM 통과 | 창 블러·포커스·뒤로가기 기기 검증 미수행 |
+| PR-F / 9장 | P2-7 휴식 종료 알림 | 구현, 정책 JVM 통과·계측 소스 컴파일 | 실제 알람·권한·Doze 검증 미수행 |
+| PR-G / 10장 | P2-9 로딩 통일 | 구현, 컴파일·JVM 통과·계측 소스 컴파일 | 시간 경계 UI 테스트·TalkBack 실행 미수행 |
 
 PR-A부터 PR-G까지의 이름은 원 명세의 구현 묶음 이름이다. GitHub PR을 생성하거나 main에 병합했다는 의미가 아니다.
 
@@ -46,6 +47,12 @@ PR-A부터 PR-G까지의 이름은 원 명세의 구현 묶음 이름이다. Git
 | `9ff3a0b` | 이미지 카탈로그 테스트의 오래된 drawable·상수·별칭 참조 수정 | 구현 전 기준 테스트 복구, UI 코드와 별도 커밋 |
 | `139be22` | 전경색 대비, Orb 팔레트·발광, 글래스 수치 토큰화 | PR-A |
 | `287e2e1` | 홈 표면, 상단 카드, 뒤로가기·기간 이동 아이콘, 고대비 공통 감지 | PR-B |
+| `32afc9e` | 시스템 바와 화면별 inset 분리, 상태바 scrim | PR-C |
+| `964a584` | 앱 소유 글래스 어댑터, 세션·휴식 바 형제 오버레이, 식단 요약 일반 표면 | PR-D |
+| `0515a20` | 별도 창 블러와 불투명 대체 표면 래퍼, 기존 모달 연결 | PR-E |
+| `8b8d4e0` | 다른 탭에서도 STARTED 상태에서 휴식 종료 처리 | PR-F 기존 결함 수정 |
+| `dc4b69c` | 영속 예약 토큰, 백그라운드 알림, 계정 경계·중복 처리 방지 | PR-F 알림 |
+| `64ea924` | 여섯 로딩 화면의 공통 variant, 지연·최소 표시·접근성 | PR-G |
 
 ### PR-A
 
@@ -54,7 +61,7 @@ PR-A부터 PR-G까지의 이름은 원 명세의 구현 묶음 이름이다. Git
 - [ThinkingOrb.kt](../app/src/main/kotlin/com/yeonsik/fitnessapp/core/ui/ThinkingOrb.kt)에 전용 4색 팔레트와 중심 발광을 적용했다. 그라데이션은 draw cache에서 만들고 애니메이션이 꺼지면 정적으로 그린다. 입자 88개와 회전 주기는 유지한다.
 - 내비게이션의 기존 글래스 효과 수치와 피드백 수치를 공통 토큰으로 옮겼다. 이 단계에서 효과 값은 바꾸지 않았다.
 - [FitnessColorContrastTest.java](../app/src/test/java/com/yeonsik/fitnessapp/core/ui/FitnessColorContrastTest.java)는 Android graphics 실행 없이 정수 색상값의 WCAG 상대 휘도를 계산한다.
-- `NAV_GLASS_BLUR_RADIUS_DP`는 `GLASS_PLAIN_BLUR_DP`의 deprecated 별칭으로 남아 있다. 제거 시점은 PR-D다.
+- A에서는 `NAV_GLASS_BLUR_RADIUS_DP`를 deprecated 별칭으로 남겼고, 후속 D에서 제거했다.
 
 ### PR-B
 
@@ -71,6 +78,8 @@ PR-A부터 PR-G까지의 이름은 원 명세의 구현 묶음 이름이다. Git
 - 기존 Android UI 테스트의 색상 역할·뒤로가기 조회·제목 조회를 새 계약에 맞췄다. 이 테스트의 APK 컴파일·실행 결과는 확보하지 않았다.
 
 ## 4. 검증 기록
+
+### 기존 A·B 기록
 
 실행일은 2026-10-26이며, 로컬 Windows·JDK 17·debug 구성을 사용했다.
 
@@ -114,41 +123,45 @@ $uiBuildArgs = @(
 - 중단된 컴파일 출력 때문에 Kotlin 출력 폴더 정리가 실패한 실행이 있었다. 당시 실행 중인 Java 프로세스가 없는 것을 확인하고 `app/build` 안의 Kotlin 컴파일 출력만 정리했다. 소스나 DB를 삭제하지 않았다.
 - PowerShell이 점이 포함된 Gradle 옵션을 분리한 실행은 검증 단계에 진입하지 못했다. 위처럼 문자열 배열로 인수를 전달하도록 수정했다.
 
-## 5. 다음 시작점: PR-C
+### C–G 후속 검증 (2026-10-26~27)
 
-1. 현재 브랜치에 `139be22`와 `287e2e1`이 포함돼 있는지 확인한다. A·B가 포함된 상태에서 PR-C를 시작한다. 이후 다른 코드가 추가됐으면 이 문서의 검증 결과를 새 변경의 검증 결과로 재사용하지 않는다.
-2. [원 명세 6장](FitnessApp_리퀴드글래스_UI_개선_구현명세_2026-10-26.md#6-pr-c-p1-5-edge-to-edge)을 읽고 edge-to-edge를 구현한다. 현재 루트의 `systemBarsPadding()`은 아직 제거하지 않았다.
-3. [MainActivity.java](../app/src/main/java/com/yeonsik/fitnessapp/MainActivity.java)의 `setContentView` 이전 창 설정과 `applySystemBarAppearance`를 함께 확인한다. API 26~34에서 불투명 시스템 바 색이 콘텐츠를 덮지 않도록 처리하고 아이콘 밝기 규칙을 보존한다.
-4. [ComposeAppScreen.kt](../app/src/main/kotlin/com/yeonsik/fitnessapp/app/navigation/ComposeAppScreen.kt)의 콘텐츠 패딩, 하단 탭, 기록 허브 탭, 기존 세션 상단 바와 휴식 바에 inset을 한 번씩만 적용한다. 스크롤하지 않는 종목 선택·유산소·루틴 화면도 포함한다.
-5. 상태바 스크림을 추가한다. IME 패딩과 내비게이션 바 패딩 중복, 가로 방향 cutout·좌우 inset, 상단 바가 이미 차지한 상태바 높이의 중복을 코드에서 점검한다.
-6. 입력 초안·포커스·뒤로가기 콜백, 소유자·날짜 필터, `SaveableStateProvider` 키와 기록 저장 경로를 보존한다. 이 변경과 휴식 종료 알림을 섞지 않는다.
-7. 사용자 지정 범위에 따라 코드 컴파일·단위 테스트만 실행한다. 추가 APK 생성·설치, 기기·계측 검증은 하지 않는다. 이 미수행 범위는 다음 결과 기록에도 유지한다.
+Windows, Android Studio JBR 21.0.10 런타임, Java/Kotlin target 17, Gradle 9.0.0, 캐시된 Android SDK를 사용했다. 기존 A·B의 JDK 17 실행과 구분한다.
 
-원 명세의 원칙대로 실제 PR은 선행 변경이 main에 반영된 후 main에서 분기한다. 미병합 상태에서 로컬 후속 구현을 계속할 경우에는 A·B가 포함된 현재 브랜치를 기반으로 별도 `feat/` 브랜치를 만들고 선행 의존성을 명시한다. 최신 main만 checkout해서 A·B가 적용됐다고 가정하지 않는다.
+| 검증 시점 | JVM 결과 | 컴파일 결과 |
+|---|---|---|
+| C·D | 581개: 579 통과, 2 건너뜀, 실패·오류 0 | 앱 소스 통과 |
+| E | 582개: 580 통과, 2 건너뜀, 실패·오류 0 | 앱 소스 통과 |
+| F | 587개: 585 통과, 2 건너뜀, 실패·오류 0 | 앱·계측 테스트 소스 통과 |
+| G (`64ea924`) | 587개: 585 통과, 2 건너뜀, 실패·오류 0 | 앱·계측 테스트 소스 통과 |
 
-## 6. 이후 단계에서 먼저 보완할 점
+`testDebugUnitTest` XML 집계이며 계측 테스트를 통과 수에 포함하지 않았다. C·D 최종 실행 1분 18초, E 1분 10초, F 1분 50초, G 1분 14초에 `BUILD SUCCESSFUL`을 확인했다.
 
-### 6.1 PR-D: 글래스 타입과 누락 범위
+```powershell
+# JAVA_HOME: Android Studio JBR 21, ANDROID_HOME: 설치된 SDK
+# FITNESS_IMAGE_PIPELINE_DIR: 보존된 Fitness-Image-Pipeline 원본 checkout
+.\gradlew.bat testDebugUnitTest compileDebugJavaWithJavac `
+  compileDebugAndroidTestKotlin compileDebugAndroidTestJavaWithJavac `
+  --offline --no-daemon --max-workers=1 `
+  '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' `
+  '-Pkotlin.compiler.execution.strategy=in-process' `
+  -x syncExerciseIllustrations -x generateExerciseIllustrationAssets -x generateExerciseCatalog
+```
 
-- 실제 라이브러리 `layerBackdrop`은 `LayerBackdrop`을 요구한다. 원 명세 예시의 `fitnessBackdropSource(backdrop: Backdrop)`를 그대로 위임하면 타입이 맞지 않는다. `FitnessBackdrop` 같은 앱 소유 래퍼가 내부 `LayerBackdrop`을 보관하도록 설계하고 외부 파일의 vendor import를 격리한다.
-- 현재 직접 backdrop import가 남아 있는 파일은 `ComposeAppScreen.kt`와 [MealOverviewSurface.kt](../app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealOverviewSurface.kt)다. 홈만 정리하고 라이브러리 격리를 완료했다고 표현하지 않는다.
-- 식단 요약도 실제 콘텐츠 대신 자체 그라데이션을 샘플링하는 콘텐츠 카드다. 원 명세의 콘텐츠/조작 층 원칙에 맞춰 일반 표면으로 전환하는 범위를 D에 포함한다.
-- 타이머와 세션 바는 샘플링하는 콘텐츠 레이어의 형제 오버레이로 둔다. 자기 자신을 포함한 레이어를 샘플링하지 않는다.
-- `FitnessSessionTopBar` 내부의 기존 불투명 배경도 확인한다. 외부 modifier에 글래스만 추가하면 내부 배경에 가려질 수 있다.
-- 라이브러리 버전은 `0.0.1-alpha02`를 유지한다. import 격리 JVM 테스트와 API별 불투명 대체 경로를 구현한다. 기기 실행은 수행하지 않는다.
+새 작업 트리의 첫 실행에서는 제외 옵션 없이 외부 이미지 파이프라인 원본을 연결해 산출물을 생성했다. 이후 C–G는 이미지 변경이 없으므로 같은 산출물을 재사용했다. 최초 기본 fallback 생성으로 이미지 테스트 상수 4개가 누락된 시도는 실패이며, 테스트를 완화하지 않고 올바른 파이프라인 입력으로 해결했다. 내비게이션 어댑터 이동 중 누락된 `dark` 지역값도 첫 컴파일에서 발견해 수정했다.
 
-### 6.2 PR-E: 별도 창의 블러
+## 5. C–G 구현 경계
 
-원 명세대로 앱 루트 backdrop을 별도 다이얼로그 창에서 샘플링하지 않는다. 실제 resolved Material3 버전, `DialogWindowProvider`를 통해 창을 얻는 위치, 창의 투명성·블러 영역·모서리를 확인한다. 창 획득 또는 블러가 불가능하면 불투명 대체 표면을 사용한다. 사용자 지정 범위에서는 기기에서 블러가 보인다고 승인하거나 전체 화면 품질 검증 완료로 기록하지 않는다.
+- C: `setDecorFitsSystemWindows(false)`를 콘텐츠 생성 전에 설정했다. 페이지의 시스템 바·cutout inset, 하단 탭과 휴식 바의 navigation inset, 루트 IME inset을 나누고 상태바 scrim을 별도 draw layer로 둔다.
+- D: `FitnessBackdrop`이 내부 `LayerBackdrop`을 보관한다. vendor import는 `FitnessGlass.kt` 한 파일뿐이며 JVM 구조 테스트로 검사한다. API 31 미만·고대비·backdrop 부재에는 불투명 표면을 쓴다. 세션 바와 휴식 바는 페이지 backdrop을 샘플링하는 형제 오버레이이며, 유산소 바는 일반 표면을 유지한다. 식단 요약의 자체 그라데이션 샘플링은 제거했다.
+- E: resolved Material3 **1.3.1** sources에서 `ModalBottomSheetDialogLayout`의 `DialogWindowProvider` 구현을 확인했다. 모달 내부에서 실제 창을 찾으며 Activity 창으로 대체하지 않는다. 제한된 alert 창에는 background blur, 전체 창을 쓰는 시트·다이얼로그에는 blur-behind를 사용한다. 시스템 블러 변경 리스너 해제와 이전 창 상태 복원을 포함한다. 창·API·블러 지원이 없으면 불투명 표면과 테두리로 복귀한다. 입력 콜백과 DatePickerDialog 기본 구현은 유지한다.
+- F: `WorkoutRestTimerHost`가 화면과 무관하게 Lifecycle STARTED에서 종료를 소비한다. `RestTimerSchedule(ownerId, endsAtMillis, totalSeconds)`를 SharedPreferences에 저장하고 수신기와 UI가 동일 토큰을 한 번만 소비한다. 이미 수신기에서 소비한 타이머는 SavedStateHandle로 재생하지 않는다. 건너뛰기·세션 종료·계정 변경에서 예약을 취소하고 앱 재진입에서 오래된 알림을 지운다.
+- F 예약: API 31+ 정확 알람 허용 시와 API 30 이하에서는 `setExactAndAllowWhileIdle`, 미허용 또는 권한 회수 시에는 `setAndAllowWhileIdle`을 쓴다. **대체 예약은 정확한 종료 시각을 보장하지 않으며 OS·절전 정책으로 크게 지연될 수 있다.** 정확 알람 설정 화면으로 자동 이동하지 않는다. 새 `lifecycle-process` 의존성 대신 단일 MainActivity의 시작·정지 수를 사용해 지연된 프로세스 ON_STOP 경계를 피했다. [알람 정책](https://developer.android.com/develop/background-work/services/alarms), [ProcessLifecycleOwner의 지연](https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner)
+- G: `FitnessLoading.kt`가 FULL_SCREEN 96dp, SECTION 72dp, INLINE_CARD 52dp를 담당한다. 시작 화면은 즉시 표시하고 나머지 대상 화면은 300ms 지연·최소 500ms를 적용한다. 대기 중 빈 공간을 유지하고 `loading || showLoading` 동안 결과를 노출하지 않는다. 계정·날짜 키 변경 시 표시 상태를 버린다. 대표 접근성 문구는 고정하고 회전 문구는 시각 전용이다. 기존 직접 Orb 호출은 공통 컴포넌트에만 남았다. 저장 버튼·수치 진행률 같은 동작 진행 표시는 이 화면 로딩 범위와 구분한다.
 
-### 6.3 PR-F: 예약 정밀도와 종료 처리
+수용 기준 중 기기에서만 확인 가능한 창 블러, 픽셀·성능, IME/회전, 실제 알람·Doze, TalkBack은 **미검증**이다. 신규 `WorkoutRestTimerHostTest`, 예약 주입 ViewModel 테스트, `FitnessLoadingTest`와 수정된 기존 UI 테스트는 소스 컴파일만 확인했다. APK 생성·설치나 테스트 실행 결과로 표현하지 않는다.
 
-- `setWindow(..., 10_000L, ...)`에 대해 “수 초~수십 초 지연”을 보장할 수 없다. Android 12 이상에서는 작은 창이 일반적으로 600,000ms로 늘어나며 절전 정책에 따른 지연도 가능하다. [Android 알람 공식 문서](https://developer.android.com/develop/background-work/services/alarms#deliver-an-alarm-during-a-time-window)
-- 정확 알람 권한 정책과 허용 지연을 먼저 정하고 예약 명세를 수정한다.
-- 종료 `LaunchedEffect`를 루트로 옮기는 것만으로 포그라운드 실행이 보장되지 않는다. 백그라운드에서 `stopRestTimer()`가 예약을 취소해 수신기 알림을 없애지 않도록 수명주기와 단일 종료 처리 소유자를 설계한다.
-- 현재 종료 판정은 여전히 `RestTimerBar` 안에 있다. 다른 탭에서 종료 시점을 놓치는 기존 결함을 수정한 것으로 기록하지 않는다.
-- 알림 변경은 UI 정리와 별도 커밋·회귀 테스트로 처리한다.
+## 6. 이어서 적용할 PriceTrace 범위
 
-### 6.4 PR-G: 로딩 중 표시 조건
+사용자 지시에 따라 기존 로컬 checkout과 PT 파일·패치·SHA-256 manifest를 별도 보관한 뒤, 원격 `3dfdbb0`에서 새 기능 브랜치를 만들었다. 기존 `feat/records-ux-clarity`의 커밋 및 관련 없는 미커밋 UI 작업은 보존한다.
 
-`rememberDelayedLoadingVisible()`의 반환값이 false라는 이유만으로 준비되지 않은 데이터를 렌더링하지 않는다. 300ms 대기, 표시 중, 결과·오류 상태의 구분과 소유자·날짜 변경 시 초기화 조건을 먼저 정한다. 최소 500ms 표시 중에는 준비된 결과의 노출도 함께 제어한다. 접근성 대표 문구는 첫 문구로 고정하고 순환 문구의 반복 낭독을 막는다. 기존 테스트 태그를 유지하며 계측 테스트는 실행하지 않는다.
+C–G 완료 커밋 이후 PT 관련 14개 경로의 변경을 비교·통합한다. MealScreen처럼 변경이 섞인 파일은 제품 검색·등록 연결 부분만 이식하며 새 글래스·로딩 구현을 덮어쓰지 않는다. PT의 공개 제품 검색·선택, variant 식별자, 영양값의 조건부 채움, 로컬 식품과 연결의 원자적 저장, 기존 식단 장바구니 복귀가 범위다. 서버 schema·RLS·RPC 배포나 실기기 검증은 이 통합의 완료 근거가 아니다.
