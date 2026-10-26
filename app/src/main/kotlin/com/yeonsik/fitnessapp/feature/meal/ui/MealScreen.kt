@@ -245,7 +245,7 @@ internal fun MealScreen(
         ) { Text("오늘로 이동") }
     }
     Spacer(Modifier.height(AppSpacing.gap))
-    MealOverviewGlassSurface(Modifier.testTag("meal-day-overview")) {
+    MealOverviewSurface(Modifier.testTag("meal-day-overview")) {
         Text(
             if (selectedDate == LocalDate.now()) "오늘의 식단" else "이날의 식단",
             style = MaterialTheme.typography.titleMedium,

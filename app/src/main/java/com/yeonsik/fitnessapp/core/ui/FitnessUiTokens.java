@@ -135,9 +135,6 @@ public final class FitnessUiTokens {
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
     public static final int GLASS_PLAIN_BLUR_DP = 7;
-    /** @deprecated Use GLASS_PLAIN_BLUR_DP. */
-    @Deprecated
-    public static final int NAV_GLASS_BLUR_RADIUS_DP = GLASS_PLAIN_BLUR_DP;
     public static final int NAV_ITEM_GAP_DP = 4;
     public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;

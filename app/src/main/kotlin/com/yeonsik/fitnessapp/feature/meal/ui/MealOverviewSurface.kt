@@ -24,69 +24,26 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.colorControls
-import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
-/** Local, self-contained sampling source for the Meal overview's restrained frosted surfaces. */
+/** Nutrition is content; it uses an opaque surface rather than sampling a generated gradient. */
 @Composable
-internal fun MealOverviewGlassSurface(
+internal fun MealOverviewSurface(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
-    val context = LocalContext.current
-    val highContrast = Build.VERSION.SDK_INT >= 36 &&
-        context.getSystemService(AccessibilityManager::class.java)
-            ?.isHighContrastTextEnabled == true
-    val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
-    if (useGlass) {
-        val backdrop = rememberLayerBackdrop()
-        Box(modifier.fillMaxWidth().clip(FitnessShape.card)) {
-            Box(
-                Modifier.matchParentSize()
-                    .layerBackdrop(backdrop)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(colors.primaryContainer, colors.surfaceContainerHigh)
-                        )
-                    )
-            )
-            Column(
-                Modifier.drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { FitnessShape.card },
-                    effects = {
-                        colorControls(saturation = 1.03f)
-                        blur(7.dp.toPx())
-                    },
-                    highlight = { Highlight.Plain },
-                    onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.82f)) }
-                ).fillMaxWidth().padding(AppSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                content = content
-            )
-        }
-    } else {
-        Column(
-            modifier.fillMaxWidth().clip(FitnessShape.card)
-                .background(colors.surfaceContainerHigh)
-                .border(
-                    1.dp,
-                    if (highContrast) colors.onSurface else colors.outlineVariant,
-                    FitnessShape.card
-                )
-                .padding(AppSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
-            content = content
-        )
-    }
+    val highContrast = com.yeonsik.fitnessapp.core.ui.rememberHighContrastTextEnabled()
+    Column(
+        modifier.fillMaxWidth().clip(FitnessShape.card)
+            .background(colors.surfaceContainerHigh)
+            .border(1.dp, if (highContrast) colors.onSurface else colors.outlineVariant, FitnessShape.card)
+            .padding(AppSpacing.card),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
+        content = content
+    )
 }
 
 @Composable

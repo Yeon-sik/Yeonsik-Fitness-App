@@ -60,6 +60,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -88,15 +89,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kashif_e.backdrop.Backdrop
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.colorControls
-import com.kashif_e.backdrop.effects.lens
-import com.kashif_e.backdrop.effects.vibrancy
-import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitnessapp.core.ui.*
@@ -960,11 +952,10 @@ private fun AppRoot(
             StartupOrbScreen()
             return@FitnessComposeTheme
         }
-        val backdrop = rememberLayerBackdrop()
+        val backdrop = rememberFitnessLayerBackdrop()
         val highContrastEnabled = rememberHighContrastTextEnabled()
         val bottomNavigationVisible = isBottomNavigationVisible(screen)
-        val useBackdropGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            bottomNavigationVisible && !highContrastEnabled
+        val useBackdropGlass = fitnessGlassSupported(Build.VERSION.SDK_INT, highContrastEnabled)
         val bottomNavigationHeight = with(LocalDensity.current) {
             // The icon and scaled label must both fit inside the capsule.
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
@@ -979,9 +970,20 @@ private fun AppRoot(
         val restTimerVisible = restState is WorkoutRestTimerState.Active &&
             (restState as WorkoutRestTimerState.Active).ownerId == ownerId &&
             (screen == FitnessScreen.WORKOUT_SESSION || screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+        var restBarHeightPx by remember { mutableIntStateOf(0) }
+        val restBarHeight = with(LocalDensity.current) { restBarHeightPx.toDp() }
+            .coerceAtLeast(80.dp + navigationBarInset)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
+        CompositionLocalProvider(
+            LocalFitnessGlassEnabled provides useBackdropGlass,
+            LocalFitnessGlassHighContrast provides highContrastEnabled,
+            LocalFitnessPageBackdrop provides backdrop
+        ) {
         val destinationPage: @Composable (FitnessScreen, Boolean) -> Unit = { pageScreen, isActualActive ->
-            val recordsBackdrop = rememberLayerBackdrop()
+            val recordsBackdrop = rememberFitnessLayerBackdrop()
+            var sessionBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
+            val sessionBarHeight = with(LocalDensity.current) { sessionBarHeightPx.toDp() }
+                .coerceAtLeast(64.dp + statusBarInset)
             var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
             val recordsBarHeight = if (recordsBarHeightPx > 0) {
                 with(LocalDensity.current) { recordsBarHeightPx.toDp() }
@@ -1005,15 +1007,8 @@ private fun AppRoot(
                 FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
                 else -> navigationState.today
             }
-            Column(Modifier.fillMaxSize()) {
-                // The toolbar belongs to this page. Toggling it outside the flow
-                // resizes both retained pages on every session/detail round trip.
-                if (pageScreen == FitnessScreen.WORKOUT_SESSION) {
-                    Box(Modifier.statusBarsPadding()) {
-                        SessionTopBar(navigation, viewModels, ownerId, workoutState)
-                    }
-                }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize()) {
                     val workoutPageScope = if (isWorkoutFlowScreen(pageScreen)) {
                         val identity = if (pageScreen == FitnessScreen.ROUTINE_DETAIL)
                             navigationState.selectedRoutineId ?: homeSnapshot?.activeRoutineId
@@ -1037,8 +1032,8 @@ private fun AppRoot(
                             Modifier
                                 .fillMaxSize()
                                 .then(
-                                    if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
-                                        Modifier.layerBackdrop(recordsBackdrop)
+                                    if ((pageScreen == FitnessScreen.RECORDS || pageScreen == FitnessScreen.WORKOUT_SESSION) && useBackdropGlass) {
+                                        Modifier.fitnessBackdropSource(recordsBackdrop)
                                     } else Modifier
                                 )
                                 .then(
@@ -1054,11 +1049,11 @@ private fun AppRoot(
                                     end = FitnessSpacing.page + horizontalInsets.calculateEndPadding(layoutDirection),
                                     top = FitnessSpacing.gap +
                                         if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
-                                        else if (pageScreen == FitnessScreen.WORKOUT_SESSION ||
-                                            pageScreen == FitnessScreen.CARDIO_SESSION) 0.dp else statusBarInset,
+                                        else if (pageScreen == FitnessScreen.WORKOUT_SESSION) sessionBarHeight
+                                        else if (pageScreen == FitnessScreen.CARDIO_SESSION) 0.dp else statusBarInset,
                                     bottom = FitnessSpacing.gap +
                                         (if (bottomNavigationVisible) bottomNavigationSpace else 0.dp) +
-                                        (if (restTimerVisible) 0.dp else navigationBarInset)
+                                        (if (restTimerVisible) restBarHeight else navigationBarInset)
                                 )
                         ) {
                             if (pageDestination == FitnessScreen.HOME) {
@@ -1098,14 +1093,20 @@ private fun AppRoot(
                             }
                         }
                     }
+                    if (pageScreen == FitnessScreen.WORKOUT_SESSION) {
+                        SessionTopBar(navigation, viewModels, ownerId, workoutState,
+                            Modifier.align(Alignment.TopCenter)
+                                .onSizeChanged { sessionBarHeightPx = it.height }
+                                .statusBarsPadding().padding(horizontalInsets)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .fitnessGlassSurface(RoundedCornerShape(28.dp), backdrop = recordsBackdrop)
+                                .pointerInput(Unit) { detectTapGestures(onTap = {}) })
+                    }
                     if (pageScreen == FitnessScreen.RECORDS) {
                         RecordsHubTabs(
                             selected = recordsHubTab,
                             onSelected = navigation::selectRecordsHubTab,
                             backdrop = recordsBackdrop,
-                            useBackdropGlass = useBackdropGlass,
-                            highContrastEnabled = highContrastEnabled,
-                            dark = dark,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .onSizeChanged { recordsBarHeightPx = it.height }
@@ -1125,7 +1126,7 @@ private fun AppRoot(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .then(if (useBackdropGlass) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .then(if (useBackdropGlass) Modifier.fitnessBackdropSource(backdrop) else Modifier)
             ) {
                 if (screen == FitnessScreen.CARDIO_SESSION) {
                     Box(Modifier.statusBarsPadding().padding(horizontalInsets)) {
@@ -1153,9 +1154,14 @@ private fun AppRoot(
                         destinationPage(screen, true)
                     }
                 }
-                Box(Modifier.then(if (restTimerVisible) Modifier.navigationBarsPadding() else Modifier)) {
-                    RestTimerBar(host, viewModels, screen, restState, ownerId)
-                }
+            }
+            if (restTimerVisible) {
+                RestTimerBar(host, viewModels, screen, restState, ownerId,
+                    Modifier.align(Alignment.BottomCenter)
+                        .onSizeChanged { restBarHeightPx = it.height }
+                        .navigationBarsPadding().padding(horizontalInsets)
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                        .widthIn(max = 400.dp))
             }
             if (bottomNavigationVisible) {
                 BottomNavigation(
@@ -1164,8 +1170,7 @@ private fun AppRoot(
                         swipeSelection = null
                         navigation.selectTopLevelFromTab(it)
                     },
-                    dark, bottomNavigationHeight,
-                    backdrop, useBackdropGlass, highContrastEnabled,
+                    bottomNavigationHeight, backdrop,
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontalInsets)
                 )
             }
@@ -1250,6 +1255,7 @@ private fun AppRoot(
                 }
             )
         }
+        }
     }
 }
 
@@ -1291,7 +1297,8 @@ private fun SessionTopBar(
     navigation: AppNavigationViewModel,
     viewModels: AppViewModels,
     ownerId: String,
-    state: WorkoutSessionUiState
+    state: WorkoutSessionUiState,
+    modifier: Modifier = Modifier
 ) {
     val recordId = viewModels.getWorkoutSession().activeRecordId()
     val ready = state as? WorkoutSessionUiState.Ready
@@ -1300,6 +1307,8 @@ private fun SessionTopBar(
     } == true
     FitnessSessionTopBar(
         title = "운동 세션",
+        modifier = modifier,
+        containerColor = Color.Transparent,
         canCancel = ready?.let {
             it.ownerId == ownerId && it.session.status == "in_progress"
         } == true,
@@ -1362,7 +1371,8 @@ private fun RestTimerBar(
     viewModels: AppViewModels,
     screen: FitnessScreen,
     state: WorkoutRestTimerState,
-    ownerId: String
+    ownerId: String,
+    modifier: Modifier = Modifier
 ) {
     val active = state as? WorkoutRestTimerState.Active
     val visible = active != null
@@ -1390,10 +1400,12 @@ private fun RestTimerBar(
     val remainingSeconds = ((remainingMillis + 999L) / 1000L).toInt()
     val ratio = (remainingMillis / (active.totalSeconds * 1000f)).coerceIn(0f, 1f)
     val timeLabel = String.format(Locale.ROOT, "%d:%02d", remainingSeconds / 60, remainingSeconds % 60)
+    val radius by animateDpAsState(if (expanded) 28.dp else 100.dp, tween(180), label = "rest-capsule-radius")
     Column(
-        Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+        modifier
+            .fillMaxWidth().heightIn(min = 56.dp)
+            .fitnessGlassSurface(RoundedCornerShape(radius))
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .animateContentSize(tween(180))
             .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
@@ -1403,158 +1415,28 @@ private fun RestTimerBar(
                 .semantics { stateDescription = if (expanded) "휴식 타이머 펼쳐짐" else "휴식 타이머 접힘" }) {
                 Text(if (expanded) "휴식 · 접기" else "휴식 · 펼치기")
             }
-            if (!expanded) Text(timeLabel, style = MaterialTheme.typography.headlineSmall)
+            if (!expanded) Text(timeLabel, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
             TextButton(onClick = { viewModels.getWorkoutSession().stopRestTimer() }) {
                 Text("건너뛰기")
             }
         }
         if (expanded) {
             Text(timeLabel, Modifier.align(Alignment.CenterHorizontally),
-                style = MaterialTheme.typography.displayMedium)
+                style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum"))
             Text("호흡을 정리하고 다음 세트를 준비하세요.",
                 Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodySmall)
         }
-        LinearProgressIndicator(progress = ratio, modifier = Modifier.fillMaxWidth())
+        LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth().height(3.dp))
     }
 }
 
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 @Composable
-private fun Modifier.navigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean
-): Modifier {
-    val colors = MaterialTheme.colorScheme
-    return if (useBackdropGlass) {
-        clip(CircleShape).drawBackdrop(
-            backdrop = backdrop,
-            shape = { CircleShape },
-            effects = {
-                colorControls(saturation = FitnessUiTokens.GLASS_PLAIN_SATURATION)
-                blur(FitnessUiTokens.GLASS_PLAIN_BLUR_DP.dp.toPx())
-            },
-            highlight = { Highlight.Plain },
-            onDrawSurface = { drawRect(colors.surface.copy(alpha = FitnessUiTokens.GLASS_PLAIN_SURFACE_ALPHA)) }
-        )
-    } else {
-        clip(CircleShape)
-            .background(colors.surfaceContainerHigh)
-            .border(
-                1.dp,
-                if (highContrastEnabled) colors.onSurface else colors.outlineVariant,
-                CircleShape
-            )
-    }
-}
-
-@Composable
-private fun Modifier.glassSelection(): Modifier =
-    clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
-
-@Composable
-private fun Modifier.bottomNavigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean
-): Modifier {
-    if (!useBackdropGlass) {
-        return navigationGlassSurface(backdrop, false, highContrastEnabled)
-    }
-    val colors = MaterialTheme.colorScheme
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val sheen = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(alpha = if (dark) FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_DARK
-                else FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_LIGHT),
-            Color.Transparent,
-            colors.surface.copy(alpha = FitnessUiTokens.GLASS_BAR_SHEEN_BOTTOM_ALPHA)
-        )
-    )
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            if (fullEffects) vibrancy()
-            blur(FitnessUiTokens.GLASS_BAR_BLUR_DP.dp.toPx())
-            if (fullEffects) {
-                lens(FitnessUiTokens.GLASS_BAR_LENS_HEIGHT_DP.dp.toPx(),
-                    FitnessUiTokens.GLASS_BAR_LENS_AMOUNT_DP.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_BAR_HIGHLIGHT_ALPHA) },
-        onDrawSurface = {
-            drawRect(colors.surface.copy(alpha = if (dark) FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_DARK
-                else FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_LIGHT))
-            drawRect(sheen)
-        }
-    )
-}
-
-@Composable
-private fun Modifier.bottomNavigationGlassSelection(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean
-): Modifier {
-    if (!useBackdropGlass) return glassSelection()
-    val tint = MaterialTheme.colorScheme.primaryContainer
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            blur(FitnessUiTokens.GLASS_SELECTION_BLUR_DP.dp.toPx())
-            if (fullEffects) {
-                lens(FitnessUiTokens.GLASS_SELECTION_LENS_HEIGHT_DP.dp.toPx(),
-                    FitnessUiTokens.GLASS_SELECTION_LENS_AMOUNT_DP.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_SELECTION_HIGHLIGHT_ALPHA) },
-        onDrawSurface = { drawRect(tint.copy(alpha = FitnessUiTokens.GLASS_SELECTION_TINT_ALPHA)) }
-    )
-}
-
-@Composable
-private fun Modifier.glassTabFeedback(
-    dark: Boolean,
-    interactionSource: MutableInteractionSource
-): Modifier {
-    val pressed by interactionSource.collectIsPressedAsState()
-    val focused by interactionSource.collectIsFocusedAsState()
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val opacity by animateFloatAsState(
-        targetValue = when {
-            pressed -> if (dark) FitnessUiTokens.GLASS_PRESS_ALPHA_DARK else FitnessUiTokens.GLASS_PRESS_ALPHA_LIGHT
-            focused -> if (dark) FitnessUiTokens.GLASS_FOCUS_ALPHA_DARK else FitnessUiTokens.GLASS_FOCUS_ALPHA_LIGHT
-            hovered -> FitnessUiTokens.GLASS_HOVER_ALPHA
-            else -> 0f
-        },
-        animationSpec = tween(durationMillis = if (pressed) FitnessUiTokens.GLASS_PRESS_IN_MILLIS
-            else FitnessUiTokens.GLASS_PRESS_OUT_MILLIS)
-    )
-    val tint = if (dark) Color.White else Color(FitnessUiTokens.GLASS_PRESS_TINT_LIGHT)
-    // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
-    return drawWithCache {
-        val radius = size.minDimension / 2f
-        onDrawBehind {
-            drawRoundRect(
-                color = tint.copy(alpha = opacity),
-                cornerRadius = CornerRadius(radius, radius)
-            )
-        }
-    }
-}
-
-@Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
     onSelected: (RecordsHubTab) -> Unit,
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean,
+    backdrop: FitnessBackdrop,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -1562,7 +1444,7 @@ private fun RecordsHubTabs(
             .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
+            .fitnessGlassSurface(CircleShape, backdrop = backdrop)
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(FitnessSpacing.micro)
             .selectableGroup()
@@ -1575,7 +1457,7 @@ private fun RecordsHubTabs(
                     .heightIn(min = FitnessSpacing.touch)
                     .clip(CircleShape)
                     .then(
-                        if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
+                        if (isSelected) Modifier.fitnessGlassSurface(CircleShape, FitnessGlassLevel.SELECTION, backdrop)
                         else Modifier
                     )
                     .selectable(
@@ -1603,13 +1485,11 @@ private fun BottomNavigation(
     homeState: HomeUiState,
     screen: FitnessScreen,
     onTabSelected: (FitnessScreen) -> Unit,
-    dark: Boolean,
     itemHeight: Dp,
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean,
+    backdrop: FitnessBackdrop,
     modifier: Modifier = Modifier
 ) {
+    val dark = LocalFitnessDarkTheme.current
     val items = listOf(
         NavigationItem("메인", FitnessScreen.HOME),
         NavigationItem("피트니스", FitnessScreen.WORKOUT),
@@ -1631,7 +1511,7 @@ private fun BottomNavigation(
             .padding(horizontal = 24.dp, vertical = 8.dp)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
+            .fitnessGlassSurface(CircleShape, backdrop = backdrop)
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(4.dp)
@@ -1657,7 +1537,7 @@ private fun BottomNavigation(
                     .offset(x = indicatorOffset)
                     .width(indicatorWidth)
                     .fillMaxHeight()
-                    .bottomNavigationGlassSelection(backdrop, useBackdropGlass)
+                    .fitnessGlassSurface(CircleShape, FitnessGlassLevel.SELECTION, backdrop)
             )
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 items.forEachIndexed { index, item ->
@@ -1669,7 +1549,7 @@ private fun BottomNavigation(
                         Modifier
                             .weight(tabWeights[index])
                             .fillMaxHeight()
-                            .glassTabFeedback(dark, interactionSource)
+                            .fitnessGlassPressFeedback(interactionSource)
                             .selectable(
                                 selected = selected,
                                 interactionSource = interactionSource,
