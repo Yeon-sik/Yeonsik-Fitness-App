@@ -948,6 +948,12 @@ private fun AppRoot(
         }
     }
 
+    WorkoutRestTimerHost(restState, ownerId, onElapsed = { timer ->
+        if (timer.ownerId == host.currentOwnerId() &&
+            viewModels.getWorkoutSession().completeRestTimerIfDue(timer.ownerId, timer.endsAtMillis)) {
+            host.toast("휴식 종료. 다음 세트를 시작하세요.")
+        }
+    })
     FitnessComposeTheme(dark) {
         if (!startupCompleted) {
             StartupOrbScreen()
@@ -1387,11 +1393,6 @@ private fun RestTimerBar(
         if (!visible || active == null) return@LaunchedEffect
         while (isActive) {
             now = System.currentTimeMillis()
-            if (now >= active.endsAtMillis) {
-                viewModels.getWorkoutSession().stopRestTimer()
-                host.toast("휴식 종료. 다음 세트를 시작하세요.")
-                break
-            }
             delay(250)
         }
     }

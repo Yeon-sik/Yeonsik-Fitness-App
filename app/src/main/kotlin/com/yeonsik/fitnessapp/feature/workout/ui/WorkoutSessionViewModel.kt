@@ -618,6 +618,13 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         )
     }
 
+    fun completeRestTimerIfDue(ownerId: String, endsAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): Boolean {
+        val active = mutableRestTimerState.value as? WorkoutRestTimerState.Active ?: return false
+        if (active.ownerId != ownerId || active.endsAtMillis != endsAtMillis || nowMillis < endsAtMillis) return false
+        stopRestTimer()
+        return true
+    }
+
     fun stopRestTimer() {
         savedStateHandle.remove<String>(KEY_REST_OWNER_ID)
         savedStateHandle.remove<Long>(KEY_REST_ENDS_AT)
