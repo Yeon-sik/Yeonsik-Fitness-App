@@ -246,10 +246,10 @@ class StatisticsReadRepository(
         periodDays: Int
     ): List<String> = buildList {
         val workoutDays = sessions.map { it.date }.distinct().size
-        if (sessions.isNotEmpty()) add("운동 기록 \${workoutDays}일 · 세션 \${sessions.size}회 / \${periodDays}일")
+        if (sessions.isNotEmpty()) add("운동 기록 ${workoutDays}일 · 세션 ${sessions.size}회 / ${periodDays}일")
         val weightDays = weights.map { it.date }.distinct().size
-        if (weights.isNotEmpty()) add("체중 기록 \${weightDays}일")
-        if (mealDays > 0) add("식단 기록 \${mealDays}일")
+        if (weights.isNotEmpty()) add("체중 기록 ${weightDays}일")
+        if (mealDays > 0) add("식단 기록 ${mealDays}일")
     }
 
     private fun finiteSum(values: List<Double>): Double? =

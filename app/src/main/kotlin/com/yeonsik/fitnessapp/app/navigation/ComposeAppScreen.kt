@@ -2137,6 +2137,7 @@ private fun AppDestination(
                 object : StatisticsScreenActions {
                     override fun selectPeriod(period: com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPeriod) =
                         viewModels.getStatistics().selectPeriod(AccountScope(ownerId), today, period)
+                    override fun retry() = viewModels.getStatistics().refresh(AccountScope(ownerId), today)
                 }
             )
             FitnessScreen.DEVELOPMENT -> DevelopmentScreen(
