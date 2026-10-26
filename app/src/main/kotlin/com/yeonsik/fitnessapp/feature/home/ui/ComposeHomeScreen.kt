@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingState
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingVariant
+import com.yeonsik.fitnessapp.core.ui.rememberDelayedLoadingVisible
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -71,11 +74,12 @@ internal fun HomeDestination(
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
+    val showLoading = rememberDelayedLoadingVisible(ready == null, ownerId to today)
     val entrance = rememberTopLevelEntranceMotion(
-        entranceState, entranceToken, isActualActive, contentReady = ready != null
+        entranceState, entranceToken, isActualActive, contentReady = ready != null && !showLoading
     )
-    if (ready == null) {
-        LoadingHome()
+    if (ready == null || showLoading) {
+        LoadingHome(showLoading)
         return
     }
 
@@ -246,13 +250,7 @@ private fun HomeQuickActionItem(
 }
 
 @Composable
-private fun LoadingHome() {
-    Column(Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.section)) {
-        Text(
-            "오늘 상태를 불러오는 중입니다.",
-            modifier = Modifier.padding(top = FitnessSpacing.small),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+private fun LoadingHome(visible: Boolean) {
+    FitnessLoadingState(listOf("오늘 상태를 불러오는 중"), FitnessLoadingVariant.SECTION,
+        Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.section), visible)
 }

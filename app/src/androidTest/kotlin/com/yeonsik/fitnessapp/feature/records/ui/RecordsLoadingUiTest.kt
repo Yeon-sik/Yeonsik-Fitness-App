@@ -16,7 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
-import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.ImmediateLoadingTheme
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
@@ -39,7 +39,7 @@ class RecordsLoadingUiTest {
             override fun addMeal(date: String) { meals += date }
         }
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     val selected = date.value
                     RecordsScreen(RecordsUiState.Ready(RecordsSnapshot("owner-a", selected.take(7), selected,
@@ -67,7 +67,7 @@ class RecordsLoadingUiTest {
         compose.mainClock.autoAdvance = false
         val date = "2026-10-02"
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     RecordsScreen(
                         RecordsUiState.Ready(RecordsSnapshot(
@@ -104,7 +104,7 @@ class RecordsLoadingUiTest {
     @Test
     fun changingCalendarMonthShowsLargeCenteredOrbAboveLoadingText() {
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 RecordsScreen(
                     state = RecordsUiState.Loading("owner-a", "2026-10", "2026-09-29"),
                     ownerId = "owner-a",
@@ -116,16 +116,16 @@ class RecordsLoadingUiTest {
             }
         }
 
-        compose.onNodeWithText("기록을 불러오는 중").assertExists()
+        compose.onNodeWithContentDescription("기록을 불러오는 중").assertExists()
         compose.onNodeWithTag("orb-loading-card").assertDoesNotExist()
-        compose.onNodeWithTag("thinking-orb").assertWidthIsEqualTo(104.dp)
+        compose.onNodeWithTag("thinking-orb").assertWidthIsEqualTo(72.dp)
 
         val region = compose.onNodeWithTag("records-calendar-loading-region")
             .fetchSemanticsNode().boundsInRoot
         val content = compose.onNodeWithTag("records-calendar-loading-content")
             .fetchSemanticsNode().boundsInRoot
         val orb = compose.onNodeWithTag("thinking-orb").fetchSemanticsNode().boundsInRoot
-        val message = compose.onNodeWithText("기록을 불러오는 중")
+        val message = compose.onNodeWithTag("loading-message")
             .fetchSemanticsNode().boundsInRoot
 
         assertEquals(region.center.x, content.center.x, 1f)

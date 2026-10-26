@@ -5,6 +5,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -18,21 +21,23 @@ class OrbLoadingStatusTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun textRollsWithinFixedCardWhileOrbKeepsItsNode() {
+    fun rollingMessagesKeepOneAccessibleAnnouncementAndStableOrb() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             FitnessComposeTheme(false) {
-                OrbLoadingStatus(listOf("첫 문구", "두 번째 문구"))
+                FitnessLoadingState(listOf("첫 문구", "두 번째 문구"),
+                    FitnessLoadingVariant.INLINE_CARD, Modifier.testTag("orb-loading-card"))
             }
         }
 
-        compose.onNodeWithText("첫 문구").assertExists()
+        compose.onNodeWithContentDescription("첫 문구").assertExists()
         val orbBefore = compose.onNodeWithTag("thinking-orb").fetchSemanticsNode().id
         val cardBoundsBefore = compose.onNodeWithTag("orb-loading-card")
             .fetchSemanticsNode().boundsInRoot
 
         compose.mainClock.advanceTimeBy(1_900)
-        compose.onNodeWithText("두 번째 문구").assertExists()
+        compose.onNodeWithContentDescription("첫 문구").assertExists()
+        compose.onNodeWithText("두 번째 문구").assertDoesNotExist()
         val orbAfter = compose.onNodeWithTag("thinking-orb").fetchSemanticsNode().id
         val cardBoundsAfter = compose.onNodeWithTag("orb-loading-card")
             .fetchSemanticsNode().boundsInRoot
@@ -51,9 +56,9 @@ class OrbLoadingStatusTest {
                 LocalDensity provides Density(baseDensity.density, fontScale)
             ) {
                 FitnessComposeTheme(false) {
-                    OrbLoadingStatus(listOf(
+                    FitnessLoadingState(listOf(
                         "운동·체중·회복 데이터를 확인하고 있어요", "발전 상태를 계산하고 있어요"
-                    ))
+                    ), FitnessLoadingVariant.INLINE_CARD, Modifier.testTag("orb-loading-card"))
                 }
             }
         }
@@ -61,12 +66,13 @@ class OrbLoadingStatusTest {
         val normalHeight = compose.onNodeWithTag("rolling-status-slot")
             .fetchSemanticsNode().boundsInRoot.height
         compose.runOnIdle { fontScale = 2f }
+        compose.mainClock.advanceTimeByFrame()
         val largeHeight = compose.onNodeWithTag("rolling-status-slot")
             .fetchSemanticsNode().boundsInRoot.height
         assertTrue(largeHeight > normalHeight)
 
         compose.mainClock.advanceTimeBy(1_900)
-        compose.onNodeWithText("발전 상태를 계산하고 있어요").assertExists()
+        compose.onNodeWithContentDescription("운동·체중·회복 데이터를 확인하고 있어요").assertExists()
         val afterRollHeight = compose.onNodeWithTag("rolling-status-slot")
             .fetchSemanticsNode().boundsInRoot.height
         assertEquals(largeHeight, afterRollHeight)

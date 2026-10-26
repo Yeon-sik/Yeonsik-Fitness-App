@@ -14,6 +14,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
@@ -76,15 +77,18 @@ internal fun DevelopmentScreen(
     actions: DevelopmentScreenActions,
     startingWorkout: Boolean = false
 ) {
-    val ready = state as? DevelopmentUiState.Ready
-    if (ready == null || ready.ownerId != ownerId) {
+    val ready = (state as? DevelopmentUiState.Ready)?.takeIf { it.ownerId == ownerId }
+    val error = (state as? DevelopmentUiState.Error)?.takeIf { it.ownerId == ownerId }
+    val loading = ready == null && error == null
+    val showLoading = rememberDelayedLoadingVisible(loading, ownerId)
+    if (ready == null || showLoading) {
         FitnessHeader("발전", "기록을 바탕으로 다음 할 일을 정리해요")
-        val error = state as? DevelopmentUiState.Error
-        if (error != null && error.ownerId == ownerId) {
+        if (error != null && !showLoading) {
             FitnessStatusMessage(FitnessSemanticStatus.ERROR, "기록을 불러오지 못했어요", error.message)
             FitnessOutlinedButton(actions::refresh, Modifier.fillMaxWidth()) { Text("다시 불러오기") }
         } else {
-            OrbLoadingStatus(reportLoadingMessages)
+            FitnessLoadingState(reportLoadingMessages, FitnessLoadingVariant.INLINE_CARD,
+                Modifier.testTag("orb-loading-card"), showLoading)
         }
         return
     }

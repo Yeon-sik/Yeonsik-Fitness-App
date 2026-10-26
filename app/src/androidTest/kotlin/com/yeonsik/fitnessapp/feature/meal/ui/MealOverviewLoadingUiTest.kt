@@ -20,6 +20,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingTiming
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessLoadingTiming
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotal
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
@@ -223,7 +225,8 @@ class MealOverviewLoadingUiTest {
             } } as MealScreenActions
         compose.setContent {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale),
+                LocalFitnessLoadingTiming provides FitnessLoadingTiming(0, 0)) {
                 FitnessComposeTheme(dark) {
                     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
                         MealScreen(home.value, editorState?.value ?: baseEditor(date.value), PriceTraceUiState.Idle,
@@ -256,7 +259,7 @@ class MealOverviewLoadingUiTest {
         compose.onNodeWithText("이날의 식단").assertIsDisplayed()
         val insideOverview = hasAnyAncestor(hasTestTag("meal-day-overview"))
         compose.onNode(hasTestTag("thinking-orb") and insideOverview).assertIsDisplayed()
-        compose.onNode(hasText("불러오는 중") and insideOverview).assertIsDisplayed()
+        compose.onNode(hasContentDescription("식단을 불러오는 중") and insideOverview).assertIsDisplayed()
         compose.onNodeWithTag("meal-day-overview-loading").assert(
             SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo.Indeterminate))
         compose.onNodeWithText("?").assertDoesNotExist()

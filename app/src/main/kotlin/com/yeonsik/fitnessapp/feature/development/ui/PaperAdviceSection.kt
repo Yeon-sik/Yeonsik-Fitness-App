@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.development.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingState
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingVariant
+import com.yeonsik.fitnessapp.core.ui.rememberDelayedLoadingVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
-import com.yeonsik.fitnessapp.core.ui.OrbLoadingStatus
+import androidx.compose.ui.platform.testTag
 import com.yeonsik.fitnessapp.development.PaperAdvice
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import java.util.Locale
@@ -26,13 +29,16 @@ internal fun PaperAdviceSection(
     state: PaperAdviceUiState,
     ownerId: String
 ) {
+    val loading = state is PaperAdviceUiState.Loading && state.ownerId == ownerId
+    val showLoading = rememberDelayedLoadingVisible(loading, ownerId)
+    if (loading || showLoading) {
+        FitnessLoadingState(paperAdviceLoadingMessages, FitnessLoadingVariant.INLINE_CARD,
+            Modifier.testTag("orb-loading-card"), showLoading)
+        return
+    }
     when (state) {
         PaperAdviceUiState.Idle -> Text("논문 기반 점검을 준비하는 중입니다.")
-        is PaperAdviceUiState.Loading -> {
-            if (state.ownerId == ownerId) {
-                OrbLoadingStatus(paperAdviceLoadingMessages)
-            }
-        }
+        is PaperAdviceUiState.Loading -> Unit
         is PaperAdviceUiState.Error -> {
             if (state.ownerId == ownerId) {
                 AppCard(Modifier.fillMaxWidth()) {

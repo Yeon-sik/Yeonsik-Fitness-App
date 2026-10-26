@@ -3,8 +3,9 @@ package com.yeonsik.fitnessapp.feature.development.ui
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
-import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.ImmediateLoadingTheme
 import com.yeonsik.fitnessapp.development.DevelopmentInsight
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import com.yeonsik.fitnessapp.development.PaperAdviceInput
@@ -18,21 +19,21 @@ class DevelopmentLoadingUiTest {
     @Test
     fun reportLoadingUsesOrb() {
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 DevelopmentScreen(
                     DevelopmentUiState.Loading, PaperAdviceUiState.Loading("owner-a"),
                     "owner-a", MassUnit.KG, actions
                 )
             }
         }
-        compose.onNodeWithText("최근 기록을 정리하고 있어요").assertExists()
+        compose.onNodeWithContentDescription("최근 기록을 정리하고 있어요").assertExists()
         compose.onNodeWithTag("thinking-orb").assertExists()
     }
 
     @Test
     fun reportErrorStopsLoadingOrb() {
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 DevelopmentScreen(
                     DevelopmentUiState.Error("owner-a", "보고서 오류"), PaperAdviceUiState.Idle,
                     "owner-a", MassUnit.KG, actions
@@ -46,18 +47,18 @@ class DevelopmentLoadingUiTest {
     @Test
     fun paperAdviceLoadingIsLocalized() {
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 PaperAdviceSection(PaperAdviceUiState.Loading("owner-a"), "owner-a")
             }
         }
-        compose.onNodeWithText("분석 결과를 정리하고 있어요").assertExists()
+        compose.onNodeWithContentDescription("분석 결과를 정리하고 있어요").assertExists()
         compose.onNodeWithTag("thinking-orb").assertExists()
     }
 
     @Test
     fun paperAdviceErrorUsesExistingCard() {
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 PaperAdviceSection(
                     PaperAdviceUiState.Error("owner-a", "논문 오류"), "owner-a"
                 )
@@ -73,7 +74,7 @@ class DevelopmentLoadingUiTest {
             .referenceDate(LocalDate.of(2026, 9, 29))
             .build()
         compose.setContent {
-            FitnessComposeTheme(false) {
+            ImmediateLoadingTheme {
                 PaperAdviceSection(
                     PaperAdviceUiState.Ready(
                         "owner-a", PaperAdviceAssessment(input, emptyList())

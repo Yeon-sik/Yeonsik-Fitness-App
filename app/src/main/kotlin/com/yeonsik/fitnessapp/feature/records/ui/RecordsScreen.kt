@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.records.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingState
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingVariant
+import com.yeonsik.fitnessapp.core.ui.rememberDelayedLoadingVisible
 import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 
 import androidx.compose.foundation.background
@@ -44,7 +47,6 @@ import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
-import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
@@ -97,15 +99,17 @@ internal fun RecordsScreen(
     }
     val ready = state as? RecordsUiState.Ready
     val snapshot = ready?.snapshot?.takeIf { it.ownerId == ownerId }
-    val entrance = rememberTopLevelEntranceMotion(
-        entranceState, entranceToken, isActualActive, contentReady = snapshot != null
-    )
     AppHeader("기록", selectedDate)
     val monthText = snapshot?.displayedMonth ?: when (state) {
         is RecordsUiState.Loading -> state.displayedMonth
         is RecordsUiState.Error -> state.displayedMonth
         else -> selectedDate.take(7)
     }
+    val loading = snapshot == null && state !is RecordsUiState.Error
+    val showLoading = rememberDelayedLoadingVisible(loading, Triple(ownerId, monthText, selectedDate))
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive, contentReady = snapshot != null && !showLoading
+    )
     val displayedMonth = runCatching { YearMonth.parse(monthText) }
         .getOrElse { YearMonth.from(LocalDate.parse(today)) }
     val selected = runCatching { LocalDate.parse(selectedDate) }.getOrNull()
@@ -122,18 +126,17 @@ internal fun RecordsScreen(
         enabled = selectedDate != today,
         modifier = Modifier.fillMaxWidth()
     ) { Text("오늘로 이동") }
-    if (snapshot == null) {
+    if (snapshot == null || showLoading) {
         Box(
             Modifier.fillMaxWidth().heightIn(min = 360.dp)
                 .testTag("records-calendar-loading-region"),
             contentAlignment = Alignment.Center
         ) {
-            when (state) {
-                is RecordsUiState.Error -> AppCard(Modifier.fillMaxWidth()) {
+            when {
+                loading || showLoading -> RecordsCalendarLoading(showLoading)
+                state is RecordsUiState.Error -> AppCard(Modifier.fillMaxWidth()) {
                     Text(state.message, Modifier.padding(AppSpacing.card))
                 }
-                is RecordsUiState.Loading -> RecordsCalendarLoading()
-                else -> Text("기록을 준비하고 있습니다.")
             }
         }
         return
@@ -154,23 +157,9 @@ internal fun RecordsScreen(
 }
 
 @Composable
-private fun RecordsCalendarLoading() {
-    val message = recordsLoadingMessages.first()
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .semantics { stateDescription = message }
-            .testTag("records-calendar-loading-content"),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ThinkingOrb(size = 104.dp)
-        Spacer(Modifier.height(FitnessSpacing.gap))
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
+private fun RecordsCalendarLoading(visible: Boolean) {
+    FitnessLoadingState(recordsLoadingMessages, FitnessLoadingVariant.SECTION,
+        Modifier.fillMaxWidth().testTag("records-calendar-loading-content"), visible)
 }
 
 @Composable

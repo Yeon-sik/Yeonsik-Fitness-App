@@ -16,6 +16,10 @@ public final class FitnessUiTokens {
     }
 
     // Fixed brand and activity coverage colors are shared across light and dark modes.
+    public static final int ORB_SIZE_FULL_SCREEN_DP = 96;
+    public static final int ORB_SIZE_SECTION_DP = 72;
+    public static final int ORB_SIZE_INLINE_DP = 52;
+
     public static final int COLOR_BRAND_BLUE = 0xFF38BDF8;
     /** Foreground blue with WCAG AA contrast on the light theme surfaces. */
     public static final int COLOR_BRAND_BLUE_TEXT = 0xFF0369A1;
