@@ -74,6 +74,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
     private static final int REQUEST_CARDIO_LOCATION = 4102;
     private static final int REQUEST_CARDIO_NOTIFICATIONS = 4103;
+    private static final int REQUEST_REST_NOTIFICATIONS = 4104;
     private static final int REQUEST_LOCAL_BACKUP_EXPORT = 4111;
     private static final int REQUEST_LOCAL_BACKUP_RESTORE = 4112;
     private static final int REQUEST_RECORDS_CSV_EXPORT = 4113;
@@ -162,6 +163,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(buildRootView());
+        com.yeonsik.fitnessapp.feature.workout.application.RestTimerNotifications.ensureChannel(this);
         configureWindow();
         // Keep system icon contrast in step with the live Compose theme.
         settingsViewModel.getUiState().observe(this, state -> configureWindow());
@@ -345,6 +347,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     @Override
     protected void onStart() {
         super.onStart();
+        com.yeonsik.fitnessapp.feature.workout.application.RestTimerAppVisibility.onStarted(this);
         IntentFilter filter = new IntentFilter(Intent.ACTION_DATE_CHANGED);
         filter.addAction(Intent.ACTION_TIME_CHANGED);
         filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
@@ -355,6 +358,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     @Override
     protected void onStop() {
+        com.yeonsik.fitnessapp.feature.workout.application.RestTimerAppVisibility.onStopped(this);
         if (dateChangeReceiverRegistered) {
             unregisterReceiver(dateChangeReceiver);
             dateChangeReceiverRegistered = false;
@@ -641,6 +645,17 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     // ── Compose action boundary ────────────────────────────────────────
+
+    @Override
+    public void requestRestTimerNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        android.content.SharedPreferences preferences = getSharedPreferences("fitness_rest_timer", MODE_PRIVATE);
+        String key = "rest_timer_notification_permission_requested";
+        if (preferences.getBoolean(key, false)) return;
+        preferences.edit().putBoolean(key, true).apply();
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_REST_NOTIFICATIONS);
+    }
 
     @Override
     public String currentOwnerId() {

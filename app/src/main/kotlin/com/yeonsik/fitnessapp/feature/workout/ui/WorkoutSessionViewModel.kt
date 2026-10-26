@@ -127,7 +127,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private val completeWorkout: CompleteWorkout,
     private val sessionApplicationService: WorkoutSessionApplicationService? = null,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
-    private val shutdownExecutorOnCleared: Boolean = true
+    private val shutdownExecutorOnCleared: Boolean = true,
+    private val restTimerScheduler: com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler? = null
 ) : ViewModel() {
     private val mutableState = MutableLiveData<WorkoutSessionUiState>(WorkoutSessionUiState.Idle)
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
@@ -346,6 +347,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
 
     fun clearActiveRecordIfMatches(recordId: String) {
         if (activeRecordId() == recordId) {
+            stopRestTimer()
             savedStateHandle.remove<String>(KEY_RECORD_ID)
         }
     }
@@ -611,6 +613,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_REST_OWNER_ID] = ownerId
         savedStateHandle[KEY_REST_ENDS_AT] = endsAtMillis
         savedStateHandle[KEY_REST_TOTAL_SECONDS] = seconds
+        restTimerScheduler?.schedule(com.yeonsik.fitnessapp.feature.workout.api.RestTimerSchedule(ownerId, endsAtMillis, seconds))
         mutableRestTimerState.value = WorkoutRestTimerState.Active(
             ownerId,
             endsAtMillis,
@@ -621,11 +624,22 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     fun completeRestTimerIfDue(ownerId: String, endsAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): Boolean {
         val active = mutableRestTimerState.value as? WorkoutRestTimerState.Active ?: return false
         if (active.ownerId != ownerId || active.endsAtMillis != endsAtMillis || nowMillis < endsAtMillis) return false
-        stopRestTimer()
-        return true
+        val claimed = restTimerScheduler?.claimCompletion(ownerId, endsAtMillis, nowMillis) ?: true
+        clearRestTimerState()
+        return claimed
     }
 
     fun stopRestTimer() {
+        restTimerScheduler?.cancel()
+        clearRestTimerState()
+    }
+
+    fun cancelRestTimerForOtherOwner(ownerId: String) {
+        val active = mutableRestTimerState.value as? WorkoutRestTimerState.Active ?: return
+        if (active.ownerId != ownerId) stopRestTimer()
+    }
+
+    private fun clearRestTimerState() {
         savedStateHandle.remove<String>(KEY_REST_OWNER_ID)
         savedStateHandle.remove<Long>(KEY_REST_ENDS_AT)
         savedStateHandle.remove<Int>(KEY_REST_TOTAL_SECONDS)
@@ -633,6 +647,10 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     }
 
     private fun restoreRestTimerState(): WorkoutRestTimerState {
+        if (restTimerScheduler != null) {
+            val pending = restTimerScheduler.pendingTimer() ?: return WorkoutRestTimerState.Inactive
+            return WorkoutRestTimerState.Active(pending.ownerId, pending.endsAtMillis, pending.totalSeconds)
+        }
         val ownerId: String? = savedStateHandle[KEY_REST_OWNER_ID]
         val endsAtMillis: Long? = savedStateHandle[KEY_REST_ENDS_AT]
         val totalSeconds: Int? = savedStateHandle[KEY_REST_TOTAL_SECONDS]
@@ -679,6 +697,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                     mutableRoutineStarting.value = false
                 }
                 if (request != actionVersion) return@post
+                if (action == WorkoutSessionAction.DELETE && result.outcome == WorkoutSessionActionOutcome.DELETED &&
+                    result.recordId == activeRecordId()) stopRestTimer()
                 mutableActionState.value =
                     WorkoutSessionActionEvent(
                         request,
@@ -718,7 +738,10 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
         if (!isCurrent(request, event)) return
         mainHandler.post {
-            if (isCurrent(request, event)) mutableTerminalEvents.value = event
+            if (isCurrent(request, event)) {
+                if (event.outcome != WorkoutSessionTerminalOutcome.FAILURE) stopRestTimer()
+                mutableTerminalEvents.value = event
+            }
         }
     }
 

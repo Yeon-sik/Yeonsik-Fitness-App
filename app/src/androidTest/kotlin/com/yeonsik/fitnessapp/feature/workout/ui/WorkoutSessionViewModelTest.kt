@@ -279,13 +279,15 @@ class WorkoutSessionViewModelTest {
     private fun viewModel(
         repository: WorkoutRepositoryApi,
         executor: ExecutorService,
-        handle: SavedStateHandle = SavedStateHandle()
+        handle: SavedStateHandle = SavedStateHandle(),
+        scheduler: com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler? = null
     ) = WorkoutSessionViewModel(
         handle,
         repository,
         CompleteWorkout(repository),
         executor = executor,
-        shutdownExecutorOnCleared = false
+        shutdownExecutorOnCleared = false,
+        restTimerScheduler = scheduler
     )
 
     @Test fun exerciseRestDurationIsUsedAndZeroDoesNotStartATimer() {
@@ -304,6 +306,57 @@ class WorkoutSessionViewModelTest {
                 viewModel.stopRestTimer()
             }
         } finally { executor.shutdownNow() }
+    }
+
+    @Test fun timerSchedulingCancellationAndCompletionUseTheInjectedBoundary() {
+        val executor = Executors.newSingleThreadExecutor()
+        val scheduler = FakeRestScheduler()
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0))
+        val model = viewModel(repository, executor, scheduler = scheduler)
+        try {
+            onMain {
+                model.startRestTimer(scope.ownerId, 150)
+                val pending = requireNotNull(scheduler.pending)
+                assertEquals(150, pending.totalSeconds)
+                assertEquals(false, model.completeRestTimerIfDue(scope.ownerId, pending.endsAtMillis, pending.endsAtMillis - 1))
+                assertEquals(true, model.completeRestTimerIfDue(scope.ownerId, pending.endsAtMillis, pending.endsAtMillis))
+                assertEquals(false, model.completeRestTimerIfDue(scope.ownerId, pending.endsAtMillis, pending.endsAtMillis))
+                model.startRestTimer(scope.ownerId, 0)
+                assertEquals(1, scheduler.cancelled)
+                model.startRestTimer(scope.ownerId, 90)
+                model.cancelRestTimerForOtherOwner("another-owner")
+                assertEquals(2, scheduler.cancelled)
+                assertEquals(WorkoutRestTimerState.Inactive, model.restTimerState.value)
+            }
+        } finally { executor.shutdownNow() }
+    }
+
+    @Test fun recreationRestoresTheDurableTimerAndDoesNotReplayAConsumedTimer() {
+        val executor = Executors.newSingleThreadExecutor()
+        val scheduler = FakeRestScheduler()
+        scheduler.pending = com.yeonsik.fitnessapp.feature.workout.api.RestTimerSchedule(scope.ownerId, 1L, 90)
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0))
+        try {
+            onMain {
+                val restored = viewModel(repository, executor, scheduler = scheduler)
+                assertEquals(1L, (restored.restTimerState.value as WorkoutRestTimerState.Active).endsAtMillis)
+                assertEquals(true, restored.completeRestTimerIfDue(scope.ownerId, 1L, 2L))
+                assertEquals(WorkoutRestTimerState.Inactive, viewModel(repository, executor, scheduler = scheduler).restTimerState.value)
+            }
+        } finally { executor.shutdownNow() }
+    }
+
+    private class FakeRestScheduler : com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler {
+        var pending: com.yeonsik.fitnessapp.feature.workout.api.RestTimerSchedule? = null
+        var cancelled = 0
+        override fun schedule(timer: com.yeonsik.fitnessapp.feature.workout.api.RestTimerSchedule) { pending = timer }
+        override fun pendingTimer() = pending
+        override fun cancel() { pending = null; cancelled++ }
+        override fun claimCompletion(ownerId: String, endsAtMillis: Long, nowMillis: Long): Boolean {
+            if (!com.yeonsik.fitnessapp.feature.workout.application.RestTimerNotificationPolicy.canClaim(pending, ownerId, endsAtMillis, nowMillis)) return false
+            pending = null
+            return true
+        }
     }
 
     private fun onMain(action: () -> Unit) {

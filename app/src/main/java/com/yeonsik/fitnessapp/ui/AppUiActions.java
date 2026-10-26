@@ -12,6 +12,8 @@ public interface AppUiActions {
 
     void toast(String message);
 
+    default void requestRestTimerNotificationPermissionIfNeeded() { }
+
     /** Platform bridge for the GPS service; lifecycle/permission work stays in the Activity. */
     void startCardioTracking(String recordId);
 

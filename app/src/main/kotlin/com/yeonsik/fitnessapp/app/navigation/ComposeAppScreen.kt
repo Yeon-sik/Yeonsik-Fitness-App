@@ -948,6 +948,7 @@ private fun AppRoot(
         }
     }
 
+    LaunchedEffect(ownerId) { viewModels.getWorkoutSession().cancelRestTimerForOtherOwner(ownerId) }
     WorkoutRestTimerHost(restState, ownerId, onElapsed = { timer ->
         if (timer.ownerId == host.currentOwnerId() &&
             viewModels.getWorkoutSession().completeRestTimerIfDue(timer.ownerId, timer.endsAtMillis)) {
@@ -2322,8 +2323,10 @@ private fun AppDestination(
                             viewModels.getWorkoutExerciseDetail().updateConditionNote(AccountScope(ownerId), recordId, note,
                                 java.util.function.Consumer { onResult(it) })
                         }
-                        override fun startRestTimer(restSeconds: Int?) =
+                        override fun startRestTimer(restSeconds: Int?) {
                             viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
+                            if (restSeconds != 0) host.requestRestTimerNotificationPermissionIfNeeded()
+                        }
                         override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
                                                               seconds: Int, onResult: (Boolean) -> Unit) {
                             viewModels.getWorkoutExerciseDetail().updateExerciseRestSeconds(

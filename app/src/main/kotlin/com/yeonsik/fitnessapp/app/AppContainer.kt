@@ -84,6 +84,7 @@ import java.util.concurrent.Executors
  */
 class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
+    val restTimerAlarmScheduler = com.yeonsik.fitnessapp.feature.workout.application.AndroidRestTimerAlarmScheduler(appContext)
     private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     val massUnitPreferences = MassUnitPreferences(appContext)
     val themeModePreferences = ThemeModePreferences(appContext)
@@ -101,6 +102,8 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         private set
     var priceTraceSupabaseConfig: SupabaseConfig = priceTraceConfigStore.load()
         private set
+
+    init { restTimerAlarmScheduler.cancelForOtherOwner(supabaseConfig.effectiveUserId()) }
 
     val roomDatabase: FitnessRoomDatabase = FitnessRoomDatabaseProvider.get(appContext)
     val roomTransactionRunner = RoomTransactionRunner(roomDatabase)
@@ -276,6 +279,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     )
 
     fun applyAuthenticatedSharedConfig(config: SupabaseConfig) {
+        restTimerAlarmScheduler.cancelForOtherOwner(config.effectiveUserId())
         supabaseConfig = config
         val ownerId = config.effectiveUserId()
         accountOwnershipService.claimLocalRows(ownerId)
@@ -292,6 +296,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     }
 
     fun applySharedSessionConfig(config: SupabaseConfig) {
+        restTimerAlarmScheduler.cancelForOtherOwner(config.effectiveUserId())
         supabaseConfig = config
         val ownerId = config.effectiveUserId()
         accountOwnershipService.setOwnerId(ownerId)
