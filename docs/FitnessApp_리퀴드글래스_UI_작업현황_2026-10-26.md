@@ -1,8 +1,8 @@
 # 리퀴드 글래스 UI 구현 현황과 재개 지점
 
-작성일: 2026-10-26. 갱신일: 2026-10-27. C–G 구현 근거는 **`64ea924`**다. A·B의 기존 검증 기록은 아래에 보존한다.
+작성일: 2026-10-26. 갱신일: 2026-10-27. C–G 구현 근거는 **`64ea924`**, 후속 PriceTrace 통합 근거는 **`9388c44`**다. A·B의 기존 검증 기록은 아래에 보존한다.
 
-**A–G 코드 구현과 허용된 로컬 검증을 완료했다. 실기기·계측 실행·APK 생성은 미수행이다. 다음 작업은 별도로 보관한 PriceTrace 변경의 통합이다.**
+**A–G 코드 구현 후 보관한 PriceTrace 변경도 통합했다. 허용된 로컬 검증은 통과했으며 실기기·계측 실행·APK 생성은 미수행이다. 기기 수용 기준과 운영 PT 연동은 별도 검증 대상으로 남는다.**
 
 ## 1. 연결 문서와 작업 기준
 
@@ -53,6 +53,8 @@ PR-A부터 PR-G까지의 이름은 원 명세의 구현 묶음 이름이다. Git
 | `8b8d4e0` | 다른 탭에서도 STARTED 상태에서 휴식 종료 처리 | PR-F 기존 결함 수정 |
 | `dc4b69c` | 영속 예약 토큰, 백그라운드 알림, 계정 경계·중복 처리 방지 | PR-F 알림 |
 | `64ea924` | 여섯 로딩 화면의 공통 variant, 지연·최소 표시·접근성 | PR-G |
+| `03ef344` | C–G 완료 범위와 검증 기록, 알람 정책 명세 보완 | PT 적용 전 기준점 |
+| `9388c44` | 보관한 PT 제품 등록을 원격 브랜드 카탈로그와 통합 | C–G 이후 PT 적용 |
 
 ### PR-A
 
@@ -160,8 +162,27 @@ Windows, Android Studio JBR 21.0.10 런타임, Java/Kotlin target 17, Gradle 9.0
 
 수용 기준 중 기기에서만 확인 가능한 창 블러, 픽셀·성능, IME/회전, 실제 알람·Doze, TalkBack은 **미검증**이다. 신규 `WorkoutRestTimerHostTest`, 예약 주입 ViewModel 테스트, `FitnessLoadingTest`와 수정된 기존 UI 테스트는 소스 컴파일만 확인했다. APK 생성·설치나 테스트 실행 결과로 표현하지 않는다.
 
-## 6. 이어서 적용할 PriceTrace 범위
+## 6. PriceTrace 통합 완료 범위
 
 사용자 지시에 따라 기존 로컬 checkout과 PT 파일·패치·SHA-256 manifest를 별도 보관한 뒤, 원격 `3dfdbb0`에서 새 기능 브랜치를 만들었다. 기존 `feat/records-ux-clarity`의 커밋 및 관련 없는 미커밋 UI 작업은 보존한다.
 
-C–G 완료 커밋 이후 PT 관련 14개 경로의 변경을 비교·통합한다. MealScreen처럼 변경이 섞인 파일은 제품 검색·등록 연결 부분만 이식하며 새 글래스·로딩 구현을 덮어쓰지 않는다. PT의 공개 제품 검색·선택, variant 식별자, 영양값의 조건부 채움, 로컬 식품과 연결의 원자적 저장, 기존 식단 장바구니 복귀가 범위다. 서버 schema·RLS·RPC 배포나 실기기 검증은 이 통합의 완료 근거가 아니다.
+C–G 완료 기록 `03ef344` 이후 PT 변경을 적용했다. 보관 목록의 14개 후보 경로를 비교했고, PT와 무관한 `NutritionFormComponents`의 footer 배치 변경은 제외했다. MealScreen의 날짜·관리 버튼 배치와 기존 테스트의 다른 수정도 가져오지 않았다. 실제 화면 진입에 필요한 `ComposeAppScreen`의 `openProductRegistration` 콜백은 추가로 연결했다. 결과적으로 제품 기능 14개 경로와 통합 회귀 테스트 2개 경로를 `9388c44`에 기록했다.
+
+### 소유권과 데이터 흐름
+
+1. 식단의 제품 직접 입력 또는 내 식단·식품 관리에서 같은 `NutritionEditorController`와 `NutritionProductPicker`를 사용한다. 기존 식단 장바구니의 owner·date를 저장해 복귀 대상을 제한한다.
+2. `NutritionProductLookup`은 기존 `NutritionIntegrationService`의 공개 제품 검색과 공개 영양정보 읽기를 사용한다. 정확한 catalog ID·revision·용량·단위·개수가 일치하는 영양정보만 미리 채운다. 대기 중 입력이 바뀌면 늦은 응답을 버린다.
+3. 선택한 제품 ID와 표준상품의 모든 variant를 SavedStateHandle에 보존한다. 동명이거나 여러 규격인 결과에서 임의의 ID를 만들지 않는다. 그룹 선택은 기준량에 유일하게 일치하는 규격만 exact link로 저장하며 모호하면 standard 참조만 보관한다.
+4. `NutritionCatalogRepository.savePriceTraceProductInput`이 로컬 식품·영양값과 정확한 제품 연결을 같은 SQLite 트랜잭션에서 저장한다. 계정 변경·식별자 불일치·잘못된 metadata에서는 실패하며 수동 등록으로 조용히 전환하지 않는다.
+5. 저장 성공은 기존 owner·date의 식단 초안에 식품을 추가하고 입력창으로 복귀한다. 식품 등록 자체로 Meal을 저장하지 않는다.
+
+원격에 이미 있던 브랜드 카탈로그를 유지했다. 제품 선택 중에는 별도의 수동 브랜드 연결을 잠시 보관하고, 제품 선택 해제 시 원래 이름·브랜드·기준량·용량과 명시적 브랜드 ID를 복원한다. 재생성 후 복원도 계측 테스트 소스에 포함했다. 저장한 제품의 브랜드 편집 가능 여부는 repository 정책으로 다시 판단한다.
+
+### PT 검증 및 보존 근거
+
+- 최종 `testDebugUnitTest`: **591개 중 589 통과, 2 건너뜀, 실패·오류 0**. 위 C–G와 동일한 소스 검증 명령으로 `BUILD SUCCESSFUL`(37초)을 확인했다.
+- `compileDebugJavaWithJavac`, `compileDebugAndroidTestKotlin`, `compileDebugAndroidTestJavaWithJavac` 통과. 신규 제품 선택·저장·장바구니 복귀와 브랜드 통합 계측 테스트는 **컴파일만** 확인했다.
+- 신규 JVM codec 테스트 4개는 정확한 ID·revision·용량 복원, 여러 규격 유지, 다른 표준상품 혼합 거부, 손상된 SavedState 거부를 확인한다. 최초 실행은 신규 테스트의 JUnit Double 비교에 delta 인수가 빠져 1개 실패했고, 올바른 비교 인수를 넣은 뒤 전체 591개를 다시 실행했다.
+- 원래 checkout과 별도 보관 스냅샷의 **60개 파일 SHA-256 전부 일치**를 재확인했다. 기존 `feat/records-ux-clarity` HEAD `8c06a28`과 미커밋 작업은 보존했다. 백업에는 파일별 manifest, 전체 tracked diff, PT 범위 diff와 원본 파일이 있다.
+- 새 작업 트리에 `app/build/outputs/apk`가 생성되지 않았다. 추가 APK 생성·설치, 실기기 DB 접근, 계측 실행, 운영 서버 RPC·RLS 검증은 수행하지 않았다.
+- 서버 schema·RLS·RPC 변경, 외부 카탈로그 원본 수정은 없다. 공개 API의 실제 운영 가용성과 계정별 권한 검증은 이 로컬 통합 결과에 포함하지 않는다.
