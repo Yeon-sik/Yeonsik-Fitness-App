@@ -92,6 +92,7 @@ interface MealScreenActions {
     fun updateTime(value: String)
     fun saveFood()
     fun openManualFood()
+    fun openProductRegistration() { openNutritionEditor() }
     fun closeManualFood()
     fun updateManualFood(draft: ManualFoodDraft)
     fun saveManualFood()
@@ -504,7 +505,8 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
         }
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
-                actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error)
+                actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error,
+                onSearchProduct = actions::openProductRegistration)
         } else MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
 }

@@ -1933,6 +1933,18 @@ public final class NutritionCatalogRepository implements
     @Override
     public synchronized NutritionFood saveManualFoodInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
             com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input) {
+        return saveFoodInput(scope, input, null);
+    }
+
+    @Override
+    public NutritionFood savePriceTraceProductInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
+            com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input, ProductReadV1 product) {
+        if (product == null) throw new IllegalArgumentException("연결할 PriceTrace 제품을 선택하세요.");
+        return saveFoodInput(scope, input, product);
+    }
+
+    private NutritionFood saveFoodInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
+            com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input, ProductReadV1 selectedProduct) {
         String owner = scope.getOwnerId();
         if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다. 다시 입력하세요.");
         if (input == null || !Double.isFinite(input.getBasisAmount()) || input.getBasisAmount() <= 0)
@@ -1951,12 +1963,33 @@ public final class NutritionCatalogRepository implements
         boolean product = input.getRegistrationKind() == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT;
         if (!product && input.getPriceTraceBrand() != null)
             throw new IllegalArgumentException("제품에만 PriceTrace 브랜드를 연결할 수 있습니다.");
+        ProductReadV1 exactProduct = selectedProduct == null ? null
+                : selectedProduct.exactVariantForBasis(input.getBasisAmount(), basisUnit);
+        if (selectedProduct != null) {
+            if (!product) throw new IllegalArgumentException("PriceTrace 연결은 제품 등록에서만 사용할 수 있습니다.");
+            if (!selectedProduct.name.equals(input.getName().trim())
+                    || !java.util.Objects.equals(emptyToNull(selectedProduct.brand), emptyToNull(input.getBrand())))
+                throw new IllegalArgumentException("선택한 PriceTrace 제품의 이름과 브랜드를 유지하세요.");
+            if (exactProduct != null) requirePriceTraceCatalogMetadata(exactProduct);
+        }
         String sourceType = product && "manual_estimate".equals(input.getSourceType())
                 ? "manual_product_estimate" : input.getSourceType();
         String sourceReference = null;
         if (product && "manual_product_estimate".equals(sourceType)) {
             try { sourceReference = new org.json.JSONObject().put("nutrition_source", "manual_estimate").toString(); }
             catch (org.json.JSONException error) { throw new IllegalStateException("제품 출처를 저장하지 못했습니다.", error); }
+        }
+        if (selectedProduct != null) {
+            String reference = exactProduct == null
+                    ? "standardProductId:" + selectedProduct.standardProductId
+                    : "catalogProductId:" + exactProduct.catalogProductId;
+            if ("manual_product_estimate".equals(sourceType)) {
+                try { sourceReference = new org.json.JSONObject(sourceReference).put("pricetrace_reference", reference).toString(); }
+                catch (org.json.JSONException error) { throw new IllegalStateException("제품 출처를 저장하지 못했습니다.", error); }
+            } else {
+                sourceType = exactProduct == null ? "pricetrace_standard" : "pricetrace_manual";
+                sourceReference = reference;
+            }
         }
         Double packageAmount = input.getPackageAmount();
         String packageUnit = input.getPackageUnit();
@@ -1975,13 +2008,20 @@ public final class NutritionCatalogRepository implements
                 .basis(input.getBasisAmount(), basisUnit).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
                 .source(sourceType, sourceReference)
                 .dataVersion(profile.hasAllRequired() ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN : NutritionFood.DATA_VERSION_MACROS_ONLY);
-        if (product) builder.packageAmount(packageAmount).packageUnit(packageUnit).packageCount(1);
+        if (product) builder.packageAmount(packageAmount).packageUnit(packageUnit)
+                .packageCount(exactProduct == null ? 1 : exactProduct.packageCount);
+        if (selectedProduct != null) builder.manufacturerName(selectedProduct.manufacturerName)
+                .brandName(selectedProduct.brand).subBrandName(selectedProduct.subBrandName)
+                .productName(selectedProduct.name);
         NutritionFood food = builder.build();
         String timestamp = now();
         roomDatabase.runInTransaction(() -> {
             if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다.");
             nutritionDao.insertFood(foodEntity(food, timestamp));
             replaceMicronutrientsRoom(food);
+            if (exactProduct != null && linkProduct(food.id, exactProduct) == null)
+                throw new IllegalStateException("제품 연결을 저장하지 못했습니다.");
+            if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다.");
         });
         return food;
     }

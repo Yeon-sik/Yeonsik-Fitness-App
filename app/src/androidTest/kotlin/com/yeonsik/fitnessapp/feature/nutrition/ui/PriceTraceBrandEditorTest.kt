@@ -25,6 +25,43 @@ class PriceTraceBrandEditorTest {
     }
     @After fun cleanup() { if (::editor.isInitialized) main { editor.dispose() }; executor.shutdownNow() }
 
+    @Test fun productSelectionSuspendsManualBrandAndRestoresItAfterRecreationAndUnlink() {
+        val handle = SavedStateHandle()
+        val product = ProductReadV1("81111111-1111-4111-8111-111111111111",
+            "82222222-2222-4222-8222-222222222222", "PT 제품", "PT 브랜드", "제조회사", "서브브랜드",
+            null, null, null, 100.0, "g", 1, "sha256:" + "a".repeat(64))
+        val lookup = object : NutritionProductLookup { override fun search(query: String) = listOf(product) }
+        brands.reply = { listOf(first) }
+        main {
+            editor = NutritionEditorController(handle, local, null, executor, brands, productLookup = lookup)
+            editor.open()
+        }
+        await { !editor.uiState.value!!.loading }
+        main { editor.newFood(); editor.updateField(FoodEntryField.BRAND, "직접 브랜드"); editor.openBrandSearch() }
+        await { editor.uiState.value!!.brandSearch?.rows?.isNotEmpty() == true }
+        main { editor.selectBrand(first); editor.updateProductQuery("PT"); editor.searchProducts() }
+        await { !editor.uiState.value!!.productPicker.loading }
+        main { editor.selectProduct(product) }
+        await { !editor.uiState.value!!.productPicker.loading }
+        main {
+            assertNull(editor.uiState.value!!.priceTraceBrand)
+            editor.openBrandSearch()
+            assertNull(editor.uiState.value!!.brandSearch)
+            editor.dispose()
+            editor = NutritionEditorController(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }),
+                local, null, executor, brands, productLookup = lookup)
+            editor.open()
+        }
+        await { !editor.uiState.value!!.loading }
+        main {
+            assertNull(editor.uiState.value!!.priceTraceBrand)
+            assertEquals(product.catalogProductId, editor.uiState.value!!.productPicker.selected!!.catalogProductId)
+            editor.clearProductSelection()
+            assertEquals(first.selection, editor.uiState.value!!.priceTraceBrand)
+            assertEquals("직접 브랜드", editor.uiState.value!!.field(FoodEntryField.BRAND))
+        }
+    }
+
     @Test fun newProductRequiresExplicitSelectionPreservesLabelAndInvalidatesMaterialLabelEditsAndKindChanges() {
         brands.reply = { listOf(first, second) }
         open()

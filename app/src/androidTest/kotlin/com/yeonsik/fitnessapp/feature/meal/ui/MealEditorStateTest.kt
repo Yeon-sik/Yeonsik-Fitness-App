@@ -496,4 +496,33 @@ class MealEditorStateTest {
         override fun isTerminated() = stopped && tasks.isEmpty()
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = isTerminated
     }
+
+    @Test fun productRegistrationReturnsToTheSameMealWithoutDroppingItsExistingCart() {
+        createModel()
+        val existing = registerBaseFood()
+        onMain {
+            model.selectFood(existing)
+            model.openManualFood()
+            model.updateManualFood(ManualFoodDraft(name = "추가 제품", brand = "브랜드", basisAmount = "100",
+                calories = "400", protein = "20", carbs = "30", fat = "20",
+                registrationKind = com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT,
+                packageAmount = "100"))
+            model.openProductRegistration()
+            assertTrue(model.nutritionEditor.uiState.value!!.returnToMeal)
+            model.nutritionEditor.save()
+        }
+        background.runAll()
+        instrumentation.waitForIdleSync()
+        flushMain()
+        onMain {
+            assertFalse(model.nutritionEditor.uiState.value!!.open)
+            assertFalse(state().manualFoodEntry)
+            assertEquals(2, mealFoodItems(state()).size)
+            assertTrue(mealFoodItems(state()).any { it.food.id == existing.id })
+            assertTrue(mealFoodItems(state()).any { it.food.name == "추가 제품" })
+            assertTrue(state().editing)
+        }
+        assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
+    }
+
 }

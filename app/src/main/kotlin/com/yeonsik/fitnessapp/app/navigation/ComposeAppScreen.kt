@@ -1839,6 +1839,7 @@ private fun AppDestination(
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
         override fun openManualFood() = viewModels.getMeal().openManualFood()
+        override fun openProductRegistration() = viewModels.getMeal().openProductRegistration()
         override fun closeManualFood() = viewModels.getMeal().closeManualFood()
         override fun updateManualFood(draft: ManualFoodDraft) = viewModels.getMeal().updateManualFood(draft)
         override fun saveManualFood() = viewModels.getMeal().saveManualFood(AccountScope(ownerId))

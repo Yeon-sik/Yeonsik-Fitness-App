@@ -26,11 +26,17 @@ internal fun ManualFoodEditor(
     onSave: () -> Unit,
     onClose: () -> Unit,
     saving: Boolean,
-    error: String?
+    error: String?,
+    onSearchProduct: (() -> Unit)? = null
 ) {
     var unitMenuOpen by remember { mutableStateOf(false) }
     var showOptional by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
+    if (draft.registrationKind == NutritionRegistrationKind.PRODUCT && onSearchProduct != null) {
+        AppOutlinedButton({ focus.clearFocus(); onSearchProduct() }, Modifier.fillMaxWidth(), enabled = !saving) {
+            Text("PriceTrace 제품 검색")
+        }
+    }
     val next = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) })
     val textOptions = KeyboardOptions(imeAction = ImeAction.Next)
     val numberOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)

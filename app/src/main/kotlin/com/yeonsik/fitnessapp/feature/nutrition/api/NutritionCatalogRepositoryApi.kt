@@ -91,6 +91,10 @@ interface NutritionCatalogRepositoryApi {
     fun saveManualFoodInput(scope: AccountScope, input: NutritionFoodInput): NutritionFood? =
         saveManualFood(scope, input.name, input.brand, input.basisAmount, input.basisUnit, input.profile)
 
+    /** Saves the user's selected PriceTrace identity and nutrition together, without creating a Meal. */
+    fun savePriceTraceProductInput(scope: AccountScope, input: NutritionFoodInput, product: ProductReadV1): NutritionFood? =
+        throw UnsupportedOperationException("PriceTrace 제품 연결을 지원하지 않습니다.")
+
     fun saveRecipe(ownerId: String, name: String, items: List<com.yeonsik.fitnessapp.data.MealCompositionItem>,
         servings: Double, cookedWeightGrams: Double?): NutritionFood =
         throw UnsupportedOperationException("내 요리 저장을 지원하지 않습니다.")
