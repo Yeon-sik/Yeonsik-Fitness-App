@@ -2,7 +2,7 @@
 
 작성일: 2026-10-27. 제품 코드 기준: `86281f9` / `feat/fitness-glass-completion`.
 
-원격 글래스 UI와 PriceTrace 통합을 마친 `8eb88e7` 위에, 원격 작업 전에 분리 보관한 구현을 복원했다. **보관본의 제품 소스·테스트 54개 경로를 모두 확인했고, 이미 반영한 PT 부분과 나머지 화면·입력 개선을 통합했다.** 코드 구현과 허용된 로컬 검증을 완료했다. 실기기·계측 실행·운영 동기화 검증은 수행하지 않았다.
+원격 글래스 UI와 PriceTrace 통합을 마친 `8eb88e7` 위에, 원격 작업 전에 분리 보관한 구현을 복원했다. **보관본의 제품 소스·테스트 54개 경로를 모두 확인했고, 이미 반영한 PT 부분과 나머지 화면·입력 개선을 통합했다.** 코드 구현과 로컬 검증을 완료한 뒤, 사용자 요청으로 `886987c`의 QA APK를 실기기에 교체 설치하고 실행·데이터 보존까지 확인했다. 계측 실행·운영 동기화 검증은 수행하지 않았다.
 
 ## 1. 복원 기준과 보존 범위
 
@@ -43,7 +43,7 @@
 - 현재 탐색 아이콘, 운동 중 상단바·휴식 오버레이, 백그라운드 알림 예약을 유지했다.
 - 자동 병합으로 중복된 PT 등록 콜백·회귀 시험을 제거했다. 제품 등록 후 같은 식단으로 복귀하는 연결과 브랜드 카탈로그 통합을 유지했다.
 
-## 4. 검증 결과
+## 4. 복원 당시 소스·JVM 검증 결과
 
 환경: Windows / Android Studio JBR 21.0.10 / Gradle 9.0.0. Java·Kotlin 컴파일 대상은 17. 작업자 1개, Kotlin in-process, Gradle JVM 최대 1536MB로 실행했다.
 
@@ -72,10 +72,29 @@
 
 로컬 증거 파일은 `preserved-final-build.log`, `preserved-image-pipeline-test.log`, `preserved-ci-fallback-build.log`, `preserved-test-results.json`에 보관한다. 마지막 전체 검증은 이미지 생성 단계를 생략하지 않았다. 생성 자산을 직접 수정하지 않았다.
 
-앞선 원격 `8eb88e7`의 [Android CI 실패](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/40349161974/job/121664158094)는 기본 이미지 묶음에 없는 테스트 상수 4개 때문이었다. 실제 이미지의 canonical ID는 같지만 외부 export와 기본 묶음의 slug가 달랐다. `86281f9`에서 지원하는 두 이름을 확인한 뒤 정확한 A/B 리소스 배열과 별칭을 비교하도록 고쳤다. 시험 생략이나 임의의 빈 배열 허용은 추가하지 않았다. 원격 CI의 최종 상태는 해당 push의 GitHub Actions 결과로 별도 확인한다.
+앞선 원격 `8eb88e7`의 [Android CI 실패](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/40349161974/job/121664158094)는 기본 이미지 묶음에 없는 테스트 상수 4개 때문이었다. 실제 이미지의 canonical ID는 같지만 외부 export와 기본 묶음의 slug가 달랐다. `86281f9`에서 지원하는 두 이름을 확인한 뒤 정확한 A/B 리소스 배열과 별칭을 비교하도록 고쳤다. 시험 생략이나 임의의 빈 배열 허용은 추가하지 않았다. 이후 `886987c`의 [Android·공유 모듈·iOS CI](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/40355197162)와 [문서 CI](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/40355197153)가 모두 통과했다.
 
 프로젝트 문서 검증은 저장소 validator와 Notion 렌더링 dry run으로 수행한다. 설정된 소개·상세 문서의 검사이며 실제 화면 품질이나 운영 결과를 인증하는 검사가 아니다. Notion 쓰기는 수행하지 않는다.
 
 ## 5. 남아 있는 검증 경계
 
-기존 사용자 지시에 따라 추가 로컬 APK 생성·설치, 에뮬레이터·실기기 실행, Android 계측 시험 실행을 하지 않았다. 따라서 큰 글꼴·IME·회전·TalkBack·창 블러의 실제 표시, 휴식 알람·Doze, 두 계정의 운영 동기화와 RLS는 이번 완료 근거에 포함하지 않는다. 이 문서의 완료는 **보관한 구현의 복원·통합과 허용된 소스/JVM 검증 완료**다.
+4절의 복원 검증 당시에는 사용자 지시에 따라 추가 APK 생성·기기 실행을 제외했다. 이후 2026-10-27의 `실기기 -r` 요청으로 6절의 QA 빌드·교체 설치·시작·데이터 보존 검증을 수행했다. 큰 글꼴·IME·회전·TalkBack·창 블러의 실제 표시, 휴식 알람·Doze, 계측 시험 실행, 두 계정의 운영 동기화와 RLS는 미검증으로 남는다.
+
+## 6. 실기기 교체 설치와 데이터 보존 — 2026-10-27
+
+설치 소스 기준은 `886987c05899a7b752f998129154fe181822ff23`이다. Galaxy A25(`SM-A256N`, Android 16)의 기존 `com.yeonsik.fitnessapp`과 같은 QA 인증서를 확인한 뒤 `assembleQa`를 실행했다. 빌드는 1분 44초에 성공했으며 APK 버전은 `1.1.0` / code `2`다. 해당 작업은 기기 설치와 증거 기록이며 제품 소스 변경은 없다.
+
+```powershell
+adb -s <확인한_실기기_ID> install -r --user 0 app-qa.apk
+```
+
+| 검증 | 결과 |
+|---|---|
+| APK 검증 | 기존 설치와 인증서 SHA-256·패키지 일치 확인. 새 APK SHA-256은 `27dea0d4bb99839cbecd0168bc71a4f3b166a3a2a46662d49e49e6775d20dd9d` |
+| 설치 | `Success`. 기본 사용자 0에 교체 설치 |
+| 설치 전후 | 앱을 정지하고 DB·설정 12개 파일을 백업·대조. 12개 파일 SHA-256 전부 동일 |
+| 첫 실행 후 | 43개 테이블의 전체 행 내용을 대조해 기존 행 변경·삭제·추가 0개. schema v57 유지, SQLite `integrity_check=ok` |
+| 실행 후 파일 차이 | SQLite 공유 메모리 `fitness_mvp.db-shm`과 Android 내부 `android.app.ActivityThread.IDS.xml`만 변경. 기존 사용자 설정·계정 설정 파일은 동일 |
+| 시작 확인 | `MainActivity` 시작 `Status: ok`, 현재 프로세스의 시작 충돌 표시 0개. 앱을 다시 실행한 상태로 마침 |
+
+증거는 비공개 로컬 설치 폴더의 `assemble-qa.log`, `installed-signature.txt`, `new-signature.txt`, `install-result.txt`, `install-retention.json`, `launch-retention.json`, `first-launch-runtime.log`, `update-result.json`에 보관한다. 원본 APK·DB·설정 백업과 계정 정보는 Git에 포함하지 않는다. 이 결과는 교체 설치·기본 시작·데이터 보존의 근거이며 개별 기능의 실기기 수용 시험을 대체하지 않는다.
