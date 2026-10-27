@@ -109,6 +109,11 @@ interface MealScreenActions {
     fun updateTransFat(value: String)
     fun updatePriceTraceQuery(value: String)
     fun searchPriceTraceRestaurants()
+    fun updateDiningSearchQuery(query: String) {}
+    fun searchDiningTargets() {}
+    fun selectDiningTarget(target: com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget) {}
+    fun selectDiningBranch(locationId: String) {}
+    fun cancelDiningBranchSelection() {}
     fun loadPriceTraceRestaurant(restaurantId: String)
     fun openNutritionPublication()
     fun closeNutritionPublication()
@@ -526,8 +531,6 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
 internal fun DiningOutEditor(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState,
-    controls: DiningOutEditorState,
     manualEntryRequester: BringIntoViewRequester,
     onReviewFood: (NutritionFood) -> Unit = {}
 ) {
@@ -543,12 +546,7 @@ internal fun DiningOutEditor(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         MealInputNotice("한 가게에서 먹은 메뉴를 여러 개 담을 수 있어요. 메뉴마다 영양정보와 먹은 비율을 입력하세요.")
         SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester, onReviewFood)
-        AppOutlinedButton(
-            onClick = { controls.showPriceTrace = !controls.showPriceTrace },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !editor.saving
-        ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당 · 메뉴 검색") }
-        if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState, controls)
+        PriceTraceDiningOutPicker(actions, editor)
         Text("추가할 메뉴", style = MaterialTheme.typography.titleSmall)
         AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명 (필수)") },
             enabled = !editor.saving,

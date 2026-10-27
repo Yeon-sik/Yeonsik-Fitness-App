@@ -77,7 +77,8 @@ class MealManualFoodUiTest {
         val integration = NutritionIntegrationService(catalog, catalog,
             ProductReadV1Client(SupabaseConfig.empty()), RestaurantMenuReadV1Client(SupabaseConfig.empty()), auth, auth)
         compose.runOnUiThread {
-            model = MealViewModel(SavedStateHandle(), repository, catalog, integration, executor = executor, manualBrandCatalog = brandCatalog)
+            model = MealViewModel(SavedStateHandle(), repository, catalog, integration, executor = executor, manualBrandCatalog = brandCatalog,
+                diningCatalog = com.yeonsik.fitnessapp.feature.meal.api.PriceTraceDiningCatalog { throw java.io.IOException("offline") })
             modelStore.put("meal", model)
             model.enter(scope, date)
             model.startDraft()
@@ -126,9 +127,12 @@ class MealManualFoodUiTest {
         capture("manual-food-dark-large")
     }
 
-    @Test fun diningDirectEntryAndReusableMenuSaveAreVisible() {
+    @Test fun diningSearchFailureStillAllowsManualMenuAndMealSave() {
         compose.runOnUiThread { model.chooseDiningOut() }
         render()
+        compose.onNodeWithTag("meal-dining-query").performScrollTo().assertIsDisplayed().performTextInput("빅맥")
+        compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.diningSearch?.error != null }
+        compose.onNodeWithText("offline").assertExists()
         compose.onNodeWithText("추가할 메뉴").performScrollTo().assertIsDisplayed()
         field("상호명 (필수)").performScrollTo().performTextReplacement("검증 식당")
         field("먹은 메뉴 (필수)").performScrollTo().performTextReplacement("검증 메뉴")
@@ -141,6 +145,10 @@ class MealManualFoodUiTest {
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()
         assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
         capture("dining-manual-light")
+        compose.onNodeWithTag("meal-entry-save").performClick()
+        compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.notice != null &&
+            (model.uiState.value as? MealUiState.Ready)?.editing == false }
+        assertEquals(1L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
     }
 
     @Test fun productBrandAliasIsSelectedInlineAndStoredDuringInitialRegistration() {
@@ -192,6 +200,8 @@ class MealManualFoodUiTest {
                 "updateFoodQuantity" -> model.updateFoodQuantity(args!![0] as String, args[1] as String)
                 "updateTime" -> model.updateTime(args!![0] as String)
                 "saveFood" -> model.saveFood(scope) { }
+                "updateDiningSearchQuery" -> model.updateDiningSearchQuery(args!![0] as String)
+                "searchDiningTargets" -> model.searchDiningTargets()
                 "updateStore" -> model.updateStore(args!![0] as String)
                 "updateMenu" -> model.updateMenu(args!![0] as String)
                 "updateCalories" -> model.updateCalories(args!![0] as String)

@@ -39,6 +39,10 @@ import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisAp
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import com.yeonsik.fitnessapp.feature.meal.api.PriceTraceDiningCatalog
+import com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget
+import com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningLocation
+import java.util.concurrent.Future
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -137,7 +141,6 @@ sealed interface MealUiState {
         val searching: Boolean = false,
         val manualFoodEntry: Boolean = false,
         val manualFoodDraft: ManualFoodDraft = ManualFoodDraft(),
-        val manualBrandSearch: PriceTraceBrandSearchState? = null,
         val catalogNotice: String? = null,
         val foodItems: List<MealFoodDraftItem> = emptyList(),
         val foodPortions: List<FoodPortionDraft> = emptyList(),
@@ -147,7 +150,9 @@ sealed interface MealUiState {
         val diningMenus: List<MealDiningDraftItem> = emptyList(),
         val category: MealCatalogCategory = MealCatalogCategory.ALL,
         val removedItem: RemovedMealDraftItem? = null,
-        val recordDetail: MealDetailState = MealDetailState.Idle
+        val recordDetail: MealDetailState = MealDetailState.Idle,
+        val manualBrandSearch: PriceTraceBrandSearchState? = null,
+        val diningSearch: MealDiningSearchState = MealDiningSearchState()
     ) : MealUiState
 }
 
@@ -215,7 +220,9 @@ class MealViewModel @JvmOverloads constructor(
     private val searchDelayMillis: Long = 250L,
     private val nutritionTemplates: NutritionTemplateRepositoryApi? = null,
     private val mealReadApi: MealReadApi? = null,
-    private val manualBrandCatalog: PriceTraceBrandCatalog = nutritionIntegration
+    private val manualBrandCatalog: PriceTraceBrandCatalog = nutritionIntegration,
+    private val diningCatalog: PriceTraceDiningCatalog = nutritionIntegration,
+    private val diningExecutor: ExecutorService = Executors.newFixedThreadPool(2)
 ) : ViewModel() {
     private val main = Handler(Looper.getMainLooper())
     val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor, nutritionIntegration)
@@ -237,18 +244,27 @@ class MealViewModel @JvmOverloads constructor(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
     private var draftBeforeRecordEdit: MealUiState.Ready? = null
+    private var diningSearchVersion = 0L
+    private var diningPending: Runnable? = null
+    private var diningRunning: Future<*>? = null
+    private var diningResultContext: DiningSearchContext? = null
+    private data class DiningSearchContext(val owner: String, val nutritionOwner: String, val date: String,
+        val recordId: String?, val config: Long)
     private var cleared = false
     private var manualBrandSelectionScope = manualBrandCatalog.brandCatalogScope()
     private val manualBrandSearch = PriceTraceBrandSearchController(manualBrandCatalog,
         { ownerId + "|" + nutritionCatalog.currentOwnerId() }) { search ->
         update { it.copy(manualBrandSearch = search) }
     }
-    private val manualBrandScopeSubscription = manualBrandCatalog.observeBrandCatalogScope(Runnable {
+    private val priceTraceScopeSubscription = manualBrandCatalog.observeBrandCatalogScope(Runnable {
         main.post {
             if (!cleared) {
                 manualBrandSearch.dismiss(notify = false)
                 persistManualFoodDraft(ready().manualFoodDraft.copy(priceTraceBrand = null))
-                update { it.copy(manualBrandSearch = null) }
+                cancelDiningLookup()
+                update { it.copy(manualBrandSearch = null, diningSearch = MealDiningSearchState(
+                    query = it.diningSearch.query,
+                    error = if (it.diningSearch.query.isNotBlank()) "연결 설정 또는 계정이 변경되었습니다. 다시 검색하세요." else null)) }
             }
         }
     })
@@ -268,6 +284,7 @@ class MealViewModel @JvmOverloads constructor(
         if (dateChanged || restorePublication) {
             ++catalogRequestVersion
             manualBrandSearch.dismiss(notify = false)
+            cancelDiningLookup()
         }
         if (restorePublication) {
             ++nutritionPublicationRequestVersion
@@ -322,6 +339,7 @@ class MealViewModel @JvmOverloads constructor(
                 if (savedStateHandle.get<String>(KEY_MANUAL_BRAND_OWNER) == nutritionOwner) it else it.copy(priceTraceBrand = null)
             },
             manualBrandSearch = null,
+            diningSearch = if (dateChanged || restorePublication) MealDiningSearchState() else ready().diningSearch,
             catalogNotice = null,
             foodItems = if (dateChanged) emptyList() else ready().foodItems,
             foodPortions = if (dateChanged) emptyList() else ready().foodPortions,
@@ -498,6 +516,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
 
     fun clearCurrentDiningMenu() {
         if (ready().saving) return
+        cancelDiningLookup()
         val state = ready()
         listOf(KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS,
             KEY_SATURATED_FAT, KEY_TRANS_FAT, KEY_FOOD_ID, KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
@@ -507,7 +526,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         savedStateHandle[KEY_DINING_PERCENT] = "100"
         selectedFood = null
         update { it.copy(draft = savedDraft(), selectedFood = null, diningPortion = "1",
-            diningConsumedPercent = "100", error = null, catalogNotice = null) }
+            diningConsumedPercent = "100", diningSearch = MealDiningSearchState(), error = null, catalogNotice = null) }
     }
 
     fun updateDiningMenu(menu: MealDiningDraftItem) {
@@ -836,6 +855,83 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                     )
                 }
             }
+        }
+    }
+
+    private fun diningContext() = DiningSearchContext(ownerId, nutritionCatalog.currentOwnerId(), date,
+        ready().recordEditor?.recordId, manualBrandCatalog.brandCatalogScope())
+
+    private fun canSearchDining() = !cleared && ready().editing && ready().diningOut && !ready().saving && !ready().draftLoading
+
+    fun updateDiningSearchQuery(value: String) { searchDiningTargets(value, searchDelayMillis) }
+
+    fun searchDiningTargets() { searchDiningTargets(ready().diningSearch.query, 0) }
+
+    private fun searchDiningTargets(query: String, delayMillis: Long) {
+        if (!canSearchDining()) return
+        cancelDiningLookup()
+        val request = diningSearchVersion
+        val context = diningContext()
+        update { it.copy(diningSearch = MealDiningSearchState(query = query, loading = query.isNotBlank())) }
+        if (query.isBlank()) return
+        val work = Runnable {
+            diningRunning = diningExecutor.submit {
+                val result = runCatching { diningCatalog.searchDiningTargets(query.trim()) }
+                mainExecutor.execute {
+                    if (request != diningSearchVersion || !canSearchDining() || context != diningContext()) return@execute
+                    diningResultContext = context
+                    update { current -> current.copy(diningSearch = result.fold(
+                        { rows -> MealDiningSearchState(query = query, rows = rows, searched = true) },
+                        { error -> MealDiningSearchState(query = query, searched = true,
+                            error = error.message ?: "메뉴 검색을 완료하지 못했습니다. 직접 입력하거나 다시 검색하세요.") }
+                    )) }
+                }
+            }
+        }
+        diningPending = work
+        main.postDelayed(work, delayMillis)
+    }
+
+    private fun cancelDiningLookup() {
+        ++diningSearchVersion
+        diningPending?.let(main::removeCallbacks)
+        diningPending = null
+        diningRunning?.cancel(true)
+        diningRunning = null
+        diningResultContext = null
+    }
+
+    private fun isCurrentDiningTarget(target: PriceTraceDiningTarget): Boolean = canSearchDining() &&
+        !ready().diningSearch.loading && target in ready().diningSearch.rows && diningResultContext == diningContext()
+
+    fun selectDiningTarget(target: PriceTraceDiningTarget) {
+        if (!isCurrentDiningTarget(target)) return
+        when (target.locations.size) {
+            0 -> update { it.copy(diningSearch = it.diningSearch.copy(pendingTarget = null,
+                error = "PriceTrace에서 확인된 지점이 없습니다. 아래에서 직접 입력할 수 있습니다.")) }
+            1 -> applyDiningTarget(target, target.locations.single())
+            else -> update { it.copy(diningSearch = it.diningSearch.copy(pendingTarget = target, error = null)) }
+        }
+    }
+
+    fun selectDiningBranch(locationId: String) {
+        val target = ready().diningSearch.pendingTarget ?: return
+        if (!isCurrentDiningTarget(target)) return
+        val location = target.locations.singleOrNull { it.restaurantLocationId == locationId } ?: return
+        applyDiningTarget(target, location)
+    }
+
+    fun cancelDiningBranchSelection() {
+        if (!ready().saving) update { it.copy(diningSearch = it.diningSearch.copy(pendingTarget = null)) }
+    }
+
+    private fun applyDiningTarget(target: PriceTraceDiningTarget, location: PriceTraceDiningLocation) {
+        applyPriceTraceSelection(target.restaurantId, target.restaurantName, location.restaurantLocationId,
+            location.branchName.orEmpty(), target.restaurantMenuId, target.menuName, target.catalogProductId)
+        if (ready().draft.let { it.restaurantId == target.restaurantId && it.restaurantLocationId == location.restaurantLocationId &&
+                it.restaurantMenuId == target.restaurantMenuId && it.catalogProductId == target.catalogProductId }) {
+            cancelDiningLookup()
+            update { it.copy(diningSearch = MealDiningSearchState()) }
         }
     }
 
@@ -1353,6 +1449,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun openManualFood() {
+        if (ready().saving) return
         savedStateHandle[KEY_MANUAL_FOOD_OPEN] = true
         val state = ready()
         update { it.copy(manualFoodEntry = true, error = null, catalogNotice = null) }
@@ -1422,10 +1519,11 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun saveManualFood(scope: AccountScope) {
         val state = ready()
         if (scope.ownerId != ownerId || state.saving || !state.manualFoodEntry) return
+        val brandScope = manualBrandCatalog.brandCatalogScope()
         val input = runCatching {
             val draft = state.manualFoodDraft.let {
                 if (savedStateHandle.get<String>(KEY_MANUAL_BRAND_OWNER) == nutritionCatalog.currentOwnerId() &&
-                    manualBrandSelectionScope == manualBrandCatalog.brandCatalogScope()) it else it.copy(priceTraceBrand = null)
+                    manualBrandSelectionScope == brandScope) it else it.copy(priceTraceBrand = null)
             }
             draft.validated()
         }.getOrElse { error ->
@@ -1443,7 +1541,9 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         executor.execute {
             val result = runCatching {
                 check(nutritionCatalog.currentOwnerId() == nutritionOwner) { "식품 저장 계정이 변경되었습니다. 다시 시도하세요." }
-                nutritionCatalog.saveManualFoodInput(AccountScope(nutritionOwner), input)
+                // A queued local save still works after a connection change, but cannot attach its old Brand selection.
+                val currentInput = if (manualBrandCatalog.brandCatalogScope() == brandScope) input else input.copy(priceTraceBrand = null)
+                nutritionCatalog.saveManualFoodInput(AccountScope(nutritionOwner), currentInput)
                     ?: throw IllegalStateException("식품을 등록하지 못했습니다.")
             }
             mainExecutor.execute publish@{
@@ -1469,6 +1569,8 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                             diningOut = false,
                             catalogNotice = "내 식품으로 등록했습니다. 섭취량을 확인하고 식단을 저장하세요.") }
                         savedStateHandle.remove<ArrayList<String>>(KEY_MANUAL_FOOD)
+                        savedStateHandle.remove<String>(KEY_MANUAL_BRAND_OWNER)
+                        savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
                     }
                 }.onFailure { error -> update { it.copy(saving = false, error = error.message
                     ?: "식품을 등록하지 못했습니다. 다시 시도하세요.") } }
@@ -1855,6 +1957,13 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             }
             else -> proposed
         }
+        if (previous.editing != next.editing || previous.category != next.category || previous.ownerId != next.ownerId ||
+            previous.date != next.date || previous.recordEditor?.recordId != next.recordEditor?.recordId ||
+            previous.draft.restaurantId != next.draft.restaurantId || previous.draft.restaurantLocationId != next.draft.restaurantLocationId ||
+            previous.draft.restaurantMenuId != next.draft.restaurantMenuId || previous.selectedFood?.id != next.selectedFood?.id) {
+            cancelDiningLookup()
+            next = next.copy(diningSearch = MealDiningSearchState())
+        }
         if (!next.editing || !next.manualFoodEntry || next.manualFoodDraft.registrationKind != NutritionRegistrationKind.PRODUCT) {
             manualBrandSearch.dismiss(notify = false)
             next = next.copy(manualBrandSearch = null)
@@ -1982,8 +2091,10 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
 
     override fun onCleared() {
         cleared = true
+        cancelDiningLookup()
+        diningExecutor.shutdownNow()
         manualBrandSearch.close()
-        manualBrandScopeSubscription.close()
+        priceTraceScopeSubscription.close()
         nutritionEditor.dispose()
         ++requestVersion
         ++detailRequestVersion

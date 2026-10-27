@@ -124,98 +124,52 @@ private fun MealFoodPortionDialog(food: NutritionFood, enabled: Boolean,
 internal fun PriceTraceDiningOutPicker(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState,
-    controls: DiningOutEditorState,
     modifier: Modifier = Modifier
 ) {
-    val state = (priceTraceState as? PriceTraceUiState.Ready)?.takeIf { it.ownerId == editor.ownerId }
-    val query = state?.query ?: editor.priceTraceQuery
-    val detail = state?.detail
-    val restaurantScope = detail?.restaurantId ?: state?.selectedRestaurantId.orEmpty()
-    val locationId = controls.locationId
-    val menuId = controls.menuId
-    val productId = controls.productId
-    val menuQuery = controls.menuQuery
-    var branchExpanded by remember(restaurantScope) { mutableStateOf(false) }
-    val location = detail?.locations?.singleOrNull { it.restaurantLocationId == locationId }
-        ?: detail?.locations?.singleOrNull().takeIf { locationId.isBlank() }
-    val menu = detail?.menus?.singleOrNull { it.restaurantMenuId == menuId && it.catalogProductId == productId }
-    val enabled = !editor.saving && !editor.draftLoading && state?.loading != true
+    val state = editor.diningSearch
+    val enabled = !editor.saving && !editor.draftLoading
     val focus = LocalFocusManager.current
-    val search = { if (enabled && query.isNotBlank()) { focus.clearFocus(); actions.searchPriceTraceRestaurants() } }
-    NutritionFormSection("식당 · 메뉴 검색", modifier.fillMaxWidth(), "지점을 선택한 뒤 먹은 메뉴를 불러오세요.") {
-        AppTextField(query, actions::updatePriceTraceQuery, Modifier.fillMaxWidth(), label = { Text("식당 이름 검색") },
-            enabled = !editor.saving && !editor.draftLoading, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { search() }))
-        AppButton(search, Modifier.fillMaxWidth(), enabled = enabled && query.isNotBlank()) { Text("식당 검색") }
+    NutritionFormSection("PriceTrace 메뉴 찾기", modifier.fillMaxWidth(), "메뉴를 선택하고, 지점이 여러 곳이면 지점을 골라 주세요.") {
+        AppTextField(state.query, actions::updateDiningSearchQuery,
+            Modifier.fillMaxWidth().testTag("meal-dining-query"), label = { Text("식당 또는 메뉴 검색") },
+            enabled = enabled, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { if (enabled) { focus.clearFocus(); actions.searchDiningTargets() } }))
         when {
-            state?.loading == true -> MealCatalogProgress(if (state.selectedRestaurantId == null) "식당 검색 중" else "지점과 메뉴를 불러오는 중")
-            state?.error != null -> {
+            state.loading -> MealCatalogProgress("식당·메뉴 검색 중")
+            state.error != null -> {
                 MealCatalogFeedback(state.error)
-                AppOutlinedButton({ state.selectedRestaurantId?.let(actions::loadPriceTraceRestaurant) ?: actions.searchPriceTraceRestaurants() },
-                    Modifier.fillMaxWidth(), enabled = enabled) { Text("식당 정보 다시 시도") }
+                if (state.query.isNotBlank()) TextButton(actions::searchDiningTargets, enabled = enabled) { Text("메뉴 검색 다시 시도") }
             }
-            state?.searchedQuery != null && state.restaurants.isEmpty() && detail == null ->
-                Text("‘${state.searchedQuery}’에 맞는 식당이 없어요. 다른 이름으로 검색하거나 메뉴를 직접 입력하세요.", style = MaterialTheme.typography.bodyMedium)
+            state.searched && state.rows.isEmpty() ->
+                Text("검색 결과가 없습니다. 다른 식당·메뉴 이름을 검색하거나 아래에서 직접 입력하세요.", style = MaterialTheme.typography.bodyMedium)
         }
-        if (!state?.restaurants.isNullOrEmpty()) {
-            Text("식당 ${state.restaurants.size}개 · 목록 안에서 스크롤", style = MaterialTheme.typography.labelLarge)
-            NutritionChoiceList(state.restaurants, { it.restaurantId }, state.selectedRestaurantId,
-                { focus.clearFocus(); actions.loadPriceTraceRestaurant(it.restaurantId) },
-                Modifier.fillMaxWidth().heightIn(max = 200.dp).testTag("meal-restaurants"), enabled = enabled) {
-                Text(it.restaurantName, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("지점 ${it.locations.size}개", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (state.rows.isNotEmpty()) {
+            NutritionChoiceList(state.rows, { it.restaurantMenuId + ":" + it.catalogProductId },
+                state.pendingTarget?.let { it.restaurantMenuId + ":" + it.catalogProductId },
+                { focus.clearFocus(); actions.selectDiningTarget(it) },
+                Modifier.fillMaxWidth().heightIn(max = 240.dp).testTag("meal-dining-targets"), enabled = enabled && !state.loading) {
+                Text(it.menuName, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(it.restaurantName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        detail?.let { restaurant ->
-            Text(restaurant.restaurantName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            when {
-                restaurant.locations.isEmpty() -> Text("등록된 지점이 없어요. 메뉴를 직접 입력하거나 지점 정보를 다시 불러오세요.")
-                restaurant.menus.isEmpty() -> Text("등록된 메뉴가 없어요. 메뉴를 직접 입력하거나 메뉴 정보를 다시 불러오세요.")
-                else -> {
-                    Box(Modifier.fillMaxWidth()) {
-                        AppOutlinedButton({ branchExpanded = true }, Modifier.fillMaxWidth().testTag("meal-branch"), enabled = enabled) {
-                            Text("지점 · ${location?.branchName?.ifBlank { "본점" } ?: "선택해 주세요"}")
-                        }
-                        DropdownMenu(branchExpanded, { branchExpanded = false }, Modifier.heightIn(max = 280.dp)) {
-                            restaurant.locations.forEach { branch ->
-                                DropdownMenuItem(text = { Text(branch.branchName.ifBlank { "본점" }) }, enabled = enabled,
-                                    onClick = { controls.locationId = branch.restaurantLocationId; branchExpanded = false })
-                            }
+        state.pendingTarget?.let { target ->
+            Column(Modifier.fillMaxWidth().testTag("meal-dining-branches"), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Text("지점 선택 · ${target.restaurantName}", style = MaterialTheme.typography.titleSmall)
+                Text(target.menuName, style = MaterialTheme.typography.bodyMedium)
+                Column(Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    target.locations.forEach { location ->
+                        AppOutlinedButton({ actions.selectDiningBranch(location.restaurantLocationId) },
+                            Modifier.fillMaxWidth().testTag("meal-dining-branch-" + location.restaurantLocationId), enabled = enabled) {
+                            Text(location.branchName ?: "지점명 미확인")
                         }
                     }
-                    AppTextField(menuQuery, { controls.menuQuery = it }, Modifier.fillMaxWidth(), label = { Text("메뉴 이름으로 좁히기") },
-                        enabled = enabled, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }))
-                    val menus = restaurant.menus.filter { it.menuName.contains(menuQuery.trim(), ignoreCase = true) }
-                    Text("메뉴 ${menus.size}개 · 전체 ${restaurant.menus.size}개", style = MaterialTheme.typography.labelLarge)
-                    if (menus.isEmpty()) {
-                        Text("검색에 맞는 메뉴가 없어요.", style = MaterialTheme.typography.bodyMedium)
-                        TextButton({ controls.menuQuery = "" }, enabled = enabled) { Text("메뉴 검색 지우기") }
-                    } else NutritionChoiceList(menus, { it.restaurantMenuId + ":" + it.catalogProductId },
-                        menu?.let { it.restaurantMenuId + ":" + it.catalogProductId },
-                        { focus.clearFocus(); controls.menuId = it.restaurantMenuId; controls.productId = it.catalogProductId },
-                        Modifier.fillMaxWidth().heightIn(max = 240.dp).testTag("meal-menu-targets"), enabled = enabled) {
-                        Text(it.menuName, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (menu != null) Text("선택 메뉴 · ${menu.menuName}", style = MaterialTheme.typography.bodyMedium)
-                    AppButton({
-                        if (location != null && menu != null && enabled) {
-                            focus.clearFocus()
-                            actions.applyPriceTraceSelection(restaurant.restaurantId, restaurant.restaurantName,
-                                location.restaurantLocationId, location.branchName, menu.restaurantMenuId, menu.menuName, menu.catalogProductId)
-                        }
-                    }, Modifier.fillMaxWidth().testTag("meal-load-restaurant-menu"),
-                        enabled = enabled && location != null && menu != null && restaurant.restaurantId.isNotBlank() &&
-                            location.restaurantLocationId.isNotBlank() && menu.restaurantMenuId.isNotBlank() && menu.catalogProductId.isNotBlank()) {
-                        Text("이 메뉴 불러오기")
-                    }
-                    Text("식당과 메뉴 이름을 불러옵니다. 1인분 영양정보는 아래에서 확인해 입력하세요.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                TextButton(actions::cancelDiningBranchSelection, enabled = enabled) { Text("지점 선택 취소") }
             }
-            TextButton({ actions.loadPriceTraceRestaurant(restaurant.restaurantId) }, enabled = enabled) { Text("지점·메뉴 새로고침") }
         }
+        Text("검색 없이도 아래에서 직접 입력할 수 있습니다. 1인분 영양정보는 확인해 입력하세요.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

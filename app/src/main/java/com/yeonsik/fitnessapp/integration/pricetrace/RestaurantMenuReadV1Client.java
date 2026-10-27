@@ -19,16 +19,39 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-/** Read-only consumer for PriceTrace restaurant-directory.v1/detail.v1 contracts. */
+/** Read-only consumer for PriceTrace menu queries and legacy directory/detail contracts. */
 public final class RestaurantMenuReadV1Client {
+    private static final String MENU_READ_RPC = "/rest/v1/rpc/get_restaurant_menu_read_v1";
     private static final String DIRECTORY_RPC = "/rest/v1/rpc/get_restaurant_directory_v1";
     private static final String DETAIL_RPC = "/rest/v1/rpc/get_restaurant_detail_v1";
     private static final String CONTRACT_NAMESPACE = "pricetrace";
 
     private volatile SupabaseConfig config;
+    private final Transport transport;
 
-    public RestaurantMenuReadV1Client(SupabaseConfig config) {
+    public RestaurantMenuReadV1Client(SupabaseConfig config) { this(config, null); }
+
+    RestaurantMenuReadV1Client(SupabaseConfig config, Transport transport) {
+        this.transport = transport;
         setConfig(config);
+    }
+
+    @FunctionalInterface
+    interface Transport { String post(SupabaseConfig config, String path, JSONObject arguments) throws Exception; }
+
+    public List<DiningTarget> searchDiningTargets(String query) throws Exception {
+        return searchDiningTargets(config, query);
+    }
+
+    public List<DiningTarget> searchDiningTargets(SupabaseConfig capturedConfig, String query) throws Exception {
+        String trimmed = query == null ? "" : query.trim();
+        if (trimmed.isEmpty()) throw new IllegalArgumentException("식당 또는 메뉴 이름을 입력하세요.");
+        JSONObject arguments = new JSONObject();
+        arguments.put("p_restaurant_id", JSONObject.NULL);
+        arguments.put("p_catalog_product_id", JSONObject.NULL);
+        arguments.put("p_query", trimmed);
+        arguments.put("p_limit", 50);
+        return RestaurantMenuReadV1Parser.parse(post(capturedConfig, MENU_READ_RPC, arguments));
     }
 
     public void setConfig(SupabaseConfig config) {
@@ -98,10 +121,14 @@ public final class RestaurantMenuReadV1Client {
     }
 
     private String post(String path, JSONObject arguments) throws Exception {
-        SupabaseConfig active = config;
-        if (!active.isConnectionConfigured()) {
+        return post(config, path, arguments);
+    }
+
+    private String post(SupabaseConfig active, String path, JSONObject arguments) throws Exception {
+        if (active == null || !active.isConnectionConfigured()) {
             throw new IllegalStateException("PriceTrace 식당 DB 연결을 먼저 설정하세요.");
         }
+        if (transport != null) return transport.post(active, path, arguments);
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(joinUrl(active.supabaseUrl, path)).openConnection();
@@ -217,6 +244,25 @@ public final class RestaurantMenuReadV1Client {
                 : baseUrl + path;
     }
 
+    public static final class DiningTarget {
+        public final String restaurantId;
+        public final String restaurantName;
+        public final List<RestaurantLocation> locations;
+        public final String restaurantMenuId;
+        public final String menuName;
+        public final String catalogProductId;
+
+        DiningTarget(String restaurantId, String restaurantName, List<RestaurantLocation> locations,
+                     String restaurantMenuId, String menuName, String catalogProductId) {
+            this.restaurantId = restaurantId;
+            this.restaurantName = restaurantName;
+            this.locations = locations;
+            this.restaurantMenuId = restaurantMenuId;
+            this.menuName = menuName;
+            this.catalogProductId = catalogProductId;
+        }
+    }
+
     public static final class RestaurantSummary {
         public final String restaurantId;
         public final String restaurantName;
@@ -258,7 +304,7 @@ public final class RestaurantMenuReadV1Client {
         public final String sourceNamespace;
         public final String sourceLocationCode;
 
-        private RestaurantLocation(
+        RestaurantLocation(
                 String restaurantLocationId,
                 String branchName,
                 String locationSourceNamespace,

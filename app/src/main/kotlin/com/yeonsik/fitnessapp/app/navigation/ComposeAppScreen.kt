@@ -1941,6 +1941,11 @@ private fun AppDestination(
             viewModels.getMeal().updatePriceTraceQuery(value)
         override fun searchPriceTraceRestaurants() =
             viewModels.getMeal().searchPriceTraceRestaurants()
+        override fun updateDiningSearchQuery(query: String) = viewModels.getMeal().updateDiningSearchQuery(query)
+        override fun searchDiningTargets() = viewModels.getMeal().searchDiningTargets()
+        override fun selectDiningTarget(target: com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget) = viewModels.getMeal().selectDiningTarget(target)
+        override fun selectDiningBranch(locationId: String) = viewModels.getMeal().selectDiningBranch(locationId)
+        override fun cancelDiningBranchSelection() = viewModels.getMeal().cancelDiningBranchSelection()
         override fun loadPriceTraceRestaurant(restaurantId: String) =
             viewModels.getMeal().loadPriceTraceRestaurant(restaurantId)
         override fun openNutritionPublication() =
