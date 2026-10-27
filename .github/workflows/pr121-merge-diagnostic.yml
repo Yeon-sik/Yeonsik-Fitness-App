@@ -1,0 +1,84 @@
+name: PR121 integrate main
+
+on:
+  push:
+    branches:
+      - feat/restore-dining-components
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge latest main and resolve semantic overlap
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "integration-bot"
+          git config user.email "integration-bot@users.noreply.github.com"
+          git fetch origin main
+          git merge --no-commit --no-ff origin/main || true
+          echo "Unmerged before resolution:"
+          git diff --name-only --diff-filter=U || true
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          conflicts = [p for p in subprocess.check_output(['git','diff','--name-only','--diff-filter=U'], text=True).splitlines() if p]
+          allowed = {'app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealViewModel.kt'}
+          unexpected = set(conflicts) - allowed
+          if unexpected:
+              raise SystemExit(f'Unexpected merge conflicts: {sorted(unexpected)}')
+          path = Path('app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealViewModel.kt')
+          if path.as_posix() in conflicts:
+              text = path.read_text()
+              pattern = re.compile(r'<<<<<<< HEAD\n(.*?)=======\n(.*?)>>>>>>> origin/main\n?', re.S)
+              resolved_count = [0]
+              def resolve(match):
+                  resolved_count[0] += 1
+                  ours = match.group(1).rstrip('\n')
+                  theirs = match.group(2).rstrip('\n')
+                  if 'val diningComponents:' in ours and 'val manualBrandSearch:' in theirs:
+                      if not ours.rstrip().endswith(','):
+                          ours = ours.rstrip() + ','
+                      return ours + '\n' + theirs + '\n'
+                  if 'diningComponents = emptyList()' in ours and 'diningSearch = MealDiningSearchState()' in theirs:
+                      return ours.replace(' error = null', ' diningSearch = MealDiningSearchState(), error = null') + '\n'
+                  raise SystemExit('Unknown MealViewModel conflict block:\nOURS:\n' + ours + '\nTHEIRS:\n' + theirs)
+              resolved = pattern.sub(resolve, text)
+              if any(marker in resolved for marker in ('<<<<<<<','=======','>>>>>>>')):
+                  raise SystemExit('Conflict markers remain in MealViewModel.kt')
+              if resolved_count[0] == 0:
+                  raise SystemExit('MealViewModel was unmerged but no recognized conflict block was resolved')
+              path.write_text(resolved)
+              print(f'Resolved MealViewModel conflict blocks: {resolved_count[0]}')
+          PY
+          git add app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealViewModel.kt || true
+          remaining="$(git diff --name-only --diff-filter=U)"
+          if [[ -n "$remaining" ]]; then
+            echo "Unresolved files:"
+            echo "$remaining"
+            exit 1
+          fi
+      - name: Remove temporary integration workflow
+        run: git rm .github/workflows/pr121-merge-diagnostic.yml
+      - name: Run Android and shared verification gates
+        run: >-
+          ./gradlew --no-daemon
+          :shared:testAndroid
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleDebugAndroidTest
+          :app:lintDebug
+      - name: Commit and push integrated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          git commit -m "merge: integrate latest main into dining component restoration"
+          git push origin HEAD:feat/restore-dining-components
