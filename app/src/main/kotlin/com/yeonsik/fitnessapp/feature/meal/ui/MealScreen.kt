@@ -540,20 +540,16 @@ internal fun DiningOutEditor(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         MealInputNotice("한 가게에서 먹은 메뉴를 여러 개 담을 수 있어요. 메뉴마다 영양정보와 먹은 비율을 입력하세요.")
         SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester, onReviewFood)
-        Text("추가할 메뉴", style = MaterialTheme.typography.titleSmall)
-        AppTextField(draft.store, {
-            actions.updateStore(it)
-            controls.showPriceTrace = it.isNotBlank()
-        }, Modifier.fillMaxWidth().testTag("meal-dining-store"), { Text("상호명 (필수)") },
-            enabled = !editor.saving && !editor.draftLoading,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
-        if (editor.storeLookupQuery != null) DiningStoreMenuSuggestions(actions, editor, onReviewFood)
         AppOutlinedButton(
             onClick = { controls.showPriceTrace = !controls.showPriceTrace },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
         ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당 · 메뉴 검색") }
         if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState, controls)
+        Text("추가할 메뉴", style = MaterialTheme.typography.titleSmall)
+        AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명 (필수)") },
+            enabled = !editor.saving,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
         AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") },
             enabled = !editor.saving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
@@ -610,12 +606,12 @@ private fun SavedDiningOutMenuPicker(
     onReviewFood: (NutritionFood) -> Unit = {}
 ) {
     var choosingMenu by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf(false) }
-    if (editor.storeLookupQuery == null) AppOutlinedButton(
+    AppOutlinedButton(
         onClick = { choosingMenu = !choosingMenu; if (choosingMenu) actions.searchFood(editor.query) },
         modifier = Modifier.fillMaxWidth(),
         enabled = !editor.saving
     ) { Text(if (choosingMenu) "저장된 메뉴 목록 닫기" else "저장된 메뉴에서 선택") }
-    if (choosingMenu && editor.storeLookupQuery == null) {
+    if (choosingMenu) {
         MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
     editor.selectedFood?.let { food ->

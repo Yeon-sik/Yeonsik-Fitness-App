@@ -23,24 +23,6 @@ import java.lang.reflect.Proxy
 class MealCatalogPickerUiTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun storeTypingOpensExistingMenusAndRestaurantLookupWithoutAnExtraSearchClick() {
-        val menu = foods(1, dining = true).single()
-        var state by mutableStateOf(diningState().copy(draft = DiningOutDraft()))
-        var selectedId: String? = null
-        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
-            when (name) {
-                "updateStore" -> state = state.copy(draft = state.draft.copy(store = args!![0] as String),
-                    query = args[0] as String, storeLookupQuery = args[0] as String, searchResults = listOf(menu))
-                "useDiningOutFood" -> selectedId = (args!![0] as NutritionFood).id
-            }
-        }, state, PriceTraceUiState.Idle, "1끼") } }
-        compose.onNodeWithTag("meal-dining-store").performScrollTo().performTextInput("버거킹")
-        compose.onNodeWithTag("meal-store-menu-results").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("food-result-${menu.id}").performClick()
-        compose.runOnIdle { assertEquals(menu.id, selectedId) }
-        compose.onNodeWithText("식당 이름 검색").performScrollTo().assertIsDisplayed()
-    }
-
     @Test fun ordinaryFoodSearchTogglesAddCancelAndAddWithoutResettingQueryOrResults() {
         val food = foods(1).single()
         var state by mutableStateOf(foodState().copy(query = "식품", searchResults = listOf(food), foodPortions = emptyList()))
