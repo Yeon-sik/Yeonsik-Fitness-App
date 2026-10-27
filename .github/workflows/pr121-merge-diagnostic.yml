@@ -15,21 +15,39 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Reproduce merge against main
+      - name: Print real merge conflict hunks
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "merge-diagnostic"
           git config user.email "merge-diagnostic@users.noreply.github.com"
           git fetch origin main
-          set +e
-          git merge --no-commit --no-ff origin/main
-          status=$?
-          set -e
-          echo "MERGE_EXIT=$status"
-          echo "=== UNMERGED FILES ==="
-          git diff --name-only --diff-filter=U || true
-          echo "=== STATUS ==="
-          git status --short
+          git merge --no-commit --no-ff origin/main || true
+          python3 - <<'PY'
+          from pathlib import Path
+          paths = [
+              'app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealScreen.kt',
+              'app/src/main/kotlin/com/yeonsik/fitnessapp/feature/meal/ui/MealViewModel.kt',
+          ]
+          for path in paths:
+              lines = Path(path).read_text().splitlines()
+              print(f'=== {path} ===')
+              i = 0
+              found = 0
+              while i < len(lines):
+                  if lines[i].startswith('<<<<<<<'):
+                      found += 1
+                      start = max(0, i - 12)
+                      j = i
+                      while j < len(lines) and not lines[j].startswith('>>>>>>>'):
+                          j += 1
+                      end = min(len(lines), j + 13)
+                      print(f'--- conflict {found}, lines {start+1}-{end} ---')
+                      for n in range(start, end):
+                          print(f'{n+1:04d}: {lines[n]}')
+                      i = j + 1
+                  else:
+                      i += 1
+              print(f'CONFLICT_COUNT={found}')
+          PY
           git merge --abort || true
-          exit 0
