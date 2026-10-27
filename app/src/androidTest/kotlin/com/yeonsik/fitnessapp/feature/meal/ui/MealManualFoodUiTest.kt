@@ -17,6 +17,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.room.Room
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
+import com.yeonsik.fitnessapp.feature.nutrition.api.PriceTraceBrandCatalog
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.core.account.AccountScope
@@ -50,6 +54,15 @@ class MealManualFoodUiTest {
     private lateinit var context: Context
     private lateinit var room: FitnessRoomDatabase
     private lateinit var model: MealViewModel
+    private val modelStore = ViewModelStore()
+    private val canonicalBrand = PriceTraceBrandSelection("11111111-1111-4111-8111-111111111111", "CJ", null, null)
+    private val brandCatalog = object : PriceTraceBrandCatalog {
+        override fun brandCatalogScope() = 0L
+        override fun isBrandCatalogConfigured() = true
+        override fun searchPriceTraceBrands(query: String, limit: Int, offset: Int) =
+            listOf(PriceTraceBrandRow(canonicalBrand, "씨제이", "alias", null, null))
+        override fun observeBrandCatalogScope(listener: Runnable) = AutoCloseable { }
+    }
     private val executor = Executors.newSingleThreadExecutor()
     private val scope = AccountScope("meal-ui-fitness-owner")
     private val date = LocalDate.now().toString()
@@ -64,13 +77,14 @@ class MealManualFoodUiTest {
         val integration = NutritionIntegrationService(catalog, catalog,
             ProductReadV1Client(SupabaseConfig.empty()), RestaurantMenuReadV1Client(SupabaseConfig.empty()), auth, auth)
         compose.runOnUiThread {
-            model = MealViewModel(SavedStateHandle(), repository, catalog, integration, executor = executor)
+            model = MealViewModel(SavedStateHandle(), repository, catalog, integration, executor = executor, manualBrandCatalog = brandCatalog)
+            modelStore.put("meal", model)
             model.enter(scope, date)
             model.startDraft()
         }
     }
 
-    @After fun tearDown() { executor.shutdownNow(); executor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS); room.close() }
+    @After fun tearDown() { compose.runOnUiThread { modelStore.clear() }; executor.shutdownNow(); executor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS); room.close() }
 
     @Test fun missingFoodCanBeRegisteredAndRecordedWithoutLeavingEditor() {
         render()
@@ -129,6 +143,34 @@ class MealManualFoodUiTest {
         capture("dining-manual-light")
     }
 
+    @Test fun productBrandAliasIsSelectedInlineAndStoredDuringInitialRegistration() {
+        compose.runOnUiThread { model.chooseCategory(MealCatalogCategory.PRODUCT); model.openManualFood() }
+        render()
+        field("식품명").performScrollTo().performTextReplacement("새 제품")
+        field("브랜드 (선택)").performScrollTo().performTextReplacement("씨제이")
+        compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.manualBrandSearch?.rows?.isNotEmpty() == true }
+        compose.onNodeWithText("별칭 · 씨제이", useUnmergedTree = true).assertExists()
+        assertNull((model.uiState.value as MealUiState.Ready).manualFoodDraft.priceTraceBrand)
+        compose.onNodeWithText("CJ", useUnmergedTree = true).performScrollTo().performClick()
+        field("브랜드 (선택)").assertTextContains("CJ")
+        compose.onNodeWithText("PriceTrace 연결됨 · CJ").assertExists()
+        compose.onNodeWithText("PriceTrace 브랜드 연결").assertDoesNotExist()
+        field("제품 1개 용량 · g").performScrollTo().performTextReplacement("100")
+        field("칼로리 kcal").performScrollTo().performTextReplacement("100")
+        field("탄수화물 (총) g").performScrollTo().performTextReplacement("10")
+        field("단백질 g").performScrollTo().performTextReplacement("10")
+        field("지방 (총) g").performScrollTo().performTextReplacement("2")
+        compose.onNodeWithText("내 식품으로 등록").performScrollTo().performClick()
+        compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.selectedFood != null }
+        val food = (model.uiState.value as MealUiState.Ready).selectedFood!!
+        assertEquals("CJ", food.brand)
+        assertEquals(canonicalBrand, food.priceTraceBrand)
+        room.openHelper.readableDatabase.query("SELECT pricetrace_brand_id, pricetrace_brand_name_snapshot FROM nutrition_foods WHERE id=?",
+            arrayOf(food.id)).use { cursor ->
+            assertTrue(cursor.moveToFirst()); assertEquals(canonicalBrand.brandId, cursor.getString(0)); assertEquals("CJ", cursor.getString(1))
+        }
+    }
+
     private fun field(label: String) = compose.onNode(hasSetTextAction() and hasText(label))
 
     private fun render(dark: Boolean = false, fontScale: Float = 1f) {
@@ -143,6 +185,9 @@ class MealManualFoodUiTest {
                 "closeManualFood" -> model.closeManualFood()
                 "updateManualFood" -> model.updateManualFood(args!![0] as ManualFoodDraft)
                 "saveManualFood" -> model.saveManualFood(scope)
+                "selectManualFoodBrand" -> model.selectManualFoodBrand(args!![0] as PriceTraceBrandRow)
+                "moreManualFoodBrands" -> model.moreManualFoodBrands()
+                "retryManualFoodBrands" -> model.retryManualFoodBrands()
                 "updateQuantity" -> model.updateQuantity(args!![0] as String)
                 "updateFoodQuantity" -> model.updateFoodQuantity(args!![0] as String, args[1] as String)
                 "updateTime" -> model.updateTime(args!![0] as String)

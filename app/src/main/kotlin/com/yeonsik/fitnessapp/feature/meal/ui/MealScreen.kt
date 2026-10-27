@@ -93,6 +93,9 @@ interface MealScreenActions {
     fun closeManualFood()
     fun updateManualFood(draft: ManualFoodDraft)
     fun saveManualFood()
+    fun selectManualFoodBrand(row: com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow) {}
+    fun moreManualFoodBrands() {}
+    fun retryManualFoodBrands() {}
     fun updateStore(value: String)
     fun updateBranch(value: String)
     fun updateMenu(value: String)
@@ -512,7 +515,8 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
         }
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
-                actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error)
+                actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error,
+                editor.manualBrandSearch, actions::selectManualFoodBrand, actions::moreManualFoodBrands, actions::retryManualFoodBrands)
         } else MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
 }
