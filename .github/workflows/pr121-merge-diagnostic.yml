@@ -1,0 +1,33 @@
+name: PR121 merge diagnostic
+
+on:
+  push:
+    branches:
+      - feat/restore-dining-components
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reproduce merge against main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          status=$?
+          set -e
+          echo "MERGE_EXIT=$status"
+          echo "=== UNMERGED FILES ==="
+          git diff --name-only --diff-filter=U || true
+          echo "=== STATUS ==="
+          git status --short
+          git merge --abort || true
+          exit 0
