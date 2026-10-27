@@ -14,6 +14,9 @@ import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.data.NutritionFood
 import com.yeonsik.fitnessapp.data.MealCompositionItem
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
+import com.yeonsik.fitnessapp.data.DiningOutComponent
+import com.yeonsik.fitnessapp.data.DiningOutConsumption
+import com.yeonsik.fitnessapp.data.CompositionTemplate
 import com.yeonsik.fitnessapp.data.NutritionCalculator
 import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput
@@ -66,7 +69,10 @@ data class MealDiningDraftItem(
     val quantity: String = "1",
     val consumedPercent: String = "100",
     val nutritionFoodId: String? = null,
-    val recordItemId: String? = null
+    val recordItemId: String? = null,
+    val components: List<MealDiningComponentDraft> = emptyList(),
+    val consumption: DiningOutConsumption? = null,
+    val sourceReference: String? = null
 )
 
 data class RemovedMealDraftItem(
@@ -151,6 +157,10 @@ sealed interface MealUiState {
         val category: MealCatalogCategory = MealCatalogCategory.ALL,
         val removedItem: RemovedMealDraftItem? = null,
         val recordDetail: MealDetailState = MealDetailState.Idle,
+        val diningComponents: List<MealDiningComponentDraft> = emptyList(),
+        val componentChoices: List<DiningOutComponent> = emptyList(),
+        val componentChoicesLoading: Boolean = false,
+        val componentChoicesError: String? = null,
         val manualBrandSearch: PriceTraceBrandSearchState? = null,
         val diningSearch: MealDiningSearchState = MealDiningSearchState()
     ) : MealUiState
@@ -240,6 +250,7 @@ class MealViewModel @JvmOverloads constructor(
     private var nutritionPublicationRequestVersion = 0L
     @Volatile private var nutritionAnalysisRequestVersion = 0L
     private var detailRequestVersion = 0L
+    private var componentChoiceRequest = 0L
     private var selectedFood: NutritionFood? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
@@ -346,6 +357,8 @@ class MealViewModel @JvmOverloads constructor(
             diningPortion = if (dateChanged) "1" else savedStateHandle[KEY_DINING_PORTION] ?: ready().diningPortion,
             diningConsumedPercent = if (dateChanged) "100" else savedStateHandle[KEY_DINING_PERCENT] ?: ready().diningConsumedPercent,
             diningMenus = if (dateChanged) emptyList() else ready().diningMenus,
+            diningComponents = if (dateChanged) emptyList() else ready().diningComponents,
+            componentChoices = emptyList(), componentChoicesLoading = false, componentChoicesError = null,
             draftLoading = false
         )
         loadNutritionAnalysis(scope, date)
@@ -526,11 +539,16 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         savedStateHandle[KEY_DINING_PERCENT] = "100"
         selectedFood = null
         update { it.copy(draft = savedDraft(), selectedFood = null, diningPortion = "1",
-            diningConsumedPercent = "100", diningSearch = MealDiningSearchState(), error = null, catalogNotice = null) }
+            diningConsumedPercent = "100", diningComponents = emptyList(), diningSearch = MealDiningSearchState(), error = null, catalogNotice = null) }
     }
 
-    fun updateDiningMenu(menu: MealDiningDraftItem) {
+    fun updateDiningMenu(updatedMenu: MealDiningDraftItem) {
         if (ready().saving) return
+        val previousComponents = diningMealMenus(ready()).firstOrNull { it.id == updatedMenu.id }
+            ?.components.orEmpty().associateBy { it.id }
+        val menu = updatedMenu.copy(components = updatedMenu.components.map { component ->
+            previousComponents[component.id]?.let(component::reconcileIdentity) ?: component
+        })
         if (menu.id == "current-menu") {
             val previous = currentDiningMenu(ready())
             val renamed = previous.draft.store != menu.draft.store || previous.draft.branch != menu.draft.branch ||
@@ -549,6 +567,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             savedStateHandle[KEY_DINING_PERCENT] = menu.consumedPercent
             if (renamed) { selectedFood = null; savedStateHandle.remove<String>(KEY_FOOD_ID) }
             update { it.copy(draft = draft, diningPortion = menu.quantity, diningConsumedPercent = menu.consumedPercent,
+                diningComponents = menu.components,
                 selectedFood = if (renamed) null else it.selectedFood, error = null) }
             return
         }
@@ -556,7 +575,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             if (existing.id != menu.id) existing else {
                 val renamed = existing.draft.store != menu.draft.store || existing.draft.branch != menu.draft.branch ||
                     existing.draft.menu != menu.draft.menu
-                if (renamed) menu.copy(nutritionFoodId = null, draft = menu.draft.copy(restaurantId = "",
+                if (renamed) menu.copy(nutritionFoodId = null, sourceReference = null, draft = menu.draft.copy(restaurantId = "",
                     restaurantLocationId = "", restaurantMenuId = "", catalogProductId = "", sourceNamespace = "", sourceLocationCode = ""))
                 else menu
             }
@@ -572,6 +591,41 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         val removed = RemovedMealDraftItem(index, menu = menus[index])
         if (menuId == "current-menu") clearCurrentDiningMenu()
         update { it.copy(diningMenus = it.diningMenus.filterNot { menu -> menu.id == menuId }, removedItem = removed, error = null) }
+    }
+
+    /** Local catalog/template reads use the Nutrition account captured when opening the picker. */
+    fun loadDiningComponentChoices(menuId: String) {
+        val state = ready()
+        if (state.saving || state.draftLoading) return
+        val menu = diningMealMenus(state).firstOrNull { it.id == menuId } ?: return
+        val scopeOwner = ownerId
+        val nutritionOwner = nutritionCatalog.currentOwnerId()
+        val request = ++componentChoiceRequest
+        update { it.copy(componentChoices = emptyList(), componentChoicesLoading = true, componentChoicesError = null) }
+        executor.execute {
+            val result = runCatching {
+                val catalog = (nutritionCatalog.diningOutComponentsForMenu(menu.nutritionFoodId, null) +
+                    nutritionCatalog.savedDiningOutComponents(menu.draft.store, identityFromDraft(menu.draft), "", 100))
+                    .distinctBy { it.id }.map(DiningOutComponent::fromFood)
+                val templates = nutritionTemplates?.listTemplates(CompositionTemplate.KIND_DINING_OUT).orEmpty()
+                    .filter { it.rootFoodId != null && it.rootFoodId == menu.nutritionFoodId }
+                    .flatMap { template -> template.groups.flatMap { group -> group.members.map { member ->
+                        val source = runCatching { JSONObject(member.sourceReference ?: "{}") }.getOrDefault(JSONObject())
+                        source.put("composition_template_id", template.id)
+                        source.put("composition_template_revision", template.revision)
+                        DiningOutComponent(member.name, member.profile.scaled(1.0 / member.quantity), member.nutritionFoodId, source.toString(),
+                            group.key, group.groupType, group.label, com.yeonsik.fitnessapp.data.DiningOutOption.DEFAULT_ROLE,
+                            member.id, com.yeonsik.fitnessapp.data.DiningOutProvisionType.INCLUDED.value(), member.quantity, 1.0)
+                    } } }
+                templates + catalog
+            }
+            mainExecutor.execute {
+                if (componentChoiceRequest != request || scopeOwner != ownerId || date != state.date ||
+                    nutritionOwner != nutritionCatalog.currentOwnerId()) return@execute
+                update { it.copy(componentChoices = result.getOrDefault(emptyList()), componentChoicesLoading = false,
+                    componentChoicesError = result.exceptionOrNull()?.message) }
+            }
+        }
     }
 
     fun undoRemoveItem() {
@@ -661,6 +715,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         update { it.copy(editing = true, draftLoading = true, saving = false, recordActionSaving = false,
             recordEditor = MealRecordEditor(recordId, requestedDate, "식단", ""),
             foodItems = emptyList(), foodPortions = emptyList(), diningMenus = emptyList(), selectedFood = null,
+            diningComponents = if (restoring) restoredDraft.diningComponents else emptyList(),
             draft = if (restoring) restoredDraft.draft else DiningOutDraft(time = ""),
             manualFoodEntry = false, searchLoading = false, searchResults = emptyList(), error = null, notice = null) }
         executor.execute {
@@ -717,7 +772,8 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             restaurantId = sourceValue(source, "restaurant_id"), restaurantLocationId = sourceValue(source, "restaurant_location_id"),
             restaurantMenuId = sourceValue(source, "restaurant_menu_id"), catalogProductId = sourceValue(source, "catalog_product_id"),
             sourceNamespace = sourceValue(source, "source_namespace"), sourceLocationCode = sourceValue(source, "source_location_code")
-        ), mealQuantityText(item.quantity), number(item.consumedFraction * 100), item.sourceFoodId, item.itemId)
+        ), mealQuantityText(item.quantity), number(item.consumedFraction * 100), item.sourceFoodId, item.itemId,
+            item.components.map(MealDiningComponentDraft::from), item.consumption, food.sourceReference)
     }
 
     fun closeRecordEditor() = restoreDraftBeforeEdit(null)
@@ -1842,7 +1898,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
                 parsed.sodium, parsed.sugars, parsed.saturatedFat, source.restaurantId.takeIf(String::isNotBlank),
                 source.restaurantLocationId.takeIf(String::isNotBlank), source.restaurantMenuId.takeIf(String::isNotBlank),
                 source.catalogProductId.takeIf(String::isNotBlank), parsed.transFat), requireNotNull(mealConsumedFraction(menu.consumedPercent)),
-                menu.nutritionFoodId, requireNotNull(source.calories.toDoubleOrNull()))
+                menu.nutritionFoodId, requireNotNull(source.calories.toDoubleOrNull()),
+                menu.components.map { it.selection() }, menu.consumption, diningMenuSourceReference(menu))
         }
         cancelSearch()
         update { it.copy(saving = true, searching = false, searchLoading = false, error = null) }
@@ -1867,7 +1924,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
                         update { it.copy(selectedFood = null, foodItems = emptyList(), editing = false,
                             diningOut = false, category = MealCatalogCategory.ALL, query = "", searchResults = emptyList(), quantity = "", removedItem = null,
                             draft = DiningOutDraft(), saving = false, manualFoodEntry = false,
-                            diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(),
+                            diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(), diningComponents = emptyList(),
                             manualFoodDraft = ManualFoodDraft(), catalogNotice = null,
                             notice = "${items.size + diningInputs.size}개 항목을 한 끼로 저장했습니다.") }
                         loadNutritionAnalysis(scope, state.date)
@@ -1978,6 +2035,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             savedStateHandle[KEY_PORTION_PERCENTS] = ArrayList(next.foodItems.map { it.consumedPercent })
             savedStateHandle[KEY_PORTION_MODES] = ArrayList(next.foodItems.map { it.amountMode.name })
             savedStateHandle[KEY_DINING_MENUS] = ArrayList(next.diningMenus.map(::encodeDiningMenu))
+            savedStateHandle[KEY_DINING_COMPONENTS] = encodeDiningComponents(next.diningComponents)
         }
     }
 
@@ -2024,6 +2082,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         diningPortion = savedStateHandle[KEY_DINING_PORTION] ?: "1",
         diningConsumedPercent = savedStateHandle[KEY_DINING_PERCENT] ?: "100",
         diningMenus = savedStateHandle.get<ArrayList<String>>(KEY_DINING_MENUS).orEmpty().mapNotNull(::decodeDiningMenu),
+        diningComponents = savedStateHandle.get<String>(KEY_DINING_COMPONENTS)?.let(::decodeDiningComponents).orEmpty(),
         priceTraceQuery = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: "",
         manualFoodDraft = savedManualFoodDraft(),
         manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false
@@ -2068,7 +2127,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID, KEY_SOURCE_NAMESPACE,
             KEY_SOURCE_LOCATION_CODE, KEY_PRICE_TRACE_QUERY)
             .forEach { savedStateHandle.remove<String>(it) }
-        listOf(KEY_EDITING, KEY_DINING_OUT, KEY_DINING_PORTION, KEY_DINING_PERCENT, KEY_DINING_MENUS,
+        listOf(KEY_EDITING, KEY_DINING_OUT, KEY_DINING_PORTION, KEY_DINING_PERCENT, KEY_DINING_MENUS, KEY_DINING_COMPONENTS,
             KEY_PORTION_IDS, KEY_PORTION_AMOUNTS, KEY_PORTION_PERCENTS, KEY_PORTION_MODES, KEY_CATEGORY, "meal.consumed_percent")
             .forEach { savedStateHandle.remove<Any>(it) }
     }
@@ -2174,6 +2233,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         const val KEY_DINING_PORTION = "meal.dining_portion"
         const val KEY_DINING_PERCENT = "meal.dining_percent"
         const val KEY_DINING_MENUS = "meal.dining_menus"
+        const val KEY_DINING_COMPONENTS = "meal.dining_components"
         const val KEY_PORTION_IDS = "meal.portion_ids"
         const val KEY_PORTION_AMOUNTS = "meal.portion_amounts"
         const val KEY_PORTION_PERCENTS = "meal.portion_percents"

@@ -43,10 +43,12 @@ internal fun mealFoodNutritionTotals(items: List<MealFoodDraftItem>): NutritionT
     }.build()
 
 internal fun currentDiningMenu(editor: MealUiState.Ready) = MealDiningDraftItem("current-menu", editor.draft,
-    editor.diningPortion, editor.diningConsumedPercent, editor.selectedFood?.id)
+    editor.diningPortion, editor.diningConsumedPercent, editor.selectedFood?.id,
+    components = editor.diningComponents, sourceReference = editor.selectedFood?.sourceReference)
 
 internal fun hasCurrentDiningMenu(editor: MealUiState.Ready): Boolean = editor.draft.let {
-    listOf(it.menu, it.calories, it.carbs, it.protein, it.fat, it.sodium, it.sugars, it.saturatedFat, it.transFat).any(String::isNotBlank)
+    editor.diningComponents.isNotEmpty() ||
+        listOf(it.menu, it.calories, it.carbs, it.protein, it.fat, it.sodium, it.sugars, it.saturatedFat, it.transFat).any(String::isNotBlank)
 }
 
 internal fun diningMealMenus(editor: MealUiState.Ready): List<MealDiningDraftItem> =
@@ -54,6 +56,7 @@ internal fun diningMealMenus(editor: MealUiState.Ready): List<MealDiningDraftIte
 
 internal fun diningMenuRegistrationError(menu: MealDiningDraftItem): String? =
     diningOutRegistrationError(menu.draft) ?: mealConsumedPercentError(menu.consumedPercent) ?:
+        menu.components.firstNotNullOfOrNull { it.error()?.let { error -> "${it.name.ifBlank { "구성품" }} · $error" } } ?:
         if (mealQuantityValue(menu.quantity)?.let { it <= 100 } == true) null
         else "메뉴 전체 양은 0보다 크고 100 이하인 인분 수로 입력하세요."
 
@@ -82,7 +85,11 @@ internal fun diningMenuNutritionProfile(menu: MealDiningDraftItem): NutritionPro
 }
 
 internal fun diningNutritionTotals(editor: MealUiState.Ready): NutritionTotals =
-    NutritionTotals.builder().apply { diningMealMenus(editor).forEach { add(diningMenuNutritionProfile(it)) } }.build()
+    NutritionTotals.builder().apply { diningMealMenus(editor).forEach { menu ->
+        add(diningMenuNutritionProfile(menu)); menu.components.forEach {
+            add(runCatching { it.selection().consumedProfile() }.getOrDefault(NutritionProfile.empty()))
+        }
+    } }.build()
 
 internal fun mealEntryNutritionTotals(editor: MealUiState.Ready): NutritionTotals =
     NutritionTotals.builder().apply {
@@ -90,7 +97,10 @@ internal fun mealEntryNutritionTotals(editor: MealUiState.Ready): NutritionTotal
             add(mealFoodConsumedQuantity(item)?.let { runCatching { NutritionCalculator.forQuantity(item.food, it) }.getOrNull() }
                 ?: NutritionProfile.empty())
         }
-        diningMealMenus(editor).forEach { add(diningMenuNutritionProfile(it)) }
+        diningMealMenus(editor).forEach { menu ->
+            add(diningMenuNutritionProfile(menu))
+            menu.components.forEach { add(runCatching { it.selection().consumedProfile() }.getOrDefault(NutritionProfile.empty())) }
+        }
     }.build()
 
 internal fun mealEntryRegistrationError(editor: MealUiState.Ready): String? {
@@ -109,6 +119,12 @@ internal fun encodeDiningMenu(menu: MealDiningDraftItem): String = JSONObject().
     put("id", menu.id); put("quantity", menu.quantity); put("percent", menu.consumedPercent)
     put("food_id", menu.nutritionFoodId ?: JSONObject.NULL)
     put("record_item_id", menu.recordItemId ?: JSONObject.NULL)
+    put("components", JSONArray(encodeDiningComponents(menu.components)))
+    put("source_reference", menu.sourceReference ?: JSONObject.NULL)
+    menu.consumption?.let { put("consumption", JSONObject().apply {
+        put("diners", it.dinerCount); put("fraction", it.consumedFraction)
+        put("method", it.shareMethod); put("confidence", it.confidence)
+    }) }
     val d = menu.draft
     put("draft", JSONArray(listOf(d.store, d.branch, d.menu, d.calories, d.carbs, d.protein, d.fat,
         d.sodium, d.sugars, d.saturatedFat, d.time, d.restaurantId, d.restaurantLocationId, d.restaurantMenuId,
@@ -124,5 +140,9 @@ internal fun decodeDiningMenu(raw: String): MealDiningDraftItem? = runCatching {
         d.getString(10), d.getString(11), d.getString(12), d.getString(13), d.getString(14), d.getString(15), d.getString(16),
         transFat = d.optString(17, "")),
         json.getString("quantity"), json.getString("percent"), json.optString("food_id").takeUnless { it == "null" || it.isBlank() },
-        json.optString("record_item_id").takeUnless { it == "null" || it.isBlank() })
+        json.optString("record_item_id").takeUnless { it == "null" || it.isBlank() },
+        decodeDiningComponents(json.optJSONArray("components")?.toString() ?: "[]"),
+        json.optJSONObject("consumption")?.let { com.yeonsik.fitnessapp.data.DiningOutConsumption.fromSnapshot(
+            it.getInt("diners"), it.getDouble("fraction"), it.getString("method"), it.getString("confidence")) },
+        json.optString("source_reference").takeUnless { it == "null" || it.isBlank() })
 }.getOrNull()

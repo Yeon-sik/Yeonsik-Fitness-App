@@ -346,8 +346,11 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         PreparedDining prepared = prepareDiningMenus(ownerId, new ArrayList<>(inputs));
         NutritionTotals.Builder combined = NutritionTotals.builder();
         for (MealCompositionItem item : consumedItems) combined.add(item.profile);
-        for (int index = 0; index < prepared.menus.size(); index++)
+        for (int index = 0; index < prepared.menus.size(); index++) {
             combined.add(prepared.menus.get(index).menu.profile.scaled(prepared.consumptions.get(index).consumedFraction));
+            for (DiningOutOption component : prepared.menus.get(index).diningOutOptions)
+                combined.add(component.consumedProfile());
+        }
         NutritionTotals totals = combined.build();
         if (!Double.isFinite(totals.calories()) || totals.calories() > Integer.MAX_VALUE
                 || !Double.isFinite(totals.proteinGrams()) || !Double.isFinite(totals.carbsGrams())
@@ -425,7 +428,8 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                         UUID.randomUUID().toString(), ownerId, recordId, itemId, DiningOutConsumption.CONTRACT_VERSION,
                         DiningOutConsumption.CONSUMER_SCOPE_SELF, (long) consumption.dinerCount, consumption.consumedFraction,
                         consumption.shareMethod, consumption.confidence, now, now, null, DEVICE_ID));
-                if (replacement != null) replacement.preserve(edit.getMenuItemIds().get(index), itemId, true);
+                if (replacement != null) replacement.preserve(edit.getMenuItemIds().get(index), itemId, true,
+                        inputs.get(index).getComponents() != null);
             }
         });
         return recordId;
@@ -472,7 +476,10 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                     input.getCarbsGrams(), input.getFatGrams(), input.getSodiumMg(),
                     input.getSugarsGrams(), input.getSaturatedFatGrams(), input.getTransFatGrams());
             double quantity = requireNominalServings(input.getQuantity());
-            DiningOutConsumption consumption = DiningOutConsumption.manual(1, intake.getConsumedFraction());
+            DiningOutConsumption consumption = intake.getConsumption() == null
+                    ? DiningOutConsumption.manual(1, intake.getConsumedFraction())
+                    : DiningOutConsumption.fromSnapshot(intake.getConsumption().dinerCount, intake.getConsumedFraction(),
+                            intake.getConsumption().shareMethod, intake.getConsumption().confidence);
             NutritionProfile profile = NutritionProfile.builder()
                     .value(NutritionProfile.CALORIES_KCAL, intake.getCaloriesKcal())
                     .value(NutritionProfile.PROTEIN_GRAMS, input.getProteinGrams())
@@ -482,10 +489,13 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                     .value(NutritionProfile.SUGARS_GRAMS, input.getSugarsGrams())
                     .value(NutritionProfile.SATURATED_FAT_GRAMS, input.getSaturatedFatGrams())
                     .value(NutritionProfile.TRANS_FAT_GRAMS, input.getTransFatGrams()).build();
-            JSONObject source = new JSONObject();
+            JSONObject source;
             try {
+                source = new JSONObject(intake.getSourceReference() == null ? "{}" : intake.getSourceReference());
                 source.put("restaurant_name", input.getStoreName());
                 source.put("branch_name", input.getBranchName());
+                for (String key : new String[]{"restaurant_id", "restaurant_location_id", "restaurant_menu_id", "catalog_product_id"})
+                    source.remove(key);
                 putOptional(source, "restaurant_id", input.getRestaurantId());
                 putOptional(source, "restaurant_location_id", input.getRestaurantLocationId());
                 putOptional(source, "restaurant_menu_id", input.getRestaurantMenuId());
@@ -498,7 +508,19 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                     .basis(1d, NutritionUnit.SERVING).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
                     .source("manual_estimate", source.toString()).dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN).build();
             MealCompositionItem menu = MealCompositionItem.from(food, quantity);
-            menus.add(MealMenuSelection.standalone(menu));
+            List<com.yeonsik.fitnessapp.data.DiningOutComponent> components = intake.getComponents() == null
+                    ? Collections.emptyList() : new ArrayList<>(intake.getComponents());
+            for (com.yeonsik.fitnessapp.data.DiningOutComponent component : components) {
+                if (component == null) throw new IllegalArgumentException("외식 구성품을 확인하세요.");
+                NutritionConsistencyPolicy.validate(component.profile);
+                for (Double value : component.consumedProfile().asMap().values()) {
+                    if (value != null && (!Double.isFinite(value) || value < 0d))
+                        throw new IllegalArgumentException("구성품의 수량과 영양정보를 확인하세요.");
+                }
+                totals.add(component.consumedProfile());
+            }
+            menus.add(components.isEmpty() ? MealMenuSelection.standalone(menu)
+                    : MealMenuSelection.diningOut(menu, ownerId, input.getStoreName(), components));
             consumptions.add(consumption);
             totals.add(menu.profile.scaled(consumption.consumedFraction));
         }

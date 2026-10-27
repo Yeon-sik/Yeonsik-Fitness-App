@@ -78,6 +78,11 @@ interface NutritionCatalogRepositoryApi {
     /** Returns the current owner's reusable dining-out menu masters. */
     fun savedDiningOutMenus(): List<NutritionFood> = emptyList()
 
+    /** Existing reusable components; ordinary food search intentionally excludes these rows. */
+    fun savedDiningOutComponents(storeName: String?, identity: DiningOutIdentity?, query: String?, limit: Int): List<NutritionFood> = emptyList()
+
+    fun diningOutComponentsForMenu(menuFoodId: String?, groupType: String?): List<NutritionFood> = emptyList()
+
     /** Saves a private reusable food, preserving unknown optional nutrients as null. */
     fun saveManualFood(
         scope: AccountScope,

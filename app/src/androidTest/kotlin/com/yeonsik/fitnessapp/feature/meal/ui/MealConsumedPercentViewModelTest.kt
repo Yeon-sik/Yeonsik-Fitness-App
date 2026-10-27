@@ -20,6 +20,94 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 
 class MealConsumedPercentViewModelTest {
+    @Test fun groupEditInvalidatesTemplateIdentityInCurrentDraftAndSavedInput() = withFixture {
+        main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
+        queue.drain()
+        main {
+            val selected = MealDiningComponentDraft.from(state().componentChoices.single())
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(selected)))
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(selected.copy(groupType = "beverage"))))
+            val changed = currentDiningMenu(state()).components.single()
+            assertEquals("beverage", changed.groupKey); assertEquals("음료", changed.groupLabel)
+            assertNull(changed.catalogFoodId); assertNull(changed.memberId); assertNull(changed.sourceReference)
+            vm.save(scope) {}
+        }
+        queue.drain()
+        val saved = savedDining.single().components!!.single()
+        assertEquals("beverage", saved.groupType); assertEquals("beverage", saved.groupKey)
+        assertNull(saved.catalogFoodId); assertNull(saved.memberId); assertNull(saved.sourceReference)
+    }
+
+    @Test fun nameEditInvalidatesTemplateIdentityInQueuedMenuAndRestoredDraft() = withFixture {
+        main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
+        queue.drain()
+        main {
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(MealDiningComponentDraft.from(state().componentChoices.single()))))
+            vm.addDiningMenu()
+            val menu = state().diningMenus.single()
+            vm.updateDiningMenu(menu.copy(components = listOf(menu.components.single().copy(name = "새 구성품"))))
+            vm = createModel(); vm.enter(scope, date)
+        }
+        queue.drain()
+        main {
+            val restored = state().diningMenus.single().components.single()
+            assertEquals("새 구성품", restored.name)
+            assertNull(restored.catalogFoodId); assertNull(restored.memberId); assertNull(restored.sourceReference)
+            vm.save(scope) {}
+        }
+        queue.drain()
+        val saved = savedDining.single().components!!.single()
+        assertNull(saved.catalogFoodId); assertNull(saved.memberId); assertNull(saved.sourceReference)
+    }
+
+    @Test fun savedTemplateMembersCanBeSelectedWithoutChangingTheirDefinition() = withFixture {
+        main { vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.loadDiningComponentChoices("current-menu") }
+        queue.drain()
+        main {
+            assertFalse(state().componentChoicesLoading)
+            val choice = state().componentChoices.single()
+            assertEquals("dining-member", choice.memberId)
+            assertEquals(3.0, choice.quantity, 0.0)
+            assertEquals(20.0, choice.profile.calories(), 0.0)
+            assertEquals("dining-template", org.json.JSONObject(choice.sourceReference!!).getString("composition_template_id"))
+            val component = MealDiningComponentDraft.from(choice)
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(component)))
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(component.copy(quantity = "4", provisionType = "review_event", consumedPercent = "50"))))
+            vm.save(scope) {}
+        }
+        queue.drain()
+        assertEquals(4.0, savedDining.single().components!!.single().quantity, 0.0)
+        assertEquals("review_event", savedDining.single().components!!.single().provisionType)
+        assertEquals(0.5, savedDining.single().components!!.single().consumedFraction, 0.0)
+        assertEquals("shrimp", savedDining.single().components!!.single().catalogFoodId)
+        assertEquals("dining-member", savedDining.single().components!!.single().memberId)
+        assertEquals("dining-template", org.json.JSONObject(savedDining.single().components!!.single().sourceReference!!).getString("composition_template_id"))
+        assertEquals(3.0, diningTemplate.groups.single().members.single().quantity, 0.0)
+    }
+
+    @Test fun nestedComponentsSurviveCurrentMenuRecreationAndSaveWithIndependentQuantityAndPercent() = withFixture {
+        main {
+            vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu)
+            val component = MealDiningComponentDraft(name = "뼈 추가", groupType = "add_on", provisionType = "paid",
+                quantity = "2", consumedPercent = "33.33333333333333", nutrients = mapOf("calories_kcal" to "300"))
+            vm.updateDiningMenu(currentDiningMenu(state()).copy(components = listOf(component)))
+            vm = createModel(); vm.enter(scope, date)
+        }
+        queue.drain()
+        main {
+            assertEquals("2", currentDiningMenu(state()).components.single().quantity)
+            vm.addDiningMenu()
+            assertTrue(state().diningComponents.isEmpty())
+            vm.useDiningOutFood(catalog.secondMenu); vm.addDiningMenu()
+            vm.save(scope) {}
+        }
+        queue.drain()
+        assertEquals(listOf(1, 0), savedDining.map { it.components!!.size })
+        assertEquals(2.0, savedDining.first().components!!.single().quantity, 0.0)
+        assertEquals(1.0 / 3, savedDining.first().components!!.single().consumedFraction, 0.000001)
+        assertNull(savedDining.first().components!!.single().profile.sodiumMg())
+    }
+
     @Test fun foodsKeepIndividualPercentAndSaveTheirOwnConsumedAmounts() = withFixture {
         main {
             vm.startDraft(); vm.selectFood(catalog.food); vm.selectFood(catalog.secondFood)
@@ -198,6 +286,10 @@ class MealConsumedPercentViewModelTest {
         val template = CompositionTemplate("template", catalog.currentOwnerId(), "저장 식단", CompositionTemplate.KIND_MEAL,
             null, null, 1, listOf(CompositionGroup("group", "main", "주식", CompositionGroup.MODE_OPTIONAL_MANY, 0, 1, 0,
                 listOf(CompositionMember("member", "food", "밥", null, 200.0, NutritionUnit.GRAM, true, 0, null, catalog.food.profile)))))
+        val diningTemplate = CompositionTemplate("dining-template", catalog.currentOwnerId(), "버거 구성", CompositionTemplate.KIND_DINING_OUT,
+            "menu", null, 1, listOf(CompositionGroup("dining-group", "add-ons", "add_on", "추가", CompositionGroup.MODE_OPTIONAL_MANY, 0, 10, 0,
+                listOf(CompositionMember("dining-member", "shrimp", "통새우 추가", null, 3.0, NutritionUnit.SERVING, true, 0, null,
+                    NutritionProfile.builder().value("calories_kcal", 60.0).build())))))
         fun state() = vm.uiState.value as MealUiState.Ready
         fun createModel(): MealViewModel {
             val meals = proxy<MealRecordRepositoryApi> { name, args -> when (name) {
@@ -218,7 +310,7 @@ class MealConsumedPercentViewModelTest {
             val templates = object : NutritionTemplateRepositoryApi {
                 override fun currentOwnerId() = catalog.currentOwnerId()
                 override fun findTemplate(templateId: String) = template.takeIf { it.id == templateId }
-                override fun listTemplates(kind: String?) = listOf(template)
+                override fun listTemplates(kind: String?) = listOf(template, diningTemplate).filter { kind == null || it.kind == kind }
                 override fun saveTemplate(template: CompositionTemplate): String = error("Intake must not modify definitions")
                 override fun deleteTemplate(templateId: String) = error("Intake must not modify definitions")
             }

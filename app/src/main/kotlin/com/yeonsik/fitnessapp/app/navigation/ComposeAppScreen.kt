@@ -1914,6 +1914,7 @@ private fun AppDestination(
         override fun startAnotherDiningMenu(menuId: String) = viewModels.getMeal().startAnotherDiningMenu(menuId)
         override fun clearCurrentDiningMenu() = viewModels.getMeal().clearCurrentDiningMenu()
         override fun updateDiningMenu(menu: MealDiningDraftItem) = viewModels.getMeal().updateDiningMenu(menu)
+        override fun loadDiningComponentChoices(menuId: String) = viewModels.getMeal().loadDiningComponentChoices(menuId)
         override fun removeDiningMenu(menuId: String) = viewModels.getMeal().removeDiningMenu(menuId)
         override fun undoRemoveItem() = viewModels.getMeal().undoRemoveItem()
         override fun openNutritionEditor() = viewModels.getMeal().nutritionEditor.open()
