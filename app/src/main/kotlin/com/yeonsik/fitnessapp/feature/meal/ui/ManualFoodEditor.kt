@@ -1,6 +1,13 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow
+import com.yeonsik.fitnessapp.feature.nutrition.ui.PriceTraceBrandSearchState
+import com.yeonsik.fitnessapp.feature.nutrition.ui.PriceTraceBrandMatchContext
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -26,7 +33,11 @@ internal fun ManualFoodEditor(
     onSave: () -> Unit,
     onClose: () -> Unit,
     saving: Boolean,
-    error: String?
+    error: String?,
+    brandSearch: PriceTraceBrandSearchState? = null,
+    onSelectBrand: (PriceTraceBrandRow) -> Unit = {},
+    onMoreBrands: () -> Unit = {},
+    onRetryBrands: () -> Unit = {}
 ) {
     var unitMenuOpen by remember { mutableStateOf(false) }
     var showOptional by rememberSaveable { mutableStateOf(false) }
@@ -46,8 +57,36 @@ internal fun ManualFoodEditor(
         }
         AppTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(),
             label = { Text("식품명") }, enabled = !saving, keyboardOptions = textOptions, keyboardActions = next)
-        AppTextField(draft.brand, { onChange(draft.copy(brand = it)) }, Modifier.fillMaxWidth(),
+        AppTextField(draft.brand, { onChange(draft.copy(brand = it)) }, Modifier.fillMaxWidth().testTag("meal-manual-brand"),
             label = { Text("브랜드 (선택)") }, enabled = !saving, keyboardOptions = textOptions, keyboardActions = next)
+        if (draft.registrationKind == NutritionRegistrationKind.PRODUCT) {
+            draft.priceTraceBrand?.let {
+                Text("PriceTrace 연결됨 · ${it.canonicalName}", style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("meal-manual-brand-selected"))
+            }
+            brandSearch?.let { search ->
+                if (search.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                search.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onRetryBrands, enabled = !saving) { Text("브랜드 다시 검색") }
+                }
+                if (search.searched && !search.loading && search.error == null && search.rows.isEmpty()) {
+                    Text("검색 결과가 없습니다. 입력한 브랜드로 등록할 수 있습니다.", style = MaterialTheme.typography.bodySmall)
+                }
+                Column(Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+                    .testTag("meal-manual-brand-results"), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    search.rows.forEach { row ->
+                        AppOutlinedButton({ onSelectBrand(row) }, Modifier.fillMaxWidth(), enabled = !saving && !search.loading) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(row.selection.canonicalName, style = MaterialTheme.typography.titleSmall)
+                                PriceTraceBrandMatchContext(row)
+                            }
+                        }
+                    }
+                    if (search.hasMore) TextButton(onMoreBrands, enabled = !saving && !search.loading) { Text("브랜드 더 보기") }
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
             AppTextField(draft.basisAmount, { onChange(draft.copy(basisAmount = it)) }, Modifier.weight(1f),
                 label = { Text("기준량") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)

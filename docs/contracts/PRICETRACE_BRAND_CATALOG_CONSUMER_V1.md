@@ -1,6 +1,6 @@
 # Fitness → PriceTrace Brand Catalog consumer v1
 
-Fitness owns NutritionFood, nutrition values, local label/manufacturer facts and product–nutrition links. PriceTrace owns canonical Brand UUIDs, canonical names, aliases, and the direct-parent hierarchy. This consumer stores an optional, explicitly selected external Brand reference on a NutritionFood. It does not introduce a Fitness Brand master.
+Fitness owns NutritionFood, nutrition values, local label/manufacturer facts and product–nutrition links. PriceTrace owns canonical Brand UUIDs, canonical names, aliases, the direct-parent hierarchy, and Brand discovery/search normalization, matching and ranking. This consumer stores an optional, explicitly selected external Brand reference on a NutritionFood. It does not introduce a Fitness Brand master.
 
 ## Baseline and delivery boundary
 
@@ -102,11 +102,25 @@ Both the v4 RPC name and its `nutrition-read.v4` discriminator identify the adde
 
 ## UX and offline behavior
 
-The primary FOOD registration flow keeps the free-text label Brand input and adds an optional “PriceTrace 브랜드 연결” section only for PRODUCT. Search starts with that input but never selects a result automatically. Selecting stores the canonical UUID/name/direct parent separately. Material edits to the unsaved local Brand text or switching away from PRODUCT invalidate the draft selection. The selected draft survives saved-state restoration for the same Nutrition owner.
+Nutrition Editor's FOOD registration flow keeps the free-text label Brand input and adds an optional “PriceTrace 브랜드 연결” section only for PRODUCT. Search starts with that input but never selects a result automatically. Selecting stores the canonical UUID/name/direct parent separately. Material edits to the unsaved local Brand text or switching away from PRODUCT invalidate the draft selection. The selected draft survives saved-state restoration for the same Nutrition owner.
+
+Meal → Product → Direct registration uses the existing Brand input as inline autocomplete. Nonblank typing debounces the same PriceTrace Brand search controller used by Nutrition Editor. The canonical name is prominent; alias matches show secondary matched-name context. Search hits alone never set identity. Explicit selection sets the free-text display to the canonical name, stores the optional Brand selection on the initial NutritionFoodInput, and dismisses suggestions. A compact connection indication remains. Arbitrary text, empty results and failed/unconfigured PriceTrace searches still allow a local product with null canonical Brand identity.
+
+Any manual Brand text change, including whitespace changes, or switching away from PRODUCT clears the direct-registration selection. MealViewModel owns and closes its separate instance of the shared controller. Owner/config/query/editor changes invalidate old results, and selection accepts only rows from the current scope. Closing the editor dismisses suggestions while keeping the same-owner draft; owner/config changes clear its unsaved canonical selection. The direct-registration SavedState representation retains its legacy first 15 values and appends the four optional Brand snapshots. Old drafts restore with null selection. A selected tuple is restored only for the same Fitness draft owner/date and Nutrition owner; an unavailable parent name stays null. No Room or Supabase schema change is needed for this UX extension.
 
 The existing-food library exposes focused link/change/clear actions only for editable private products; public rows display stored metadata. Existing-food search seeds from `subBrandName`, then `brandName`, then `brand`. The repository repeats edit authorization at write time. Leaving a focused editor clears its target so a later draft action cannot mutate the previously edited product.
 
 Loading, empty, failure and retry states are explicit. Offline or missing PriceTrace configuration does not prevent local registration, meal recording, local search, or explicit unlink. Stored snapshots remain visible if search fails or the Brand disappears. Empty public search shows that the stored Brand is currently unconfirmed while keeping the ID until explicit change/clear. Search never silently updates previously stored names or parents.
+
+## Meal Dining query boundary
+
+Ordinary Meal Dining uses the existing read-only POST /rest/v1/rpc/get_restaurant_menu_read_v1 with p_restaurant_id = null, p_catalog_product_id = null, p_query = trimmed nonblank input, and p_limit = 50. PriceTrace searches restaurant/menu/location text and retains matching and identity ownership. Fitness does not add aliases, fuzzy matching or local result ranking.
+
+The restaurant-menu-read.v1 consumer strictly validates namespace/version, fields and types, full UUIDs, revisions, location/menu identities and observation relationships before flattening exact menu targets. Transport/parse failures remain errors rather than successful empty results. Each target retains restaurant ID/name, verified locations, menu ID/name and exact catalog-product ID.
+
+The always-visible “식당 또는 메뉴 검색” input debounces requests; IME Search runs immediately. Tapping a one-location target applies the existing canonical selection path directly. Multiple locations open a branch chooser only after the menu tap, and choosing a returned location applies immediately. Zero locations produce feedback and preserve manual input; no root/default location or ID is fabricated. Saved reusable menus and manual Dining save remain available during loading, empty results, errors and missing configuration.
+
+Meal-entry Dining query/rows/loading/searched/error/pending-branch state and request cancellation/version are separate from PriceTraceUiState. Query, account/config, date, editor-context and close changes reject old responses and old row/branch selections. Nutrition publication/proposal dialogs retain their existing directory/detail state and behavior. Meal and Nutrition data ownership, persisted intake snapshots and all backend/schema contracts are unchanged.
 
 ## Repeatable validation
 

@@ -13,7 +13,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.model.FoodPortionDraft
-import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -186,69 +185,100 @@ class MealCatalogPickerUiTest {
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed()
     }
 
-    @Test fun restaurantResultsScrollWithoutGrowingTheForm() {
-        var restaurantId: String? = null
-        val prices = PriceTraceUiState.Ready("fitness-owner", query = "식당", searchedQuery = "식당",
-            restaurants = (0 until 100).map { fixture<NutritionIntegrationService.RestaurantSummary>("restaurant-$it", "식당 $it", emptyList<NutritionIntegrationService.RestaurantLocation>()) })
+    @Test fun diningSearchInputIsAlwaysVisibleAndTypingDispatchesTheSameQuery() {
+        var query: String? = null
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
-            if (name == "loadPriceTraceRestaurant") restaurantId = args!![0] as String
-        }, diningState(), prices, "7끼") } }
-        compose.onNodeWithText("식당 · 메뉴 검색").performScrollTo().performClick()
-        compose.onNodeWithTag("meal-restaurants").performScrollTo().performScrollToIndex(99)
-        assertBounded("meal-restaurants", 200f)
-        compose.onNodeWithText("식당 99").performClick()
-        compose.runOnIdle { assertEquals("restaurant-99", restaurantId) }
+            if (name == "updateDiningSearchQuery") query = args!![0] as String
+        }, diningState(), PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithTag("meal-dining-query").performScrollTo().assertIsDisplayed().performTextInput("빅맥")
+        compose.runOnIdle { assertEquals("빅맥", query) }
+        compose.onNodeWithText("식당 · 메뉴 검색").assertDoesNotExist()
+        compose.onNodeWithText("식당 검색", substring = false).assertDoesNotExist()
+        compose.onNodeWithText("메뉴 이름으로 좁히기").assertDoesNotExist()
+        compose.onNodeWithText("이 메뉴 불러오기").assertDoesNotExist()
+    }
+
+    @Test fun exactMenuResultsAreBoundedAndTappingDispatchesTheCompleteTarget() {
+        val targets = (0 until 100).map { diningTarget(it) }
+        var selected: com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget? = null
+        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
+            if (name == "selectDiningTarget") selected = args!![0] as com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget
+        }, diningState().copy(diningSearch = MealDiningSearchState("메뉴", targets, searched = true)), PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithTag("meal-dining-targets").performScrollTo().performScrollToIndex(99)
+        assertBounded("meal-dining-targets", 240f)
+        compose.onNodeWithText("메뉴 99").performClick()
+        compose.runOnIdle {
+            assertEquals(targets.last(), selected)
+            assertEquals("menu-99", selected!!.restaurantMenuId)
+            assertEquals("product-99", selected!!.catalogProductId)
+        }
+        compose.onNodeWithTag("meal-dining-branches").assertDoesNotExist()
+        compose.onNodeWithText("이 메뉴 불러오기").assertDoesNotExist()
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed()
     }
 
-    @Test fun branchAndMenuSearchRestoreAndLoadTheExactIdentity() {
-        val restoration = StateRestorationTester(compose)
-        var applied: Array<out Any?>? = null
-        restoration.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
-            if (name == "applyPriceTraceSelection") applied = args
-        }, diningState(), prices(), "7끼") } }
-        compose.onNodeWithText("식당 · 메뉴 검색").performScrollTo().performClick()
-        compose.onNodeWithTag("meal-load-restaurant-menu").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("meal-branch").performScrollTo().performClick()
-        compose.onNodeWithText("강남점").performClick()
-        compose.onNodeWithText("메뉴 이름으로 좁히기").performScrollTo().performTextInput("메뉴 99")
-        compose.onNodeWithText("메뉴 이름으로 좁히기").performImeAction()
-        compose.onNodeWithTag("meal-menu-targets").performScrollTo()
-        assertBounded("meal-menu-targets", 240f)
-        compose.onNode(hasText("메뉴 99") and hasAnyAncestor(hasTestTag("meal-menu-targets"))).performClick()
-        restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("meal-load-restaurant-menu").performScrollTo().assertIsEnabled().performClick()
-        compose.runOnIdle {
-            assertEquals(listOf("restaurant-1", "식당", "branch-2", "강남점", "menu-99", "메뉴 99", "product-99"), applied!!.toList())
-        }
-        savePreview("meal-dining-scroll-list.png", "7끼 기록")
-    }
-
-    @Test fun restaurantFailureRetriesTheChosenRestaurantAndDisablesRepeatedRequestsWhileLoading() {
-        var prices by mutableStateOf(PriceTraceUiState.Ready("fitness-owner", query = "식당", selectedRestaurantId = "restaurant-1", error = "연결을 확인해 주세요."))
-        var retries = 0
+    @Test fun branchChooserAppearsForTheTappedMultiLocationMenuAndDispatchesItsExactLocation() {
+        val target = diningTarget(1).copy(locations = listOf(
+            com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningLocation("branch-1", "본점"),
+            com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningLocation("branch-2", "강남점")))
+        var state by mutableStateOf(diningState().copy(diningSearch = MealDiningSearchState("메뉴", listOf(target), searched = true)))
+        var location: String? = null
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
-            if (name == "loadPriceTraceRestaurant") {
-                assertEquals("restaurant-1", args!![0]); retries++
-                prices = prices.copy(error = null, loading = true)
+            when (name) {
+                "selectDiningTarget" -> state = state.copy(diningSearch = state.diningSearch.copy(pendingTarget = target))
+                "selectDiningBranch" -> location = args!![0] as String
             }
-        }, diningState(), prices, "7끼") } }
-        compose.onNodeWithText("식당 · 메뉴 검색").performScrollTo().performClick()
-        compose.onNodeWithText("식당 정보 다시 시도").performScrollTo().performClick()
-        compose.onNodeWithText("지점과 메뉴를 불러오는 중").assertExists()
-        compose.onNodeWithText("식당 검색", substring = false).assertIsNotEnabled()
-        compose.runOnIdle { assertEquals(1, retries) }
+        }, state, PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithTag("meal-dining-branches").assertDoesNotExist()
+        compose.onNodeWithTag("meal-dining-targets").performScrollTo()
+        compose.onNodeWithText("메뉴 1").performClick()
+        compose.onNodeWithTag("meal-dining-branches").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-dining-branch-branch-2").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("branch-2", location) }
+        compose.onNodeWithText("이 메뉴 불러오기").assertDoesNotExist()
     }
 
-    @Test fun missingRestaurantBranchesKeepMenuLoadingUnavailable() {
-        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions(), diningState(), prices().copy(
-            detail = fixture<NutritionIntegrationService.RestaurantDetail>("restaurant-1", "식당", emptyList<NutritionIntegrationService.RestaurantLocation>(), emptyList<NutritionIntegrationService.RestaurantMenu>())
-        ), "7끼") } }
-        compose.onNodeWithText("식당 · 메뉴 검색").performScrollTo().performClick()
-        compose.onNodeWithText("등록된 지점이 없어요. 메뉴를 직접 입력하거나 지점 정보를 다시 불러오세요.").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("meal-load-restaurant-menu").assertDoesNotExist()
-        compose.onNodeWithText("지점·메뉴 새로고침").assertExists()
+    @Test fun diningLoadingErrorAndNoResultAreVisibleAndRetryDoesNotRequireRestaurantSelection() {
+        var state by mutableStateOf(diningState().copy(diningSearch = MealDiningSearchState(query = "빅맥", loading = true)))
+        var retries = 0
+        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, _ ->
+            if (name == "searchDiningTargets") retries++
+        }, state, PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithText("식당·메뉴 검색 중").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { state = state.copy(diningSearch = state.diningSearch.copy(loading = false, searched = true, error = "offline")) }
+        compose.onNodeWithText("offline").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("메뉴 검색 다시 시도").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(1, retries)
+            state = state.copy(diningSearch = state.diningSearch.copy(error = null))
+        }
+        compose.onNodeWithText("검색 결과가 없습니다. 다른 식당·메뉴 이름을 검색하거나 아래에서 직접 입력하세요.")
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
     }
+
+    @Test fun missingVerifiedLocationShowsFeedbackAndKeepsManualDiningFieldsAvailable() {
+        val target = diningTarget(1).copy(locations = emptyList())
+        var selected: com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget? = null
+        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
+            if (name == "selectDiningTarget") selected = args!![0] as com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget
+        }, diningState().copy(diningSearch = MealDiningSearchState("메뉴", listOf(target), searched = true,
+            error = "PriceTrace에서 확인된 지점이 없습니다. 아래에서 직접 입력할 수 있습니다.")), PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithText("PriceTrace에서 확인된 지점이 없습니다. 아래에서 직접 입력할 수 있습니다.")
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-dining-targets").performScrollTo()
+        compose.onNodeWithText("메뉴 1").performClick()
+        compose.runOnIdle { assertTrue(selected!!.locations.isEmpty()) }
+        compose.onNodeWithTag("meal-dining-branches").assertDoesNotExist()
+        compose.onNode(hasSetTextAction() and hasText("상호명 (필수)")).performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("meal-dining-menu-name").performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
+    }
+
+    private fun diningTarget(index: Int) = com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget(
+        "restaurant-1", "식당", listOf(com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningLocation("branch-1", "본점")),
+        "menu-$index", "메뉴 $index", "product-$index")
+
 
     @Test fun largeTextAndDarkAppearanceKeepTheCompleteSaveButtonVisible() {
         compose.setContent {
@@ -279,15 +309,6 @@ class MealCatalogPickerUiTest {
 
     private fun diningState() = MealUiState.Ready("fitness-owner", "2026-10-04", true, true, "", emptyList(),
         DiningOutDraft(store = "식당", menu = "비빔밥", calories = "600", protein = "40", carbs = "80", fat = "20"), category = MealCatalogCategory.DINING_OUT)
-
-    private fun prices(): PriceTraceUiState.Ready = PriceTraceUiState.Ready("fitness-owner", query = "식당", selectedRestaurantId = "restaurant-1",
-        detail = fixture<NutritionIntegrationService.RestaurantDetail>("restaurant-1", "식당", listOf(
-            fixture<NutritionIntegrationService.RestaurantLocation>("branch-1", "본점", "pricetrace", "location-1"),
-            fixture<NutritionIntegrationService.RestaurantLocation>("branch-2", "강남점", "pricetrace", "location-2")),
-            (0 until 100).map { fixture<NutritionIntegrationService.RestaurantMenu>("menu-$it", "product-$it", "메뉴 $it") }))
-
-    private inline fun <reified T> fixture(vararg values: Any): T =
-        T::class.java.declaredConstructors.single().apply { isAccessible = true }.newInstance(*values) as T
 
     private fun actions(onAction: (String, Array<out Any?>?) -> Unit = { _, _ -> }): MealScreenActions =
         Proxy.newProxyInstance(MealScreenActions::class.java.classLoader, arrayOf(MealScreenActions::class.java)) { proxy, method, args ->

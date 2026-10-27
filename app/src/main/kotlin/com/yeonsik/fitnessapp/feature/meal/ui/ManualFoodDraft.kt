@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 
 import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.data.NutritionUnit
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
@@ -22,7 +23,8 @@ data class ManualFoodDraft(
     val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
     val packageAmount: String = "",
     val packageUnit: String = NutritionUnit.GRAM,
-    val transFat: String = ""
+    val transFat: String = "",
+    val priceTraceBrand: PriceTraceBrandSelection? = null
 ) {
     internal fun validated(): NutritionFoodInput {
         require(name.isNotBlank()) { "식품명을 입력하세요." }
@@ -46,8 +48,9 @@ data class ManualFoodDraft(
         require(packUnit == null || NutritionUnit.areCompatible(packUnit, NutritionUnit.requireSupported(basisUnit))) {
             "제품 용량 단위가 기준량과 호환되지 않습니다. g와 ml는 서로 변환할 수 없습니다."
         }
-        return NutritionFoodInput(name.trim(), brand.trim().ifEmpty { null }, amount,
-            NutritionUnit.requireSupported(basisUnit), profile, "manual", kind, packAmount, packUnit)
+        val selectedBrand = priceTraceBrand.takeIf { kind == NutritionRegistrationKind.PRODUCT }
+        return NutritionFoodInput(name.trim(), selectedBrand?.canonicalName ?: brand.trim().ifEmpty { null }, amount,
+            NutritionUnit.requireSupported(basisUnit), profile, "manual", kind, packAmount, packUnit, selectedBrand)
     }
 
     private fun optional(value: String, label: String) =

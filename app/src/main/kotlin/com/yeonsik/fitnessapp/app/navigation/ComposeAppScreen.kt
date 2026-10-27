@@ -1923,6 +1923,9 @@ private fun AppDestination(
         override fun openManualFood() = viewModels.getMeal().openManualFood()
         override fun closeManualFood() = viewModels.getMeal().closeManualFood()
         override fun updateManualFood(draft: ManualFoodDraft) = viewModels.getMeal().updateManualFood(draft)
+        override fun selectManualFoodBrand(row: com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow) = viewModels.getMeal().selectManualFoodBrand(row)
+        override fun moreManualFoodBrands() = viewModels.getMeal().moreManualFoodBrands()
+        override fun retryManualFoodBrands() = viewModels.getMeal().retryManualFoodBrands()
         override fun saveManualFood() = viewModels.getMeal().saveManualFood(AccountScope(ownerId))
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)
         override fun updateBranch(value: String) = viewModels.getMeal().updateBranch(value)
@@ -1939,6 +1942,11 @@ private fun AppDestination(
             viewModels.getMeal().updatePriceTraceQuery(value)
         override fun searchPriceTraceRestaurants() =
             viewModels.getMeal().searchPriceTraceRestaurants()
+        override fun updateDiningSearchQuery(query: String) = viewModels.getMeal().updateDiningSearchQuery(query)
+        override fun searchDiningTargets() = viewModels.getMeal().searchDiningTargets()
+        override fun selectDiningTarget(target: com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget) = viewModels.getMeal().selectDiningTarget(target)
+        override fun selectDiningBranch(locationId: String) = viewModels.getMeal().selectDiningBranch(locationId)
+        override fun cancelDiningBranchSelection() = viewModels.getMeal().cancelDiningBranchSelection()
         override fun loadPriceTraceRestaurant(restaurantId: String) =
             viewModels.getMeal().loadPriceTraceRestaurant(restaurantId)
         override fun openNutritionPublication() =

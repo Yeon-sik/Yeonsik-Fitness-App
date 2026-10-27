@@ -1,6 +1,9 @@
 package com.yeonsik.fitnessapp.integration.nutrition;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.feature.meal.api.PriceTraceDiningCatalog;
+import com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningTarget;
+import com.yeonsik.fitnessapp.feature.meal.model.PriceTraceDiningLocation;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
@@ -24,7 +27,7 @@ import java.util.List;
  * accompany a PriceTrace read. MainActivity receives contract models, but never coordinates the
  * repository/client sequence itself.
  */
-public final class NutritionIntegrationService implements DiningProposalAccount,
+public final class NutritionIntegrationService implements DiningProposalAccount, PriceTraceDiningCatalog,
         com.yeonsik.fitnessapp.feature.nutrition.api.PriceTraceBrandCatalog {
     private final com.yeonsik.fitnessapp.integration.pricetrace.BrandCatalogV1Client brandCatalogClient =
             new com.yeonsik.fitnessapp.integration.pricetrace.BrandCatalogV1Client();
@@ -149,6 +152,21 @@ public final class NutritionIntegrationService implements DiningProposalAccount,
         List<ProductReadV1> products = productReadClient.searchProducts(query);
         nutritionCatalog.cachePriceTraceProducts(products);
         return products;
+    }
+
+    @Override
+    public List<PriceTraceDiningTarget> searchDiningTargets(String query) throws Exception {
+        SupabaseConfig captured = priceTraceConfig;
+        List<PriceTraceDiningTarget> result = new ArrayList<>();
+        for (RestaurantMenuReadV1Client.DiningTarget target : restaurantReadClient.searchDiningTargets(captured, query)) {
+            List<PriceTraceDiningLocation> locations = new ArrayList<>();
+            for (RestaurantMenuReadV1Client.RestaurantLocation location : target.locations) {
+                locations.add(new PriceTraceDiningLocation(location.restaurantLocationId, location.branchName));
+            }
+            result.add(new PriceTraceDiningTarget(target.restaurantId, target.restaurantName,
+                    Collections.unmodifiableList(locations), target.restaurantMenuId, target.menuName, target.catalogProductId));
+        }
+        return Collections.unmodifiableList(result);
     }
 
     public List<RestaurantSummary> searchRestaurants(String query)
