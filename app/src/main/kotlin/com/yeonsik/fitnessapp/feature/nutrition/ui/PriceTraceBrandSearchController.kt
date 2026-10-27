@@ -40,9 +40,9 @@ internal class PriceTraceBrandSearchController(
         }
     })
 
-    fun open(query: String) {
+    fun open(query: String, delay: Long = 0) {
         state = PriceTraceBrandSearchState()
-        search(query, delay = 0)
+        search(query, delay = delay)
     }
 
     fun search(query: String, append: Boolean = false, delay: Long = 300) {

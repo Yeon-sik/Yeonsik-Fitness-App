@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.yeonsik.fitnessapp.core.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandRow
 import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection
 
 @Composable
@@ -44,12 +45,7 @@ internal fun PriceTraceBrandPicker(state: NutritionEditorState, actions: Nutriti
         }
         search.rows.forEach { row ->
             NutritionFormSection(row.selection.canonicalName, Modifier.fillMaxWidth()) {
-                row.selection.parentBrandId?.let {
-                    Text("상위 브랜드 · ${row.selection.parentCanonicalName ?: "이름 미확인"}",
-                        style = MaterialTheme.typography.bodyMedium)
-                }
-                if (row.matchKind == "alias") Text("별칭 · ${row.matchedName}", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PriceTraceBrandMatchContext(row)
                 AppOutlinedButton({ actions.selectBrand(row) }, Modifier.fillMaxWidth(),
                     enabled = !search.loading && !state.saving) { Text("${row.selection.canonicalName} 선택") }
             }
@@ -57,4 +53,15 @@ internal fun PriceTraceBrandPicker(state: NutritionEditorState, actions: Nutriti
         if (search.hasMore) AppOutlinedButton(actions::moreBrands, Modifier.fillMaxWidth(), enabled = !search.loading) { Text("브랜드 더 보기") }
         TextButton(actions::closeBrandSearch, colors = textColors) { Text("연결 변경 없이 돌아가기") }
     }
+}
+
+/** Match evidence is shared by the focused editor and inline Meal suggestions. */
+@Composable
+internal fun PriceTraceBrandMatchContext(row: PriceTraceBrandRow) {
+    row.selection.parentBrandId?.let {
+        Text("상위 브랜드 · ${row.selection.parentCanonicalName ?: "이름 미확인"}",
+            style = MaterialTheme.typography.bodyMedium)
+    }
+    if (row.matchKind == "alias") Text("별칭 · ${row.matchedName}", style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

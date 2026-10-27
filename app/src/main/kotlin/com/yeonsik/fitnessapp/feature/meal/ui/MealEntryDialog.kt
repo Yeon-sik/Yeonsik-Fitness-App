@@ -37,7 +37,6 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
     val inputEnabled = !editor.saving && !editor.draftLoading &&
         (editor.recordEditor == null || editor.recordEditor.updatedAt.isNotBlank())
     val registrationError = mealEntryRegistrationError(editor)
-    val diningEditor = rememberDiningOutEditorState(editor, priceTraceState)
     val manualEntryRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -117,7 +116,7 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
                             modifier = Modifier.testTag("meal-category-${category.name}"))
                     }
                 }
-                if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor, manualEntryRequester, reviewFood)
+                if (editor.diningOut) DiningOutEditor(actions, editor, manualEntryRequester, reviewFood)
                 else FoodMealEditor(actions, editor, reviewFood)
             }
         }
