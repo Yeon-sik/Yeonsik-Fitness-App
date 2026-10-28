@@ -55,5 +55,7 @@ ProductReadV1Client, 제품 연결·해제 repository API, 제품 링크 동기�
 - Android: `testDebugUnitTest assembleDebug assembleDebugAndroidTest` 통과.
 - 계측: 전용 API 36·16KB 임시 에뮬레이터에서 영향받는 등록·상태·저장·마이그레이션·동기화 테스트 57개 통과. 초기 그래픽 환경 지연을 해소하고 Vulkan을 비활성화한 SwiftShader에서 검증했다.
 - 화면: 별칭 검색 결과, 연결·해제 표시, 제품 직접 등록 화면 캡처를 확인했다.
-- 실기기: 이번 브랜드 작업에서는 미실행·미설치.
+- 실기기: 추가 요청으로 Galaxy A25(SM-A256N)에 동일 QA 서명의 `adb install -r --user 0` 업데이트 성공. APK는 소스 `734434e0`의 버전 1.1.0(2)이다.
+- 데이터 보존: 설치 직후 DB·설정 12개 파일의 해시가 모두 동일했다. 실행 후에도 기존 43개 테이블의 행이 동일하고 schema v57, `integrity_check=ok`였다. 실행 후 변경 파일은 Android 프레임워크의 `android.app.ActivityThread.IDS.xml`뿐이다.
+- 실기기 실행: 실행 명령 성공, 수집한 시작 로그의 fatal marker 0건. 기기가 보안 잠금 상태여서 실제 등록 화면의 직접 검증은 수행하지 못했다.
 - 원격 Supabase: 이번 작업에서 미조회·미적용·미검증.
