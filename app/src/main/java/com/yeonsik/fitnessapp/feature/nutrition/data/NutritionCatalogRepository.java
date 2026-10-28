@@ -1961,8 +1961,7 @@ public final class NutritionCatalogRepository implements
             throw new IllegalArgumentException("영양정보를 0 이상 숫자로 입력하세요.");
         NutritionConsistencyPolicy.validate(profile);
         boolean product = input.getRegistrationKind() == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT;
-        if (!product && input.getPriceTraceBrand() != null)
-            throw new IllegalArgumentException("제품에만 PriceTrace 브랜드를 연결할 수 있습니다.");
+        String brand = input.validatedBrand();
         ProductReadV1 exactProduct = selectedProduct == null ? null
                 : selectedProduct.exactVariantForBasis(input.getBasisAmount(), basisUnit);
         if (selectedProduct != null) {
@@ -2001,7 +2000,8 @@ public final class NutritionCatalogRepository implements
                 throw new IllegalArgumentException("제품 용량 단위가 기준량과 호환되지 않습니다.");
         }
         NutritionFood.Builder builder = NutritionFood.builder().id(UUID.randomUUID().toString()).ownerId(owner)
-                .name(requireName(input.getName())).brand(emptyToNull(input.getBrand()))
+                .name(requireName(input.getName())).brand(brand)
+                .brandName(input.getPriceTraceBrand() == null ? null : input.getPriceTraceBrand().getCanonicalName())
                 .priceTraceBrand(input.getPriceTraceBrand())
                 .kind(product ? NutritionFood.KIND_EXTERNAL_MENU : NutritionFood.KIND_INGREDIENT)
                 .category(product ? NutritionFood.CATEGORY_PROCESSED : NutritionFood.CATEGORY_OTHER)

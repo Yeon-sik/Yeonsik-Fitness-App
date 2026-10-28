@@ -39,7 +39,9 @@ data class NutritionFoodSyncRow @JvmOverloads constructor(
     val updatedAt: String,
     val deletedAt: String?,
     val priceTraceBrand: PriceTraceBrandSelection? = null
-)
+) {
+    val priceTraceBrandId: String? get() = priceTraceBrand?.brandId
+}
 
 data class NutritionNutrientSyncRow(
     val id: String,

@@ -92,6 +92,7 @@ public final class NutritionFood {
     public final String name;
     public final String brand;
     public final PriceTraceBrandSelection priceTraceBrand;
+    public final String priceTraceBrandId;
     /** Explicit packaged-food hierarchy fields. Legacy rows may leave these null. */
     public final String manufacturerName;
     public final String brandName;
@@ -129,6 +130,7 @@ public final class NutritionFood {
         this.name = builder.name;
         this.brand = normalizeText(builder.brand);
         this.priceTraceBrand = builder.priceTraceBrand;
+        this.priceTraceBrandId = builder.priceTraceBrand == null ? null : builder.priceTraceBrand.getBrandId();
         this.manufacturerName = normalizeText(builder.manufacturerName);
         this.brandName = normalizeText(builder.brandName);
         this.subBrandName = normalizeText(builder.subBrandName);
@@ -508,6 +510,10 @@ public final class NutritionFood {
         public Builder priceTraceBrand(PriceTraceBrandSelection selection) {
             this.priceTraceBrand = selection;
             return this;
+        }
+
+        public Builder priceTraceBrandId(String brandId, String canonicalName) {
+            return priceTraceBrand(brandId == null ? null : new PriceTraceBrandSelection(brandId, canonicalName));
         }
 
         public Builder manufacturerName(String manufacturerName) {

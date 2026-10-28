@@ -21,7 +21,7 @@ class PriceTraceBrandPersistenceTest {
     private fun room() = Room.inMemoryDatabaseBuilder(context, FitnessRoomDatabase::class.java).build()
     private inline fun <T> FitnessRoomDatabase.useRoom(block: (FitnessRoomDatabase) -> T): T = try { block(this) } finally { close() }
     private fun input(brand: PriceTraceBrandSelection? = null, kind: NutritionRegistrationKind = NutritionRegistrationKind.PRODUCT) =
-        NutritionFoodInput("라벨 제품", "라벨 브랜드", 100.0, "g", NutritionProfile.ofMacros(100.0, 10.0, 10.0, 2.0),
+        NutritionFoodInput("라벨 제품", brand?.canonicalName ?: "라벨 브랜드", 100.0, "g", NutritionProfile.ofMacros(100.0, 10.0, 10.0, 2.0),
             "manual", kind, 100.0, "g", brand)
 
     @Test fun explicitSetChangeClearAreAtomicOwnerPrivateProductWritesAndPreserveIdentity() {
@@ -78,8 +78,14 @@ class PriceTraceBrandPersistenceTest {
             assertNull(remote.findFoodById(food.id)!!.priceTraceBrand)
             assertEquals(0, remote.applyRemoteFoodRows(listOf(first)))
             assertNull(remote.findFoodById(food.id)!!.priceTraceBrand)
+            val ingredient = requireNotNull(repo.saveManualFoodInput(AccountScope("owner"), input(selected, NutritionRegistrationKind.INGREDIENT)))
+            assertEquals(selected.brandId, ingredient.priceTraceBrandId)
+            assertEquals(selected.canonicalName, ingredient.brand)
+            assertEquals(selected.canonicalName, ingredient.brandName)
+            assertEquals("manual", ingredient.sourceType)
+            assertNull(repo.approvedProductLink(ingredient.id))
             assertThrows(IllegalArgumentException::class.java) {
-                repo.saveManualFoodInput(AccountScope("owner"), input(selected, NutritionRegistrationKind.INGREDIENT))
+                repo.saveManualFoodInput(AccountScope("owner"), input(selected).copy(brand = "다른 이름"))
             }
         } }
     }

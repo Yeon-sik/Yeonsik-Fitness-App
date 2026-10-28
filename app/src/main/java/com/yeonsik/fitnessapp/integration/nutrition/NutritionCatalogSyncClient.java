@@ -539,10 +539,12 @@ public final class NutritionCatalogSyncClient {
                     return readStream(connection.getInputStream());
                 }
             }
-            throw new IOException(
-                    "Nutrition catalog sync failed (" + statusCode + "): "
-                            + readStream(connection.getErrorStream())
-            );
+            String error = readStream(connection.getErrorStream());
+            if (error.contains("pricetrace_") && (error.contains("PGRST204") || error.contains("42703"))) {
+                // Do not strip linked IDs or acknowledge an upload against an older schema.
+                throw new IOException("영양 DB에 PriceTrace 브랜드 컬럼이 없습니다. DB 업데이트 후 다시 동기화하세요. 로컬 기록은 유지됩니다.");
+            }
+            throw new IOException("Nutrition catalog sync failed (" + statusCode + "): " + error);
         } finally {
             connection.disconnect();
         }
