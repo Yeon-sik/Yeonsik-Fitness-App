@@ -96,7 +96,9 @@ interface MealScreenActions {
     fun updateTime(value: String)
     fun saveFood()
     fun openManualFood()
-    fun openProductRegistration() { openNutritionEditor() }
+    fun searchManualBrands() {}
+    fun selectManualBrand(brand: com.yeonsik.fitnessapp.data.BrandReadV1) {}
+    fun clearManualBrand() {}
     fun closeManualFood()
     fun updateManualFood(draft: ManualFoodDraft)
     fun saveManualFood()
@@ -527,7 +529,8 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
                 actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error,
-                onSearchProduct = actions::openProductRegistration)
+                brandSearch = editor.manualBrandSearch, onSearchBrand = actions::searchManualBrands,
+                onSelectBrand = actions::selectManualBrand, onClearBrand = actions::clearManualBrand)
         }
     }
 }

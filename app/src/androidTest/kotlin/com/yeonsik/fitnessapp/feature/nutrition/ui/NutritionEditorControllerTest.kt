@@ -117,139 +117,103 @@ class NutritionEditorControllerTest {
 
     private fun main(work: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(work)
 
-    @Test fun productSelectionLocksIdentityAndClearingRestoresManualValues() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val lookup = Products()
+    @Test fun brandSelectionRestoresCanonicalIdentityAndAllowsBothRegistrationKinds() {
+        val catalog = Catalog(); val local = QueueExecutor(); val network = QueueExecutor(); val handle = SavedStateHandle()
+        val brand = BrandReadV1("81111111-1111-4111-8111-111111111111", "농심", "Nongshim")
+        val lookup = NutritionBrandLookup { listOf(brand) }
         lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup); editor.open() }
-        executor.drain()
+        main { editor = NutritionEditorController(handle, catalog, Templates(), local, brandLookup = lookup, brandExecutor = network); editor.open() }
+        local.drain()
         main {
-            editor.newFood(); editor.updateField(FoodEntryField.NAME, "직접 이름"); editor.updateField(FoodEntryField.BRAND, "직접 브랜드")
-            editor.updateField(FoodEntryField.BASIS, "75"); editor.updatePackageAmount("150")
-            editor.updateProductQuery("라벨"); editor.searchProducts()
+            editor.newFood(); validFields().forEach(editor::updateField)
+            editor.updateField(FoodEntryField.BRAND, "Nongshim"); editor.searchRegistrationBrands()
         }
-        executor.drain()
-        main { editor.selectProduct(lookup.product) }
-        executor.drain()
+        network.drain()
         main {
-            assertEquals("PT 라벨", editor.uiState.value!!.field(FoodEntryField.NAME))
-            editor.updateField(FoodEntryField.NAME, "연결한 이름 수정 시도")
-            assertEquals("PT 라벨", editor.uiState.value!!.field(FoodEntryField.NAME))
-            assertEquals("100", editor.uiState.value!!.packageAmount)
-            editor.clearProductSelection()
-            assertEquals("직접 이름", editor.uiState.value!!.field(FoodEntryField.NAME))
-            assertEquals("직접 브랜드", editor.uiState.value!!.field(FoodEntryField.BRAND))
-            assertEquals("75", editor.uiState.value!!.field(FoodEntryField.BASIS))
-            assertEquals("150", editor.uiState.value!!.packageAmount)
-            assertNull(editor.uiState.value!!.productPicker.selected)
+            assertNull(editor.uiState.value!!.priceTraceBrand)
+            editor.selectRegistrationBrand(brand)
+            assertEquals("농심", editor.uiState.value!!.field(FoodEntryField.BRAND))
+            editor.updateField(FoodEntryField.NAME, "직접 수정한 이름")
+            editor.updateRegistrationKind(com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.INGREDIENT)
+            assertEquals(brand.brandId, editor.uiState.value!!.priceTraceBrand!!.brandId)
+            editor.dispose()
         }
+        val restored = SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) })
+        val nextNetwork = QueueExecutor()
+        main { editor = NutritionEditorController(restored, catalog, Templates(), local, brandLookup = lookup, brandExecutor = nextNetwork); editor.open() }
+        local.drain()
+        main {
+            assertEquals(brand.brandId, editor.uiState.value!!.priceTraceBrand!!.brandId)
+            assertEquals("직접 수정한 이름", editor.uiState.value!!.field(FoodEntryField.NAME))
+            editor.clearRegistrationBrand()
+            assertNull(editor.uiState.value!!.priceTraceBrand)
+            assertEquals("농심", editor.uiState.value!!.field(FoodEntryField.BRAND))
+            editor.searchRegistrationBrands()
+        }
+        nextNetwork.drain()
+        main { editor.selectRegistrationBrand(brand); editor.save() }
+        local.drain()
+        assertEquals(brand.brandId, catalog.savedInput!!.priceTraceBrandId)
+        assertEquals("농심", catalog.savedInput!!.brand)
+        main { editor.dispose() }
     }
 
-    @Test fun groupedProductAndManualValuesSurviveSavedStateRestoration() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val handle = SavedStateHandle()
-        val lookup = Products().apply { rows = ProductReadV1.search(listOf(product, product("83333333-3333-4333-8333-333333333333", 210.0)), "", 20) }
+    @Test fun brandSearchVersionAndOwnerGuardsRejectStaleResultsAndSelections() {
+        val catalog = Catalog(); val local = QueueExecutor(); val network = QueueExecutor()
+        val first = BrandReadV1("81111111-1111-4111-8111-111111111111", "첫 브랜드", null)
+        val second = BrandReadV1("82222222-2222-4222-8222-222222222222", "다음 브랜드", null)
         lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(handle, catalog, Templates(), executor, productLookup = lookup); editor.open() }
-        executor.drain()
-        main { editor.newFood(); editor.updateField(FoodEntryField.NAME, "복원할 이름"); editor.updateProductQuery("PT"); editor.searchProducts() }
-        executor.drain()
-        main { editor.selectProduct(lookup.rows.single()); editor.close()
-            editor = NutritionEditorController(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }), catalog, Templates(), executor, productLookup = lookup)
-            editor.open() }
-        executor.drain()
+        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), local,
+            brandLookup = NutritionBrandLookup { if (it == "A") listOf(first) else listOf(second) }, brandExecutor = network); editor.open() }
+        local.drain()
+        main { editor.newFood(); editor.updateField(FoodEntryField.BRAND, "A"); editor.searchRegistrationBrands()
+            editor.updateField(FoodEntryField.BRAND, "B"); editor.searchRegistrationBrands() }
+        network.drain()
         main {
-            val restored = editor.uiState.value!!.productPicker.selected!!
-            assertFalse(restored.isExactCatalogProduct()); assertEquals(2, restored.catalogVariantCount())
-            assertEquals(lookup.product.catalogProductId, restored.exactVariantForBasis(100.0, "g").catalogProductId)
-            editor.clearProductSelection(); assertEquals("복원할 이름", editor.uiState.value!!.field(FoodEntryField.NAME))
-        }
-    }
-
-    @Test fun staleSearchAndOtherOwnerResultsNeverReplaceTheCurrentForm() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val lookup = Products()
-        lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup); editor.open() }
-        executor.drain()
-        main { editor.newFood(); editor.updateProductQuery("오래된 검색"); editor.searchProducts(); editor.updateProductQuery("새 검색") }
-        executor.drain()
-        main { assertTrue(editor.uiState.value!!.productPicker.results.isEmpty()); assertFalse(editor.uiState.value!!.productPicker.loading)
-            editor.searchProducts(); catalog.owner = "owner-b"; editor.synchronizeOwner() }
-        executor.drain()
-        main { assertEquals("owner-b", editor.uiState.value!!.ownerId); assertNull(editor.uiState.value!!.productPicker.selected)
-            assertTrue(editor.uiState.value!!.productPicker.results.isEmpty()) }
-    }
-
-    @Test fun delayedPublicNutritionDoesNotOverwriteAnEditedValue() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val lookup = Products().apply {
-            preview = ProductNutritionPreview(100.0, "g", NutritionProfile.ofMacros(400.0, 20.0, 30.0, 20.0))
-        }
-        lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup); editor.open() }
-        executor.drain()
-        main { editor.newFood(); editor.updateProductQuery("PT"); editor.searchProducts() }
-        executor.drain()
-        main { editor.selectProduct(lookup.product); editor.updateField(FoodEntryField.CALORIES, "123") }
-        executor.drain()
-        main { assertEquals("123", editor.uiState.value!!.field(FoodEntryField.CALORIES)); assertFalse(editor.uiState.value!!.productPicker.loading) }
-    }
-
-    @Test fun availablePublicNutritionFillsKnownValuesAndKeepsMissingNutrientsUnknown() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val lookup = Products().apply {
-            preview = ProductNutritionPreview(100.0, "g", NutritionProfile.ofMacros(400.0, 20.0, 30.0, 20.0))
-        }
-        lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup)
-            editor.openProductForMeal(validFields(), "g", "100"); editor.updateProductQuery("PT"); editor.searchProducts() }
-        executor.drain(); main { editor.selectProduct(lookup.product) }; executor.drain()
-        main {
-            assertEquals("400", editor.uiState.value!!.field(FoodEntryField.CALORIES))
-            assertEquals("20", editor.uiState.value!!.field(FoodEntryField.PROTEIN))
-            assertEquals("", editor.uiState.value!!.field(FoodEntryField.SODIUM))
-            assertTrue(editor.uiState.value!!.productPicker.notice!!.contains("불러왔습니다"))
-        }
-    }
-
-    @Test fun linkedRegistrationUsesTheSelectedIdentityAndCanReturnToTheMeal() {
-        val catalog = Catalog(); val executor = QueueExecutor(); val lookup = Products()
-        var registered: NutritionFood? = null
-        lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup, onFoodRegistered = { registered = it })
-            editor.openProductForMeal(validFields(), "g", "100"); editor.updateProductQuery("PT"); editor.searchProducts() }
-        executor.drain()
-        main { editor.selectProduct(lookup.product) }; executor.drain()
-        main { editor.save() }; executor.drain()
-        main {
-            assertEquals(lookup.product.catalogProductId, catalog.linkedProduct!!.catalogProductId)
-            assertNull(catalog.savedInput); assertEquals(catalog.food, registered)
+            assertEquals(listOf(second), editor.uiState.value!!.registrationBrandSearch.results)
+            editor.selectRegistrationBrand(first); assertNull(editor.uiState.value!!.priceTraceBrand)
+            catalog.owner = "another"; editor.synchronizeOwner()
+            editor.selectRegistrationBrand(second); assertNull(editor.uiState.value!!.priceTraceBrand)
             assertFalse(editor.uiState.value!!.open)
+            assertTrue(editor.uiState.value!!.registrationBrandSearch.results.isEmpty())
+            editor.dispose()
         }
     }
 
-    @Test fun failedLinkedSaveKeepsTheSelectionAndNeverFallsBackToManualRegistration() {
-        val catalog = Catalog().apply { failLinked = true }; val executor = QueueExecutor(); val lookup = Products()
+    @Test fun localSaveDoesNotWaitForBrandNetworkAndOfflineTextIsPreserved() {
+        val catalog = Catalog(); val local = QueueExecutor(); val network = QueueExecutor()
         lateinit var editor: NutritionEditorController
-        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), executor, productLookup = lookup)
-            editor.openProductForMeal(validFields(), "g", "100"); editor.updateProductQuery("PT"); editor.searchProducts() }
-        executor.drain(); main { editor.selectProduct(lookup.product) }; executor.drain()
-        main { editor.save() }; executor.drain()
-        main { assertNull(catalog.savedInput); assertTrue(editor.uiState.value!!.open)
-            assertNotNull(editor.uiState.value!!.error); assertNotNull(editor.uiState.value!!.productPicker.selected) }
+        main { editor = NutritionEditorController(SavedStateHandle(), catalog, Templates(), local,
+            brandLookup = NutritionBrandLookup { throw java.io.IOException("offline") }, brandExecutor = network); editor.open() }
+        local.drain()
+        main {
+            editor.newFood(); validFields().forEach(editor::updateField)
+            editor.updateField(FoodEntryField.BRAND, "직접 브랜드"); editor.updatePackageAmount("100")
+            editor.searchRegistrationBrands()
+            assertTrue(editor.uiState.value!!.registrationBrandSearch.loading)
+            editor.save()
+        }
+        local.drain()
+        assertEquals("직접 브랜드", catalog.savedInput!!.brand)
+        assertNull(catalog.savedInput!!.priceTraceBrandId)
+        network.drain()
+        main {
+            editor.newFood(); editor.updateField(FoodEntryField.BRAND, "다른 브랜드"); editor.searchRegistrationBrands()
+        }
+        network.drain()
+        main {
+            assertNotNull(editor.uiState.value!!.registrationBrandSearch.error)
+            assertNull(editor.uiState.value!!.error)
+            validFields().forEach(editor::updateField); editor.updatePackageAmount("100"); editor.save()
+        }
+        local.drain()
+        assertEquals("다른 브랜드", catalog.savedInput!!.brand)
+        assertNull(catalog.savedInput!!.priceTraceBrandId)
+        main { editor.dispose() }
     }
 
     private fun validFields() = mapOf(FoodEntryField.NAME to "이름", FoodEntryField.BASIS to "100",
         FoodEntryField.CALORIES to "400", FoodEntryField.PROTEIN to "20", FoodEntryField.CARBS to "30", FoodEntryField.FAT to "20")
-
-    private class Products : NutritionProductLookup {
-        val product = product("81111111-1111-4111-8111-111111111111", 100.0)
-        var rows = listOf(product)
-        var preview: ProductNutritionPreview? = null
-        override fun search(query: String) = rows
-        override fun nutrition(product: ProductReadV1) = preview
-    }
-
-    private companion object {
-        fun product(id: String, amount: Double) = ProductReadV1(id, "82222222-2222-4222-8222-222222222222", "PT 라벨", "PT 브랜드",
-            "PT 제조회사", "PT 서브브랜드", null, null, null, amount, "g", 1, "sha256:" + "a".repeat(64))
-    }
 
     private class Catalog : NutritionCatalogRepositoryApi {
         var owner = "nutrition-owner"

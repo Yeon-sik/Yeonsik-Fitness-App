@@ -18,6 +18,9 @@ import com.yeonsik.fitnessapp.core.ui.AppTextField
 import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandField
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandSearchState
+import com.yeonsik.fitnessapp.data.BrandReadV1
 
 @Composable
 internal fun ManualFoodEditor(
@@ -27,16 +30,14 @@ internal fun ManualFoodEditor(
     onClose: () -> Unit,
     saving: Boolean,
     error: String?,
-    onSearchProduct: (() -> Unit)? = null
+    brandSearch: NutritionBrandSearchState = NutritionBrandSearchState(),
+    onSearchBrand: () -> Unit = {},
+    onSelectBrand: (BrandReadV1) -> Unit = {},
+    onClearBrand: () -> Unit = {}
 ) {
     var unitMenuOpen by remember { mutableStateOf(false) }
     var showOptional by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
-    if (draft.registrationKind == NutritionRegistrationKind.PRODUCT && onSearchProduct != null) {
-        AppOutlinedButton({ focus.clearFocus(); onSearchProduct() }, Modifier.fillMaxWidth(), enabled = !saving) {
-            Text("PriceTrace 제품 검색")
-        }
-    }
     val next = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) })
     val textOptions = KeyboardOptions(imeAction = ImeAction.Next)
     val numberOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
@@ -52,8 +53,9 @@ internal fun ManualFoodEditor(
         }
         AppTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(),
             label = { Text("식품명") }, enabled = !saving, keyboardOptions = textOptions, keyboardActions = next)
-        AppTextField(draft.brand, { onChange(draft.copy(brand = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("브랜드 (선택)") }, enabled = !saving, keyboardOptions = textOptions, keyboardActions = next)
+        NutritionBrandField(draft.brand, draft.priceTraceBrand, brandSearch,
+            { onChange(draft.copy(brand = it, priceTraceBrand = null)) }, onSearchBrand, onSelectBrand, onClearBrand,
+            Modifier.fillMaxWidth(), enabled = !saving)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
             AppTextField(draft.basisAmount, { onChange(draft.copy(basisAmount = it)) }, Modifier.weight(1f),
                 label = { Text("기준량") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)

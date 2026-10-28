@@ -65,10 +65,12 @@ class MealEditorStateTest {
 
     private fun createModel(source: NutritionCatalogRepositoryApi = catalog, analysis: NutritionAnalysisApi? = null,
         handle: SavedStateHandle = SavedStateHandle(), searchDelayMillis: Long = 0,
-        readApi: MealReadApi = MealReadRepository(room), startEditing: Boolean = true) {
+        readApi: MealReadApi = MealReadRepository(room), startEditing: Boolean = true,
+        brandLookup: com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandLookup? = null) {
         onMain {
             model = MealViewModel(handle, meals, source, integration, nutritionAnalysisApi = analysis, executor = background,
-                mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = searchDelayMillis, mealReadApi = readApi)
+                mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = searchDelayMillis, mealReadApi = readApi,
+                brandLookup = brandLookup)
             model.enter(scope, date)
             if (startEditing) model.startDraft()
         }
@@ -534,7 +536,67 @@ class MealEditorStateTest {
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = isTerminated
     }
 
-    @Test fun productRegistrationReturnsToTheSameMealWithoutDroppingItsExistingCart() {
+    @Test fun manualBrandSelectionRestoresAndSavesAnIngredientWithoutAProductLink() {
+        val row = com.yeonsik.fitnessapp.data.BrandReadV1("81111111-1111-4111-8111-111111111111", "농심", "Nongshim")
+        val lookup = com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandLookup { listOf(row) }
+        val handle = SavedStateHandle()
+        createModel(handle = handle, brandLookup = lookup)
+        onMain {
+            model.openManualFood()
+            model.updateManualFood(ManualFoodDraft(name = "직접 재료", brand = "Nongshim", calories = "100", protein = "10", carbs = "10", fat = "2"))
+            model.searchManualBrands()
+        }
+        awaitBrand { it.manualBrandSearch.results.isNotEmpty() }
+        onMain {
+            assertNull(state().manualFoodDraft.priceTraceBrand)
+            model.selectManualBrand(row)
+            assertEquals("농심", state().manualFoodDraft.brand)
+        }
+        val restored = SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) })
+        createModel(handle = restored, brandLookup = lookup)
+        onMain {
+            assertEquals(row.brandId, state().manualFoodDraft.priceTraceBrand!!.brandId)
+            model.saveManualFood(scope)
+        }
+        background.runAll(); flushMain()
+        val food = catalog.searchFoods("직접 재료").single()
+        assertEquals(row.brandId, food.priceTraceBrandId)
+        assertEquals("농심", food.brandName)
+        assertEquals("manual", food.sourceType)
+        assertNull(catalog.approvedProductLink(food.id))
+        assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
+    }
+
+    @Test fun manualBrandOwnerChangeRejectsSelectionAndSavingAndClearsRestoredDraft() {
+        val row = com.yeonsik.fitnessapp.data.BrandReadV1("81111111-1111-4111-8111-111111111111", "농심", null)
+        createModel(brandLookup = com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandLookup { listOf(row) })
+        onMain { model.openManualFood(); model.updateManualFood(ManualFoodDraft(name = "이전 계정", brand = "농심")); model.searchManualBrands() }
+        awaitBrand { it.manualBrandSearch.results.isNotEmpty() }
+        onMain {
+            catalog.setUserId("other-nutrition-owner")
+            model.selectManualBrand(row); assertNull(state().manualFoodDraft.priceTraceBrand)
+            model.saveManualFood(scope); assertTrue(state().error!!.contains("계정"))
+            model.enter(scope, date)
+            assertNull(state().manualFoodDraft.priceTraceBrand)
+            assertEquals("", state().manualFoodDraft.name)
+            assertFalse(state().manualFoodEntry)
+        }
+        background.runAll(); flushMain()
+        assertTrue(catalog.searchFoods("이전 계정").isEmpty())
+    }
+
+    private fun awaitBrand(predicate: (MealUiState.Ready) -> Boolean) {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (System.currentTimeMillis() < deadline) {
+            var done = false
+            onMain { done = predicate(state()) }
+            if (done) return
+            Thread.sleep(10)
+        }
+        fail("Brand response did not settle")
+    }
+
+    @Test fun manualProductRegistrationKeepsTheSameMealAndItsExistingCart() {
         createModel()
         val existing = registerBaseFood()
         onMain {
@@ -544,15 +606,12 @@ class MealEditorStateTest {
                 calories = "400", protein = "20", carbs = "30", fat = "20",
                 registrationKind = com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT,
                 packageAmount = "100"))
-            model.openProductRegistration()
-            assertTrue(model.nutritionEditor.uiState.value!!.returnToMeal)
-            model.nutritionEditor.save()
+            model.saveManualFood(scope)
         }
         background.runAll()
         instrumentation.waitForIdleSync()
         flushMain()
         onMain {
-            assertFalse(model.nutritionEditor.uiState.value!!.open)
             assertFalse(state().manualFoodEntry)
             assertEquals(2, mealFoodItems(state()).size)
             assertTrue(mealFoodItems(state()).any { it.food.id == existing.id })

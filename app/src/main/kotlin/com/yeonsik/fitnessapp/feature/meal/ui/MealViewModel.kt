@@ -8,10 +8,13 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.data.NutritionFood
+import com.yeonsik.fitnessapp.data.BrandReadV1
 import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.data.ProductReadV1
 import com.yeonsik.fitnessapp.data.MealCompositionItem
@@ -27,8 +30,9 @@ import com.yeonsik.fitnessapp.feature.nutrition.model.*
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorController
 import com.yeonsik.fitnessapp.feature.nutrition.ui.FoodEntryField
-import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionProductLookup
-import com.yeonsik.fitnessapp.feature.nutrition.ui.ProductNutritionPreview
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandLookup
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandSearchState
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection
 import org.json.JSONObject
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
@@ -139,6 +143,7 @@ sealed interface MealUiState {
         val searching: Boolean = false,
         val manualFoodEntry: Boolean = false,
         val manualFoodDraft: ManualFoodDraft = ManualFoodDraft(),
+        val manualBrandSearch: NutritionBrandSearchState = NutritionBrandSearchState(),
         val catalogNotice: String? = null,
         val foodItems: List<MealFoodDraftItem> = emptyList(),
         val foodPortions: List<FoodPortionDraft> = emptyList(),
@@ -216,32 +221,12 @@ class MealViewModel @JvmOverloads constructor(
     private val mainExecutor: Executor = Executor { Handler(Looper.getMainLooper()).post(it) },
     private val searchDelayMillis: Long = 250L,
     private val nutritionTemplates: NutritionTemplateRepositoryApi? = null,
-    private val mealReadApi: MealReadApi? = null
+    private val mealReadApi: MealReadApi? = null,
+    private val brandLookup: NutritionBrandLookup? = null
 ) : ViewModel() {
     private val main = Handler(Looper.getMainLooper())
     val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor,
-        brandCatalog = nutritionIntegration, productLookup = object : NutritionProductLookup {
-            override fun search(query: String) = nutritionIntegration.searchProducts(query)
-            override fun nutrition(product: ProductReadV1): ProductNutritionPreview? {
-                val found = nutritionIntegration.loadPublicProductNutrition(product.catalogProductId) ?: return null
-                if (found.catalogProductId != product.catalogProductId || found.catalogProductRevision != product.revision ||
-                    found.catalogContentAmount != product.contentAmount || found.catalogContentUnit != product.contentUnit ||
-                    found.catalogPackageCount != product.packageCount || !found.basisAmount.isFinite() || found.basisAmount <= 0 ||
-                    !NutritionUnit.isSupported(found.basisUnit)) return null
-                if (listOf(NutritionProfile.CALORIES_KCAL, NutritionProfile.PROTEIN_GRAMS,
-                        NutritionProfile.CARBS_GRAMS, NutritionProfile.FAT_GRAMS).any { !found.profile.isKnown(it) }) return null
-                return ProductNutritionPreview(found.basisAmount, found.basisUnit, found.profile)
-            }
-        }, onFoodRegistered = { food ->
-            val current = mutableState.value as? MealUiState.Ready
-            if (current != null && current.ownerId == savedStateHandle.get<String>("meal.product.registration.owner") &&
-                current.date == savedStateHandle.get<String>("meal.product.registration.date") &&
-                food.ownerId == nutritionCatalog.currentOwnerId()) {
-                selectFood(food)
-                updateManualFood(ManualFoodDraft())
-                closeManualFood()
-            }
-        })
+        brandCatalog = nutritionIntegration, brandLookup = brandLookup)
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
     val uiState: LiveData<MealUiState> = mutableState
     private val mutablePriceTraceState = MutableLiveData<PriceTraceUiState>(PriceTraceUiState.Idle)
@@ -259,6 +244,10 @@ class MealViewModel @JvmOverloads constructor(
     private var selectedFood: NutritionFood? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var searchJob: Job? = null
+    private var manualBrandJob: Job? = null
+    private var manualBrandRequestVersion = 0L
+    private var manualBrandResultScope = -1L
+    private var manualBrandResultOwner = ""
     private var draftBeforeRecordEdit: MealUiState.Ready? = null
 
     fun enter(scope: AccountScope, date: String) {
@@ -271,6 +260,16 @@ class MealViewModel @JvmOverloads constructor(
         ownerId = scope.ownerId
         this.date = date
         val nutritionOwner = nutritionCatalog.currentOwnerId()
+        val savedNutritionOwner = savedStateHandle.get<String>(KEY_MANUAL_NUTRITION_OWNER)
+        if (savedNutritionOwner != null && savedNutritionOwner != nutritionOwner) {
+            ++manualBrandRequestVersion
+            manualBrandJob?.cancel()
+            savedStateHandle.remove<ArrayList<String>>(KEY_MANUAL_FOOD)
+            savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
+            activeEdit?.let { mutableState.value = it.copy(manualFoodDraft = ManualFoodDraft(), manualFoodEntry = false,
+                manualBrandSearch = NutritionBrandSearchState()) }
+        }
+        savedStateHandle[KEY_MANUAL_NUTRITION_OWNER] = nutritionOwner
         val publication = nutritionPublicationReady()
         val restorePublication = publication.ownerId != scope.ownerId || publication.nutritionOwnerId != nutritionOwner
         if (dateChanged || restorePublication) ++catalogRequestVersion
@@ -294,6 +293,8 @@ class MealViewModel @JvmOverloads constructor(
         if (nutritionEditor.uiState.value?.open == true) nutritionEditor.open()
         val request = ++requestVersion
         if (dateChanged) {
+            ++manualBrandRequestVersion
+            manualBrandJob?.cancel()
             draftBeforeRecordEdit = null
             ++detailRequestVersion
             selectedFood = null
@@ -324,6 +325,7 @@ class MealViewModel @JvmOverloads constructor(
             draft = if (dateChanged) savedDraft() else ready().draft,
             manualFoodEntry = if (dateChanged) false else ready().manualFoodEntry,
             manualFoodDraft = if (dateChanged) ManualFoodDraft() else ready().manualFoodDraft,
+            manualBrandSearch = if (dateChanged) NutritionBrandSearchState() else ready().manualBrandSearch,
             catalogNotice = null,
             foodItems = if (dateChanged) emptyList() else ready().foodItems,
             foodPortions = if (dateChanged) emptyList() else ready().foodPortions,
@@ -1365,41 +1367,83 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             }) }
     }
 
-    fun openProductRegistration() {
+    fun searchManualBrands() {
         val current = mutableState.value as? MealUiState.Ready ?: return
-        if (current.saving || current.ownerId != ownerId) return
-        val draft = current.manualFoodDraft
-        val fields = mapOf(
-            FoodEntryField.NAME to draft.name, FoodEntryField.BRAND to draft.brand,
-            FoodEntryField.BASIS to draft.basisAmount, FoodEntryField.CALORIES to draft.calories,
-            FoodEntryField.PROTEIN to draft.protein, FoodEntryField.CARBS to draft.carbs,
-            FoodEntryField.FAT to draft.fat, FoodEntryField.SODIUM to draft.sodium,
-            FoodEntryField.SUGARS to draft.sugars, FoodEntryField.SATURATED_FAT to draft.saturatedFat,
-            FoodEntryField.TRANS_FAT to draft.transFat
-        )
-        savedStateHandle["meal.product.registration.owner"] = current.ownerId
-        savedStateHandle["meal.product.registration.date"] = current.date
-        val packageAmount = draft.packageAmount.toDoubleOrNull()?.let { value -> runCatching {
-            NutritionCalculator.trim(NutritionUnit.convert(value, draft.packageUnit, draft.basisUnit))
-        }.getOrNull() } ?: draft.packageAmount
-        nutritionEditor.openProductForMeal(fields, draft.basisUnit, packageAmount)
+        if (current.saving || !current.manualFoodEntry || current.ownerId != ownerId) return
+        val query = current.manualFoodDraft.brand.trim()
+        val request = ++manualBrandRequestVersion
+        manualBrandJob?.cancel()
+        if (query.isBlank()) {
+            update { it.copy(manualBrandSearch = NutritionBrandSearchState()) }
+            return
+        }
+        val requestedOwner = ownerId
+        val requestedDate = current.date
+        val nutritionOwner = nutritionCatalog.currentOwnerId()
+        val scope = nutritionIntegration.brandCatalogScope()
+        update { it.copy(manualBrandSearch = NutritionBrandSearchState(query = query, loading = true)) }
+        manualBrandJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { requireNotNull(brandLookup) { "PriceTrace 브랜드 검색을 사용할 수 없습니다." }.search(query) }
+            }
+            val active = mutableState.value as? MealUiState.Ready ?: return@launch
+            if (request != manualBrandRequestVersion || ownerId != requestedOwner || date != requestedDate ||
+                !active.manualFoodEntry || nutritionCatalog.currentOwnerId() != nutritionOwner) return@launch
+            if (nutritionIntegration.brandCatalogScope() != scope) {
+                update { it.copy(manualBrandSearch = NutritionBrandSearchState(query,
+                    searched = true, error = "연결 설정이 변경되었습니다. 다시 검색하세요.")) }
+                return@launch
+            }
+            manualBrandResultScope = scope
+            manualBrandResultOwner = nutritionOwner
+            update { it.copy(manualBrandSearch = NutritionBrandSearchState(query,
+                results = result.getOrDefault(emptyList()), searched = true,
+                error = result.exceptionOrNull()?.let { it.message ?: "브랜드를 불러오지 못했습니다." })) }
+        }
+    }
+
+    fun selectManualBrand(brand: BrandReadV1) {
+        val current = mutableState.value as? MealUiState.Ready ?: return
+        val search = current.manualBrandSearch
+        if (current.saving || !current.manualFoodEntry || current.ownerId != ownerId || search.loading ||
+            search.error != null || brand !in search.results || nutritionCatalog.currentOwnerId() != manualBrandResultOwner ||
+            nutritionIntegration.brandCatalogScope() != manualBrandResultScope) return
+        updateManualFood(current.manualFoodDraft.copy(brand = brand.canonicalName,
+            priceTraceBrand = PriceTraceBrandSelection(brand.brandId, brand.canonicalName)))
+    }
+
+    fun clearManualBrand() {
+        val current = mutableState.value as? MealUiState.Ready ?: return
+        updateManualFood(current.manualFoodDraft.copy(priceTraceBrand = null))
     }
 
     fun closeManualFood() {
+        ++manualBrandRequestVersion
+        manualBrandJob?.cancel()
         savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
-        update { it.copy(manualFoodEntry = false, error = null) }
+        update { it.copy(manualFoodEntry = false, error = null, manualBrandSearch = NutritionBrandSearchState(query = it.manualFoodDraft.brand)) }
     }
 
     fun updateManualFood(draft: ManualFoodDraft) {
+        val current = mutableState.value as? MealUiState.Ready ?: return
+        if (current.saving) return
+        val changed = current.manualFoodDraft.brand != draft.brand || current.manualFoodDraft.priceTraceBrand != draft.priceTraceBrand
+        if (changed) { ++manualBrandRequestVersion; manualBrandJob?.cancel() }
         savedStateHandle[KEY_MANUAL_FOOD] = arrayListOf(draft.name, draft.brand, draft.basisAmount,
             draft.basisUnit, draft.calories, draft.carbs, draft.protein, draft.fat, draft.sodium,
-            draft.sugars, draft.saturatedFat, draft.registrationKind.name, draft.packageAmount, draft.packageUnit, draft.transFat)
-        update { it.copy(manualFoodDraft = draft, error = null, catalogNotice = null) }
+            draft.sugars, draft.saturatedFat, draft.registrationKind.name, draft.packageAmount, draft.packageUnit, draft.transFat,
+            draft.priceTraceBrand?.brandId.orEmpty(), draft.priceTraceBrand?.canonicalName.orEmpty())
+        update { it.copy(manualFoodDraft = draft, error = null, catalogNotice = null,
+            manualBrandSearch = if (changed) NutritionBrandSearchState(query = draft.brand) else it.manualBrandSearch) }
     }
 
     fun saveManualFood(scope: AccountScope) {
         val state = ready()
         if (scope.ownerId != ownerId || state.saving || !state.manualFoodEntry) return
+        if (savedStateHandle.get<String>(KEY_MANUAL_NUTRITION_OWNER) != nutritionCatalog.currentOwnerId()) {
+            update { it.copy(error = "영양정보 계정이 변경되었습니다. 등록 화면을 다시 여세요.") }
+            return
+        }
         val input = runCatching { state.manualFoodDraft.validated() }.getOrElse { error ->
             update { it.copy(error = error.message) }
             return
@@ -1430,7 +1474,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                         savedStateHandle[KEY_QUANTITY] = quantity
                         savedStateHandle[KEY_QUERY] = ""
                         update { current -> current.copy(saving = false, manualFoodEntry = false,
-                            manualFoodDraft = ManualFoodDraft(), selectedFood = food, quantity = quantity,
+            manualFoodDraft = ManualFoodDraft(), manualBrandSearch = NutritionBrandSearchState(), selectedFood = food, quantity = quantity,
                             query = "", searchResults = emptyList(), searching = false,
                             searchLoading = false, searchCompleted = false, searchError = null,
                             foodItems = current.foodItems + MealFoodDraftItem(UUID.randomUUID().toString(), food, quantity, amountMode = portion.mode),
@@ -1950,6 +1994,7 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
         diningMenus = savedStateHandle.get<ArrayList<String>>(KEY_DINING_MENUS).orEmpty().mapNotNull(::decodeDiningMenu),
         priceTraceQuery = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: "",
         manualFoodDraft = savedManualFoodDraft(),
+        manualBrandSearch = NutritionBrandSearchState(query = savedManualFoodDraft().brand),
         manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false,
         photoEstimate = PhotoEstimateDraft.fromBundle(savedStateHandle[KEY_PHOTO_ESTIMATE])
     )
@@ -2006,7 +2051,9 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
             values.getOrNull(11)?.let { runCatching { NutritionRegistrationKind.valueOf(it) }.getOrNull() }
                 ?: NutritionRegistrationKind.INGREDIENT,
             values.getOrNull(12).orEmpty(), values.getOrNull(13) ?: NutritionUnit.GRAM,
-            transFat = values.getOrNull(14).orEmpty())
+            transFat = values.getOrNull(14).orEmpty(),
+            priceTraceBrand = runCatching { PriceTraceBrandSelection.fromSnapshot(
+                values.getOrNull(15)?.takeIf(String::isNotEmpty), values.getOrNull(16)?.takeIf(String::isNotEmpty), null, null) }.getOrNull())
     }
 
     override fun onCleared() {
@@ -2014,6 +2061,7 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
         ++requestVersion
         ++detailRequestVersion
         searchJob?.cancel()
+        manualBrandJob?.cancel()
         mainHandler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
     }
@@ -2062,6 +2110,7 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
         const val KEY_DRAFT_DATE = "meal.draft_date"
         const val KEY_MANUAL_FOOD_OPEN = "meal.manual_food_open"
         const val KEY_MANUAL_FOOD = "meal.manual_food"
+        const val KEY_MANUAL_NUTRITION_OWNER = "meal.manual_food_nutrition_owner"
         const val KEY_QUERY = "meal.query"
         const val KEY_STORE = "meal.store"
         const val KEY_BRANCH = "meal.branch"

@@ -5,6 +5,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ManualFoodDraftTest {
+    @Test fun selectedBrandUsesCanonicalTextForBothKindsAndRejectsMismatch() {
+        val brand = com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection(
+            "11111111-1111-4111-8111-111111111111", "농심")
+        com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.entries.forEach { kind ->
+            val linked = draft().copy(brand = "농심", priceTraceBrand = brand, registrationKind = kind, packageAmount = "100")
+            assertEquals(brand.brandId, linked.validated().priceTraceBrandId)
+            assertThrows(IllegalArgumentException::class.java) { linked.copy(brand = "Nongshim").validated() }
+            assertNull(linked.copy(priceTraceBrand = null).validated().priceTraceBrandId)
+        }
+    }
     private fun draft() = ManualFoodDraft(name = " 테스트 식품 ", calories = "120.5",
         carbs = "15", protein = "8", fat = "3")
 

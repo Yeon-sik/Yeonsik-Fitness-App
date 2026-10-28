@@ -27,14 +27,13 @@ class PriceTraceBrandUiTest {
         val calls = mutableListOf<String>()
         val actions = actions { name -> calls.add(name) }
         compose.setContent { FitnessComposeTheme(false) { NutritionEditorDialog(state, actions, {}) } }
-        compose.onNodeWithText("라벨 브랜드").assertExists()
-        compose.onNodeWithText("PriceTrace · ${selected.canonicalName}").assertExists()
-        compose.onNodeWithText("상위 브랜드 이름 미확인").assertExists()
-        compose.onNodeWithText("연결 브랜드 변경").performScrollTo().performClick()
-        assertTrue("openBrandSearch" in calls)
+        compose.onNodeWithText("PriceTrace 브랜드 · ${selected.canonicalName}").assertExists()
+        compose.onNodeWithText("PriceTrace 제품 검색").assertDoesNotExist()
+        compose.onNodeWithText("연결 해제").performScrollTo().performClick()
+        assertTrue("clearRegistrationBrand" in calls)
         capture("제품 · 재료 등록", "brand-registration")
         compose.runOnIdle { state = state.copy(registrationKind = NutritionRegistrationKind.INGREDIENT) }
-        compose.onNodeWithText("PriceTrace 브랜드 연결").assertDoesNotExist()
+        compose.onNodeWithText("PriceTrace 브랜드 · ${selected.canonicalName}").assertExists()
         val privateFood = NutritionFood.builder().id("private").ownerId("owner").name("내 제품").priceTraceBrand(selected).build()
         val publicFood = NutritionFood.builder().id("public").name("공개 제품").priceTraceBrand(selected).build()
         compose.runOnIdle { state = state.copy(mode = NutritionEditorMode.LIBRARY, packagedFoods = listOf(privateFood, publicFood),

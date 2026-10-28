@@ -5,6 +5,7 @@ import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
+import com.yeonsik.fitnessapp.feature.nutrition.model.PriceTraceBrandSelection
 
 /** The label's nutrition basis is independent of the amount eaten in a Meal record. */
 data class ManualFoodDraft(
@@ -22,7 +23,8 @@ data class ManualFoodDraft(
     val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
     val packageAmount: String = "",
     val packageUnit: String = NutritionUnit.GRAM,
-    val transFat: String = ""
+    val transFat: String = "",
+    val priceTraceBrand: PriceTraceBrandSelection? = null
 ) {
     internal fun validated(): NutritionFoodInput {
         require(name.isNotBlank()) { "식품명을 입력하세요." }
@@ -47,7 +49,8 @@ data class ManualFoodDraft(
             "제품 용량 단위가 기준량과 호환되지 않습니다. g와 ml는 서로 변환할 수 없습니다."
         }
         return NutritionFoodInput(name.trim(), brand.trim().ifEmpty { null }, amount,
-            NutritionUnit.requireSupported(basisUnit), profile, "manual", kind, packAmount, packUnit)
+            NutritionUnit.requireSupported(basisUnit), profile, "manual", kind, packAmount, packUnit, priceTraceBrand)
+            .also { it.validatedBrand() }
     }
 
     private fun optional(value: String, label: String) =

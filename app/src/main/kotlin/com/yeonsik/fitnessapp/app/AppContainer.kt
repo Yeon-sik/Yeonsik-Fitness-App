@@ -229,6 +229,8 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         FitnessSummaryPublisher(PreferencesSummaryPublicationStore(context))
     )
     private val productReadClient = ProductReadV1Client(priceTraceSupabaseConfig)
+    private val brandReadClient = com.yeonsik.fitnessapp.integration.pricetrace.BrandReadV1Client(priceTraceSupabaseConfig)
+    val nutritionBrandLookup = com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionBrandLookup(brandReadClient::searchBrands)
     private val restaurantMenuReadClient = RestaurantMenuReadV1Client(priceTraceSupabaseConfig)
 
     val bodyMetricsApplicationService = BodyMetricsApplicationService(
@@ -332,6 +334,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         priceTraceSupabaseConfig = config
         nutritionIntegrationService.setPriceTraceConfig(config)
         productReadClient.setConfig(config)
+        brandReadClient.setConfig(config)
         restaurantMenuReadClient.setConfig(config)
     }
 
