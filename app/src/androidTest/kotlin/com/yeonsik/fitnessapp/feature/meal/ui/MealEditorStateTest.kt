@@ -65,15 +65,51 @@ class MealEditorStateTest {
 
     private fun createModel(source: NutritionCatalogRepositoryApi = catalog, analysis: NutritionAnalysisApi? = null,
         handle: SavedStateHandle = SavedStateHandle(), searchDelayMillis: Long = 0,
-        readApi: MealReadApi = MealReadRepository(room)) {
+        readApi: MealReadApi = MealReadRepository(room), startEditing: Boolean = true) {
         onMain {
             model = MealViewModel(handle, meals, source, integration, nutritionAnalysisApi = analysis, executor = background,
                 mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = searchDelayMillis, mealReadApi = readApi)
             model.enter(scope, date)
-            model.startDraft()
+            if (startEditing) model.startDraft()
         }
         // Resolve the initial empty-query search before controlling later requests.
         if (searchDelayMillis == 0L && analysis == null) { background.runAll(); flushMain() }
+    }
+
+    @Test fun photoEstimateDraftRestoresAndDoubleSaveWritesOneMeal() {
+        val handle = SavedStateHandle()
+        createModel(handle = handle, startEditing = false)
+        onMain {
+            model.startPhotoEstimate()
+            model.updatePhotoEstimate(state().photoEstimate!!.copy(calories = "2400", time = "12:30"))
+        }
+        val restored = SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) })
+        createModel(handle = restored, startEditing = false)
+        onMain {
+            assertEquals("2400", state().photoEstimate!!.calories)
+            assertEquals("12:30", state().photoEstimate!!.time)
+            model.savePhotoEstimate(scope)
+            model.savePhotoEstimate(scope)
+        }
+        background.runAll(); flushMain()
+        val rows = MealReadRepository(room).meals(scope, date)
+        assertEquals(1, rows.size)
+        assertTrue(rows.single().isPhotoEstimate)
+        assertNull(rows.single().recordedProteinGrams)
+        onMain { assertNull(state().photoEstimate) }
+    }
+
+    @Test fun photoEstimateCannotLeakAcrossOwnerOrDateChanges() {
+        createModel(startEditing = false)
+        onMain {
+            model.startPhotoEstimate()
+            model.updatePhotoEstimate(state().photoEstimate!!.copy(calories = "2400"))
+            model.savePhotoEstimate(scope)
+            model.enter(AccountScope("different-owner"), date)
+        }
+        background.runAll(); flushMain()
+        assertEquals(0, MealReadRepository(room).mealCount(scope, date))
+        onMain { assertNull(state().photoEstimate); assertNull(state().error) }
     }
 
     @Test fun delayedResultCannotOverwriteNewQueryOrOtherDraftInputs() {

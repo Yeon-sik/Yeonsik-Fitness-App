@@ -38,7 +38,8 @@ data class MealReadSummary(
     /** Source amounts retain missing values while the legacy numeric fields remain compatible. */
     val recordedProteinGrams: Double? = proteinGrams,
     val recordedCarbsGrams: Double? = carbsGrams,
-    val recordedFatGrams: Double? = fatGrams
+    val recordedFatGrams: Double? = fatGrams,
+    val isPhotoEstimate: Boolean = false
 )
 
 data class MealNutritionReadSummary(

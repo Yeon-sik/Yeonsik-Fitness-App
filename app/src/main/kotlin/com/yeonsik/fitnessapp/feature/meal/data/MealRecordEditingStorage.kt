@@ -25,6 +25,12 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
     fun load(scope: AccountScope, recordId: String): MealRecordEditSnapshot? = database.runInTransaction<MealRecordEditSnapshot?> {
         val record = dao.visibleMealRecord(recordId, scope.ownerId)
             ?.takeIf { it.deviceId == "android-local" } ?: return@runInTransaction null
+        if (PhotoEstimateMeal.isPhotoEstimate(record.metadata)) {
+            return@runInTransaction MealRecordEditSnapshot(record.id, record.date, record.menu,
+                MealEntryPolicy.displayMealTime(json(record.metadata).optString("eaten_at")), record.updatedAt,
+                emptyList(), PhotoEstimateMealInput(record.calories.toDouble(),
+                    PhotoEstimateMeal.recordedProtein(record.metadata, record.proteinGrams), record.carbsGrams, record.fatGrams))
+        }
         val nutrients = dao.visibleMealItemNutrients(recordId, scope.ownerId).groupBy { it.mealRecordItemId }
         val consumptions = dao.visibleMealConsumptions(recordId, scope.ownerId).associateBy { it.mealRecordItemId }
         val rows = dao.visibleMealItems(recordId, scope.ownerId)
@@ -67,6 +73,7 @@ class MealRecordEditingStorage(private val database: FitnessRoomDatabase) {
     fun beginReplacement(scope: AccountScope, request: MealRecordEditRequest,
         generated: MealRecordsRoomEntity): Replacement {
         val record = requireTarget(scope, request)
+        check(!PhotoEstimateMeal.isPhotoEstimate(record.metadata)) { "사진 추정 기록 전용 화면에서 수정하세요." }
         val replacement = Replacement(record, generated.updatedAt)
         val originalIds = (request.foodItemIds + request.menuItemIds).filterNotNull()
         require(originalIds.distinct().size == originalIds.size && originalIds.all { it in replacement.items }) {

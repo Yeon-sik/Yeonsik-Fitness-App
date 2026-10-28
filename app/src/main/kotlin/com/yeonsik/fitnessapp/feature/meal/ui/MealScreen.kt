@@ -64,6 +64,10 @@ interface MealScreenActions {
     fun back()
     fun selectDate(date: String)
     fun startDraft()
+    fun startPhotoEstimate() {}
+    fun updatePhotoEstimate(draft: PhotoEstimateDraft) {}
+    fun savePhotoEstimate() {}
+    fun closePhotoEstimate() {}
     fun closeDraft()
     fun chooseFood()
     fun chooseDiningOut()
@@ -268,6 +272,12 @@ internal fun MealScreen(
                     count = snapshot?.todayMeals?.size ?: 0,
                     calories = totals?.total("calories_kcal")?.describedValue() ?: "?"
                 )
+                val photoEstimateCount = snapshot?.todayMeals.orEmpty().count { it.isPhotoEstimate }
+                if (photoEstimateCount > 0) {
+                    Text("사진 기반 추정 기록 ${photoEstimateCount}건 포함",
+                        Modifier.testTag("meal-photo-estimate-total"), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 MealMacroMetrics(
                     carbs = totals?.total("carbs_grams")?.describedValue() ?: "?",
                     protein = totals?.total("protein_grams")?.describedValue() ?: "?",
@@ -303,6 +313,9 @@ internal fun MealScreen(
         AppButton(onClick = actions::startDraft, Modifier.fillMaxWidth(), enabled = editor != null) {
             Text(if (hasDraft) "작성 중인 식단 이어서" else "식단 기록하기")
         }
+        AppOutlinedButton(actions::startPhotoEstimate,
+            Modifier.fillMaxWidth().testTag("meal-photo-estimate-start"),
+            enabled = editor != null && !editor.recordActionSaving) { Text("사진 추정값으로 기록") }
     } else {
         MealEntryDialog(actions, editor, priceTraceState, mealLabel = "식단")
     }
@@ -354,13 +367,13 @@ internal fun MealScreen(
                             }
                             Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams} g",
+                            Text("${if (meal.isPhotoEstimate) "약 " else ""}${meal.calories} kcal · 단백질 ${meal.recordedProteinGrams?.let { "$it g" } ?: "미입력"}",
                                 style = MaterialTheme.typography.bodyMedium)
                             TextButton(
                                 onClick = { actions.viewMealDetail(meal.id) },
                                 modifier = Modifier.fillMaxWidth().testTag("meal-record-detail-${meal.id}"),
                                 enabled = recordActionsEnabled
-                            ) { Text("메뉴 자세히 보기") }
+                            ) { Text(if (meal.isPhotoEstimate) "추정 기록 자세히 보기" else "메뉴 자세히 보기") }
                             Row(Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                                 AppOutlinedButton(
@@ -432,6 +445,10 @@ internal fun MealScreen(
     }
 
     editor?.let {
+        it.photoEstimate?.let { draft ->
+            PhotoEstimateMealEditor(today, draft, it.recordActionSaving, it.error,
+                actions::updatePhotoEstimate, actions::savePhotoEstimate, actions::closePhotoEstimate)
+        }
         val dateTimeMeal = (it.recordDetail as? MealDetailState.Ready)?.recordId?.let { recordId ->
             snapshot?.todayMeals?.firstOrNull { meal -> meal.id == recordId && meal.timeEditable }
         }

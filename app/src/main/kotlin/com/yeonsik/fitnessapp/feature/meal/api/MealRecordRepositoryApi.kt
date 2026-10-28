@@ -15,6 +15,11 @@ import com.yeonsik.fitnessapp.feature.meal.model.MealRecordEditRequest
 interface MealRecordRepositoryApi {
     fun setUserId(userId: String)
 
+    fun savePhotoEstimate(scope: AccountScope, date: String, mealTime: String,
+        input: com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMealInput,
+        recordId: String? = null, expectedUpdatedAt: String? = null): String =
+        throw UnsupportedOperationException("사진 추정 기록을 지원하지 않습니다.")
+
     fun saveFoodMeal(
         scope: AccountScope,
         date: String,

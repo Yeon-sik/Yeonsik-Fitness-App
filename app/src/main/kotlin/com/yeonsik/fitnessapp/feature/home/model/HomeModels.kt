@@ -24,7 +24,7 @@ data class HomeBodyMetric(
     @JvmField val memo: String
 )
 
-data class HomeMealSummary(
+data class HomeMealSummary @JvmOverloads constructor(
     @JvmField val id: String,
     @JvmField val date: String,
     @JvmField val mealLabel: String,
@@ -47,7 +47,9 @@ data class HomeMealSummary(
     @JvmField val timeEditable: Boolean,
     @JvmField val createdAt: String?,
     private val subtitle: String,
-    private val accessibilityLabel: String
+    private val accessibilityLabel: String,
+    val isPhotoEstimate: Boolean = false,
+    val recordedProteinGrams: Double? = proteinGrams
 ) {
     fun previewSubtitle(): String = subtitle
     fun previewAccessibilityLabel(): String = accessibilityLabel

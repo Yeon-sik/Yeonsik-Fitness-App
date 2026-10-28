@@ -9,7 +9,8 @@ data class MealRecordEditSnapshot(
     val title: String,
     val time: String,
     val updatedAt: String,
-    val items: List<MealRecordEditItem>
+    val items: List<MealRecordEditItem>,
+    val photoEstimate: PhotoEstimateMealInput? = null
 )
 
 data class MealRecordEditItem(

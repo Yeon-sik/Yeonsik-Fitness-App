@@ -77,6 +77,16 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     }
 
     @Override
+    public String savePhotoEstimate(AccountScope scope, String date, String mealTime,
+            com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMealInput input,
+            String recordId, String expectedUpdatedAt) {
+        return roomDatabase.runInTransaction(() -> {
+            requireActiveOwner(scope);
+            return new PhotoEstimateMealStorage(roomDatabase).save(scope, date, mealTime, input, recordId, expectedUpdatedAt);
+        });
+    }
+
+    @Override
     public String saveFoodMeal(AccountScope scope, String date, String mealTime, String foodId, double quantity) {
         requireActiveOwner(scope);
         NutritionFood food = nutritionCatalog.findFoodById(foodId);
@@ -1154,6 +1164,9 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             );
             if (existing == null) {
                 return false;
+            }
+            if (com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMeal.isPhotoEstimate(existing.getMetadata())) {
+                return new PhotoEstimateMealStorage(roomDatabase).move(scope, normalizedId, date, mealTime);
             }
             LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, LocalDate.now());
             String time = MealEntryPolicy.requireMealTime(mealTime);

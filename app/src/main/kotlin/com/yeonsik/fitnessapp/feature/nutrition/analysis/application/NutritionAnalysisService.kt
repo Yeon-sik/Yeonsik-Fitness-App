@@ -271,6 +271,9 @@ internal object NutritionAnalysisCalculator {
     }
 
     private fun mealTitle(snapshot: MealSnapshotRead): String {
+        if (com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMeal.isPhotoEstimate(snapshot.metadata)) {
+            return com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMeal.title(snapshot.date)
+        }
         val metadata = runCatching { JSONObject(snapshot.metadata.ifBlank { "{}" }) }.getOrNull()
         return metadata?.optString("menu_name", "")?.trim().orEmpty().takeIf { it.isNotEmpty() }
             ?: snapshot.items.firstOrNull()?.foodName?.takeIf { it.isNotBlank() }

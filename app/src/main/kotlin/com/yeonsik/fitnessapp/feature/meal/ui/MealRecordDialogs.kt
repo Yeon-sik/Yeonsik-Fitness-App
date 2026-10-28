@@ -21,6 +21,7 @@ import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.data.MealEntryPolicy
 import com.yeonsik.fitnessapp.data.NutritionCalculator
 import com.yeonsik.fitnessapp.data.NutritionUnit
+import com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMeal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -146,7 +147,17 @@ internal fun MealSnapshotDetailContent(snapshot: MealSnapshotRead, modifier: Mod
     Column(modifier.testTag("meal-detail-${snapshot.id}"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         Text(snapshot.date, style = MaterialTheme.typography.bodyMedium)
-        if (snapshot.items.isEmpty()) {
+        val photoEstimate = PhotoEstimateMeal.isPhotoEstimate(snapshot.metadata)
+        if (photoEstimate) {
+            Text(PhotoEstimateMeal.title(snapshot.date), style = MaterialTheme.typography.titleMedium)
+            Text(PhotoEstimateMeal.LABEL, Modifier.testTag("meal-detail-photo-estimate"),
+                style = MaterialTheme.typography.labelLarge)
+            Text("식사 전체 · 약 ${NutritionCalculator.trim(snapshot.nutrition.calories ?: 0.0)} kcal")
+            listOf("탄수화물" to snapshot.nutrition.carbsGrams, "단백질" to snapshot.nutrition.proteinGrams,
+                "지방" to snapshot.nutrition.fatGrams).forEach { (label, value) ->
+                Text("$label · ${value?.let { "${NutritionCalculator.trim(it)} g" } ?: "미입력"}")
+            }
+        } else if (snapshot.items.isEmpty()) {
             Text("상세 구성 정보가 저장되어 있지 않습니다.", Modifier.testTag("meal-detail-missing"))
         }
         snapshot.items.forEach { item -> key(item.id) {

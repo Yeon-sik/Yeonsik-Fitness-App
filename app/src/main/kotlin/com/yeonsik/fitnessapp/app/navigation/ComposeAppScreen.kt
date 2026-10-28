@@ -1802,6 +1802,11 @@ private fun AppDestination(
         }
     }
     val mealActions = object : MealScreenActions {
+        override fun startPhotoEstimate() = viewModels.getMeal().startPhotoEstimate()
+        override fun updatePhotoEstimate(draft: com.yeonsik.fitnessapp.feature.meal.ui.PhotoEstimateDraft) =
+            viewModels.getMeal().updatePhotoEstimate(draft)
+        override fun savePhotoEstimate() = viewModels.getMeal().savePhotoEstimate(AccountScope(ownerId))
+        override fun closePhotoEstimate() = viewModels.getMeal().closePhotoEstimate()
         override fun back() { navigation.back() }
         override fun selectDate(date: String) = navigation.selectMealDate(date)
         override fun startDraft() = viewModels.getMeal().startDraft()

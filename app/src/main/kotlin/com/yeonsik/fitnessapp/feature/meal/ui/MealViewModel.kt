@@ -148,7 +148,8 @@ sealed interface MealUiState {
         val diningMenus: List<MealDiningDraftItem> = emptyList(),
         val category: MealCatalogCategory = MealCatalogCategory.ALL,
         val removedItem: RemovedMealDraftItem? = null,
-        val recordDetail: MealDetailState = MealDetailState.Idle
+        val recordDetail: MealDetailState = MealDetailState.Idle,
+        val photoEstimate: PhotoEstimateDraft? = null
     ) : MealUiState
 }
 
@@ -581,6 +582,10 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun openRecordEditor(meal: HomeMealSummary) {
         val state = ready()
         if (meal.id.isBlank() || meal.date != date || !meal.timeEditable || state.saving || state.draftLoading) return
+        if (meal.isPhotoEstimate) {
+            openPhotoEstimateEdit(meal.id)
+            return
+        }
         ++detailRequestVersion
         draftBeforeRecordEdit = state
         val backup = Bundle()
@@ -1687,7 +1692,73 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
             }
         }
     }
-fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
+    fun startPhotoEstimate() {
+        val state = ready()
+        if (state.saving || state.recordActionSaving || state.editing) return
+        updatePhotoEstimate(PhotoEstimateDraft(time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))))
+    }
+
+    fun updatePhotoEstimate(draft: PhotoEstimateDraft) {
+        if (ready().recordActionSaving) return
+        savedStateHandle[KEY_PHOTO_ESTIMATE] = draft.toBundle()
+        update { it.copy(photoEstimate = draft, error = null, notice = null) }
+    }
+
+    fun closePhotoEstimate() {
+        if (ready().recordActionSaving) return
+        savedStateHandle.remove<Bundle>(KEY_PHOTO_ESTIMATE)
+        update { it.copy(photoEstimate = null, error = null) }
+    }
+
+    private fun openPhotoEstimateEdit(recordId: String) {
+        if (ready().recordActionSaving) return
+        val scope = AccountScope(ownerId)
+        val requestedDate = date
+        val request = ++requestVersion
+        update { it.copy(recordActionSaving = true, error = null) }
+        executor.execute {
+            val result = runCatching {
+                val snapshot = mealRepository.loadMealForEditing(scope, recordId) ?: error("식단 기록을 찾지 못했습니다.")
+                check(snapshot.date == requestedDate)
+                val input = snapshot.photoEstimate ?: error("사진 추정 기록이 아닙니다.")
+                PhotoEstimateDraft(mealQuantityText(input.calories), snapshot.time,
+                    input.proteinGrams?.let(::mealQuantityText).orEmpty(), input.carbsGrams?.let(::mealQuantityText).orEmpty(),
+                    input.fatGrams?.let(::mealQuantityText).orEmpty(), snapshot.recordId, snapshot.updatedAt)
+            }
+            mainExecutor.execute {
+                if (request == requestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                    update { it.copy(recordActionSaving = false) }
+                    result.fold(::updatePhotoEstimate) { error -> update { it.copy(error = error.message) } }
+                }
+            }
+        }
+    }
+
+    fun savePhotoEstimate(scope: AccountScope) {
+        val state = ready()
+        val draft = state.photoEstimate ?: return
+        if (scope.ownerId != ownerId || state.recordActionSaving || state.saving) return
+        draft.error()?.let { error -> update { it.copy(error = error) }; return }
+        val input = draft.input()
+        update { it.copy(recordActionSaving = true, error = null) }
+        executor.execute {
+            val result = runCatching {
+                mealRepository.savePhotoEstimate(scope, state.date, draft.time, input, draft.recordId, draft.updatedAt)
+            }
+            mainExecutor.execute {
+                if (ownerId == scope.ownerId && date == state.date) {
+                    update { it.copy(recordActionSaving = false) }
+                    result.fold({
+                        closePhotoEstimate()
+                        update { it.copy(notice = "사진 기반 추정 식단을 저장했습니다.") }
+                        loadNutritionAnalysis(scope, state.date)
+                    }, { error -> update { it.copy(error = error.message ?: "사진 추정 기록을 저장하지 못했습니다.") } })
+                }
+            }
+        }
+    }
+
+    fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         val state = ready()
         if (scope.ownerId != ownerId || state.saving || state.draftLoading) return
         mealEntryRegistrationError(state)?.let { error ->
@@ -1879,7 +1950,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         diningMenus = savedStateHandle.get<ArrayList<String>>(KEY_DINING_MENUS).orEmpty().mapNotNull(::decodeDiningMenu),
         priceTraceQuery = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: "",
         manualFoodDraft = savedManualFoodDraft(),
-        manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false
+        manualFoodEntry = savedStateHandle[KEY_MANUAL_FOOD_OPEN] ?: false,
+        photoEstimate = PhotoEstimateDraft.fromBundle(savedStateHandle[KEY_PHOTO_ESTIMATE])
     )
 
     private fun priceTraceReady(): PriceTraceUiState.Ready =
@@ -1910,6 +1982,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
     }
 
     private fun clearDraftStorage() {
+        savedStateHandle.remove<Bundle>(KEY_PHOTO_ESTIMATE)
         savedStateHandle.remove<String>(KEY_EDIT_RECORD_ID)
         savedStateHandle.remove<Bundle>(KEY_DRAFT_BEFORE_EDIT)
         savedStateHandle.remove<ArrayList<String>>(KEY_MANUAL_FOOD)
@@ -1982,6 +2055,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
     }
 
     private companion object {
+        private const val KEY_PHOTO_ESTIMATE = "meal.photo_estimate"
         const val KEY_EDIT_RECORD_ID = "meal.edit_record_id"
         const val KEY_DRAFT_BEFORE_EDIT = "meal.draft_before_record_edit"
         const val KEY_DRAFT_OWNER = "meal.draft_owner"

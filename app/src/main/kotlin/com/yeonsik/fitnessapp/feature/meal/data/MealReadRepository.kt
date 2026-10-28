@@ -18,6 +18,7 @@ import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotItemRead
 import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotNutritionRead
 import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import org.json.JSONObject
+import com.yeonsik.fitnessapp.feature.meal.model.PhotoEstimateMeal
 
 /** Meal-owned read adapter for the Home projection. */
 class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealReadApi {
@@ -38,7 +39,7 @@ class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealRe
         val rows = mealDao.visibleMealReadRows(scope.ownerId, date)
         rows.forEach { row ->
             accumulate(sums.getValue("calories_kcal"), row.calories.toDouble(), false)
-            accumulate(sums.getValue("protein_grams"), row.proteinGrams, false)
+            accumulate(sums.getValue("protein_grams"), PhotoEstimateMeal.recordedProtein(row.metadata, row.proteinGrams), true)
             accumulate(sums.getValue("carbs_grams"), row.carbsGrams, true)
             accumulate(sums.getValue("fat_grams"), row.fatGrams, true)
         }
@@ -190,7 +191,7 @@ class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealRe
             },
             nutrition = MealSnapshotNutritionRead(
                 calories = record.calories.toDouble(),
-                proteinGrams = record.proteinGrams,
+                proteinGrams = PhotoEstimateMeal.recordedProtein(record.metadata, record.proteinGrams),
                 carbsGrams = record.carbsGrams,
                 fatGrams = record.fatGrams,
                 sodiumMg = null,
@@ -242,6 +243,8 @@ class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealRe
     )
 
     private fun MealRoomDao.MealReadRow.toReadSummary(index: Int): MealReadSummary {
+        val photoEstimate = PhotoEstimateMeal.isPhotoEstimate(metadata)
+        val knownProtein = PhotoEstimateMeal.recordedProtein(metadata, proteinGrams)
         val mealKind = MealRecordKind.normalize(firstNonBlank(mealKind, metadataValue(metadata, "meal_kind")))
         val store = firstNonBlank(storeName, metadataValue(metadata, "store_name"))
         val rawBranch = firstNonBlank(branchName, metadataValue(metadata, "branch_name"))
@@ -262,9 +265,9 @@ class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealRe
             if (MealRecordKind.isDiningOut(mealKind)) "unknown" else "recorded"
         )
         val mealTime = MealEntryPolicy.displayMealTime(eatenAt)
-        val ratio = MealEntryPolicy.macroRatioLabel(carbsGrams, proteinGrams, fatGrams)
+        val ratio = MealEntryPolicy.macroRatioLabel(carbsGrams, knownProtein, fatGrams)
         val ratioAccessibility = MealEntryPolicy.macroRatioAccessibilityLabel(
-            carbsGrams, proteinGrams, fatGrams
+            carbsGrams, knownProtein, fatGrams
         )
         return MealReadSummary(
             id,
@@ -288,11 +291,12 @@ class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealRe
             ratioAccessibility,
             deviceId == "android-local",
             createdAt,
-            if (MealRecordKind.isDiningOut(mealKind)) "$mealTime · 외식" else "$mealTime · $ratio",
-            "$previewTitle, $mealTime, $ratioAccessibility",
-            recordedProteinGrams = proteinGrams,
+            if (photoEstimate) "$mealTime · ${PhotoEstimateMeal.LABEL}" else if (MealRecordKind.isDiningOut(mealKind)) "$mealTime · 외식" else "$mealTime · $ratio",
+            "$previewTitle, $mealTime, ${if (photoEstimate) "${PhotoEstimateMeal.LABEL}, " else ""}$ratioAccessibility",
+            recordedProteinGrams = knownProtein,
             recordedCarbsGrams = carbsGrams,
-            recordedFatGrams = fatGrams
+            recordedFatGrams = fatGrams,
+            isPhotoEstimate = photoEstimate
         )
     }
 

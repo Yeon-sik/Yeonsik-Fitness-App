@@ -109,7 +109,9 @@ class FeatureHomeReadSources(
                 meal.timeEditable,
                 meal.createdAt,
                 meal.subtitle,
-                meal.accessibilityLabel
+                meal.accessibilityLabel,
+                meal.isPhotoEstimate,
+                meal.recordedProteinGrams
             )
         }
 

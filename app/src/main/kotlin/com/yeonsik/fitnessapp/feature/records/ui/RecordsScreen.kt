@@ -433,6 +433,8 @@ private fun RecordsDayDetailSection(
                         Text(meal.mealLabel, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
                         Text(meal.previewTitle, fontSize = 14.sp, lineHeight = 22.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (meal.isPhotoEstimate) Text("사진 기반 추정", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("정보 보기", fontSize = 14.sp, lineHeight = 22.sp)
                     }
                 }
@@ -465,7 +467,7 @@ private fun RecordsMealSummaryDialog(meal: MealReadSummary, onDismiss: () -> Uni
                 )
                 RecordsMealInfoRow("먹은 시각", meal.mealTime.ifBlank { "시간 미기록" }, "time")
                 if (meal.nutritionStatus == "estimated") {
-                    Text("추정 영양 정보", style = MaterialTheme.typography.labelSmall,
+                    Text(if (meal.isPhotoEstimate) "사진 기반 추정 · 식사 전체" else "추정 영양 정보", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 RecordsMealInfoRow("칼로리", if (nutritionRecorded) "${meal.calories} kcal" else "미기록", "calories")
