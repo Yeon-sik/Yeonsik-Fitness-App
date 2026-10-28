@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,20 +63,6 @@ internal fun HomeHeroContent(
             Text("오늘", style = MaterialTheme.typography.headlineSmall, color = colors.title,
                 modifier = Modifier.testTag("home-hero-title"))
             HorizontalDivider(Modifier.weight(1f), color = colors.title.copy(alpha = 0.18f))
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = colors.chipContainer,
-                contentColor = colors.chipContent
-            ) {
-                Box(
-                    Modifier.heightIn(min = 28.dp).padding(horizontal = 10.dp, vertical = 2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("${status.completedDomainCount}/3 달성",
-                        Modifier.testTag("home-hero-completion-count"),
-                        style = MaterialTheme.typography.labelMedium)
-                }
-            }
         }
         Row(
             Modifier.fillMaxWidth(),
@@ -95,7 +79,6 @@ internal fun HomeHeroContent(
 @Composable
 private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
     val colors = LocalFitnessHeroColors.current
-    val stackCriteria = LocalDensity.current.fontScale >= 1.5f
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
         Row(
             Modifier.fillMaxWidth().testTag("home-hero-progress").semantics {
@@ -136,21 +119,8 @@ private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             status.domains.forEach { domain ->
-                val label = when (domain.key) {
-                    "workout" -> "운동 완료"
-                    "meal" -> "단백질 목표"
-                    else -> "체중 기록"
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     HeroCompletionMarker(domain)
-                    Text(
-                        if (stackCriteria) label.replace(" ", "\n") else label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.muted,
-                        modifier = Modifier.fillMaxWidth().testTag("home-hero-criterion-${domain.key}"),
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         }

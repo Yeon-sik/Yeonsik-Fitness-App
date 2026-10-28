@@ -147,6 +147,10 @@ class HomeTodayHeroUiTest {
     @Test fun emptyHeroHasThreeHollowMarkersAndAZeroProgressBar() {
         showHero()
         compose.onNodeWithText("오늘").assertExists()
+        compose.onNodeWithTag("home-hero-completion-count").assertDoesNotExist()
+        listOf("운동 완료", "체중 기록", "단백질 목표").forEach { label ->
+            compose.onNodeWithText(label).assertDoesNotExist()
+        }
         listOf("운동", "식단", "체중").forEach { label ->
             compose.onAllNodesWithText(label, useUnmergedTree = true).assertCountEquals(1)
             compose.onNodeWithContentDescription("$label 기록 표시", useUnmergedTree = true).assertExists()
@@ -312,7 +316,8 @@ class HomeTodayHeroUiTest {
             val pixels = compose.onNodeWithTag("home-today-hero").captureToImage().toPixelMap()
             // Sample inside the surface, clear of its border, title and divider.
             val surface = pixels[pixels.width / 2, (pixels.height * 0.025f).toInt().coerceAtLeast(2)]
-            assertColorNear(Color(FitnessUiTokens.COLOR_BRAND_BLUE), surface)
+            assertColorNear(Color(if (dark) FitnessUiTokens.COLOR_D_HERO_SURFACE_TOP
+                else FitnessUiTokens.COLOR_HERO_SURFACE), surface)
             val recorded = pixelColor("home-hero-segment-workout")
             val unrecorded = pixelColor("home-hero-segment-meal")
             assertTrue("Recorded segment must not blend into Hero ($dark)", contrast(recorded, surface) >= 1.5f)

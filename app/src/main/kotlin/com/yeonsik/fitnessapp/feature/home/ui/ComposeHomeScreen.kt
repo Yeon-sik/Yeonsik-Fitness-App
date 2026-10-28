@@ -173,7 +173,7 @@ private fun HomeWorkoutQuickActions(
 ) {
     val colors = MaterialTheme.colorScheme
     FitnessCard(
-        modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight)
+        modifier = modifier.heightIn(min = HomeQuickActionMinHeight)
             .testTag("home-quick-workout"),
         outlined = true
     ) {
@@ -211,14 +211,14 @@ private fun HomeQuickActionCard(
     modifier: Modifier = Modifier
 ) {
     FitnessCard(
-        modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight),
+        modifier = modifier.heightIn(min = HomeQuickActionMinHeight),
         onClick = onClick,
         outlined = true
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .heightIn(min = HomeQuickActionMinHeight)
-                .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
+                .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -245,7 +245,7 @@ private fun HomeQuickActionItem(
             .heightIn(min = HomeQuickActionMinHeight)
             .clip(FitnessShape.card)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
+            .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small),
         horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
         verticalAlignment = Alignment.CenterVertically
     ) {

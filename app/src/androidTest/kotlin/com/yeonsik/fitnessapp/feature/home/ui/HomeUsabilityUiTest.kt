@@ -113,7 +113,7 @@ class HomeUsabilityUiTest {
                 compose.onNodeWithTag("home-hero-title").performScrollTo()
                 listOf("workout", "meal", "body").forEach { domain ->
                     assertNoTextOverflow("home-hero-value-$domain")
-                    assertNoTextOverflow("home-hero-criterion-$domain")
+                    compose.onNodeWithTag("home-hero-criterion-$domain").assertDoesNotExist()
                 }
                 capture("home-$mode-$fontScale")
                 listOf("strength", "cardio", "meal", "weight").forEach { action ->
