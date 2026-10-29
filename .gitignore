@@ -27,3 +27,5 @@ local.properties
 *.key
 /.serena/
 /supabase/nutrition/integration/node_modules/
+/.cloud-env.sh
+/Fitness-Image-Pipeline/

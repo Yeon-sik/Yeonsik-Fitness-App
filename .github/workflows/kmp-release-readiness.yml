@@ -30,6 +30,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Set up Node.js for generated exercise catalogs
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -51,13 +56,22 @@ jobs:
           fi
 
       - name: Run shared and Android verification gates
-        run: >-
-          ./gradlew --no-daemon
-          :shared:testAndroid
-          :app:testDebugUnitTest
-          :app:assembleDebug
-          :app:assembleDebugAndroidTest
-          :app:lintDebug
+        run: |
+          bash -n scripts/cloud/setup.sh scripts/cloud/verify.sh
+          bash scripts/cloud/setup.sh
+          bash scripts/cloud/verify.sh
+
+      - name: Keep Android and shared test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitness-android-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+            app/build/reports/lint-results-debug.html
+            shared/build/reports/tests/
+          if-no-files-found: ignore
 
   ios-host:
     name: iOS framework and Swift host gates
