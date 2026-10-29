@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,10 +37,8 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
-import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
 private const val HERO_STATUS_MOTION_MILLIS = 220
@@ -56,17 +53,20 @@ internal fun HomeHeroContent(
 ) {
     val colors = MaterialTheme.colorScheme
     Column(
-        modifier.padding(FitnessSpacing.hero),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.card)
+        modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.card),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("오늘", style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.testTag("home-hero-title"))
-            HorizontalDivider(Modifier.weight(1f), color = colors.onPrimary.copy(alpha = 0.18f))
+            Text("${status.completedDomainCount}/3 달성",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onPrimary,
+                modifier = Modifier.testTag("home-hero-completion-count"))
         }
         Row(
             Modifier.fillMaxWidth(),
@@ -83,7 +83,8 @@ internal fun HomeHeroContent(
 @Composable
 private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
     val colors = MaterialTheme.colorScheme
-    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+    val stackCriteria = LocalDensity.current.fontScale >= 1.5f
+    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
         Row(
             Modifier.fillMaxWidth().testTag("home-hero-progress").semantics {
                 contentDescription = "오늘 ${status.completedDomainCount}/3 영역 완료"
@@ -112,33 +113,50 @@ private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             status.domains.forEach { domain ->
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro, Alignment.CenterHorizontally)) {
-                    val progress = animateFloatAsState(
-                        if (domain.recorded) 1f else 0f,
-                        animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-marker-${domain.key}"
+                val label = when (domain.key) {
+                    "workout" -> "운동 완료"
+                    "meal" -> "단백질 목표"
+                    else -> "체중 기록"
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+                    HeroCompletionMarker(domain)
+                    Text(
+                        if (stackCriteria) label.replace(" ", "\n") else label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onPrimary,
+                        modifier = Modifier.fillMaxWidth().testTag("home-hero-criterion-${domain.key}"),
+                        textAlign = TextAlign.Center
                     )
-                    val marker = FitnessRecordMarkerColors.byKey.getValue(domain.key)
-                    val outline = colors.onPrimary.copy(alpha = 0.55f)
-                    Box(Modifier.size(10.dp).testTag("home-hero-marker-${domain.key}")
-                        .semantics {
-                            contentDescription = "${domain.label} 기록 표시"
-                            stateDescription = domain.completionDescription
-                        }
-                        .graphicsLayer {
-                            scaleX = 0.9f + progress.value * 0.1f
-                            scaleY = scaleX
-                        }
-                        .drawBehind {
-                            drawCircle(marker.copy(alpha = progress.value))
-                            drawCircle(if (domain.recorded) marker else outline,
-                                radius = size.minDimension / 2 - 0.5.dp.toPx(),
-                                style = Stroke(1.dp.toPx()))
-                        })
                 }
             }
         }
     }
+}
+
+@Composable
+private fun HeroCompletionMarker(domain: HomeHeroDomainStatus) {
+    val progress = animateFloatAsState(
+        if (domain.recorded) 1f else 0f,
+        animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-marker-${domain.key}"
+    )
+    val marker = FitnessRecordMarkerColors.byKey.getValue(domain.key)
+    val outline = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.55f)
+    Box(Modifier.size(10.dp).testTag("home-hero-marker-${domain.key}")
+        .semantics {
+            contentDescription = "${domain.label} 기록 표시"
+            stateDescription = domain.completionDescription
+        }
+        .graphicsLayer {
+            scaleX = 0.9f + progress.value * 0.1f
+            scaleY = scaleX
+        }
+        .drawBehind {
+            drawCircle(marker.copy(alpha = progress.value))
+            drawCircle(if (domain.recorded) marker else outline,
+                radius = size.minDimension / 2 - 0.5.dp.toPx(),
+                style = Stroke(1.dp.toPx()))
+        })
 }
 
 @Composable
@@ -155,8 +173,7 @@ private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
     ) {
-        Text(domain.label, style = typography.labelMedium, color = muted,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(domain.label, style = typography.labelLarge, color = muted)
         AnimatedContent(
             targetState = domain,
             modifier = Modifier.fillMaxWidth().heightIn(min = valueHeight),
@@ -177,8 +194,7 @@ private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = 
                 verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
                 Text(value, style = typography.titleLarge.copy(fontFeatureSettings = "tnum"),
                     modifier = Modifier.fillMaxWidth().testTag("home-hero-value-${domain.key}"),
-                    maxLines = 1, softWrap = false,
-                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    textAlign = TextAlign.Center)
                 if (displayed.mealCount != null) {
                     if (displayed.detail != null) Text(displayed.detail,
                         style = typography.bodySmall.copy(fontFeatureSettings = "tnum"),

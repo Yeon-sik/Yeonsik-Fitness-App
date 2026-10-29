@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessNutrientSubgroup
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -91,6 +92,7 @@ interface MealScreenActions {
     fun updateTime(value: String)
     fun saveFood()
     fun openManualFood()
+    fun openProductRegistration() { openNutritionEditor() }
     fun closeManualFood()
     fun updateManualFood(draft: ManualFoodDraft)
     fun saveManualFood()
@@ -246,12 +248,12 @@ internal fun MealScreen(
                     .semantics { contentDescription = "다음 날짜" },
                 enabled = selectedDate.isBefore(LocalDate.now()) && editor?.saving != true
             ) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            TextButton(
+                onClick = { actions.selectDate(LocalDate.now().toString()) },
+                enabled = !selectedDate.isEqual(LocalDate.now()) && editor?.saving != true,
+                modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "오늘로 이동" }
+            ) { Text("오늘") }
         }
-        AppOutlinedButton(
-            onClick = { actions.selectDate(LocalDate.now().toString()) },
-            enabled = !selectedDate.isEqual(LocalDate.now()) && editor?.saving != true,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("오늘로 이동") }
     }
     Spacer(Modifier.height(AppSpacing.gap))
     MealOverviewGlassSurface(Modifier.testTag("meal-day-overview")) {
@@ -278,7 +280,8 @@ internal fun MealScreen(
                     protein = totals?.total("protein_grams")?.describedValue() ?: "?",
                     fat = totals?.total("fat_grams")?.describedValue() ?: "?",
                     sugars = totals?.total("sugars_grams")?.describedValue() ?: "?",
-                    saturatedFat = totals?.total("saturated_fat_grams")?.describedValue() ?: "?"
+                    saturatedFat = totals?.total("saturated_fat_grams")?.describedValue() ?: "?",
+                    transFat = totals?.total("trans_fat_grams")?.describedValue() ?: "?"
                 )
             }
             if (loadingOverview) {
@@ -322,8 +325,6 @@ internal fun MealScreen(
     } else {
         MealEntryDialog(actions, editor, priceTraceState, mealLabel = "식단")
     }
-    AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth()) { Text("내 식단 · 식품 관리") }
-    TextButton(actions::openNutritionPublication, modifier = Modifier.fillMaxWidth()) { Text("외식 영양정보 관리") }
     if (nutritionPublicationState.ownerId == ownerId && !nutritionPublicationState.open) {
         val publicationMessage = nutritionPublicationState.progressLabel
             ?: nutritionPublicationState.error ?: nutritionPublicationState.notice
@@ -342,8 +343,9 @@ internal fun MealScreen(
     }
 
     Spacer(Modifier.height(AppSpacing.section))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("기록한 식단", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("기록한 식단", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold)
         Text(snapshot?.today ?: today, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -416,6 +418,10 @@ internal fun MealScreen(
         }
     }
     Spacer(Modifier.height(AppSpacing.gap))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Text("식품 및 영양정보 관리", style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold)
+    AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth()) { Text("내 식단 · 식품 관리") }
     AppOutlinedButton(
         onClick = actions::openNutritionPublication,
         modifier = Modifier.fillMaxWidth(),
@@ -461,51 +467,72 @@ internal fun MealScreen(
 }
 
 @Composable
-internal fun MealMacroMetrics(carbs: String, protein: String, fat: String, sugars: String, saturatedFat: String,
-    modifier: Modifier = Modifier) {
+internal fun MealMacroMetrics(
+    carbs: String,
+    protein: String,
+    fat: String,
+    sugars: String,
+    saturatedFat: String,
+    transFat: String,
+    modifier: Modifier = Modifier
+) {
     val metrics = listOf(
-        "탄수화물" to carbs,
-        "단백질" to protein,
-        "지방" to fat
+        Triple("탄수화물", carbs, listOf("당류" to sugars)),
+        Triple("단백질", protein, emptyList()),
+        Triple("지방", fat, listOf("포화지방" to saturatedFat, "트랜스지방" to transFat))
     )
     if (LocalDensity.current.fontScale >= 1.35f) {
         Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.fillMaxWidth(),
-                when (label) { "탄수화물" -> "당류" to sugars; "지방" -> "포화지방" to saturatedFat; else -> null }) }
+            metrics.forEach { (label, value, children) ->
+                MealMacroMetric(label, value, children, Modifier.fillMaxWidth())
+            }
         }
     } else {
-        Row(
-            modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
-        ) {
-            metrics.forEach { (label, value) -> MealMacroMetric(label, value, Modifier.weight(1f),
-                when (label) { "탄수화물" -> "당류" to sugars; "지방" -> "포화지방" to saturatedFat; else -> null }) }
+        Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+            metrics.forEach { (label, value, children) ->
+                MealMacroMetric(label, value, children, Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
-private fun MealMacroMetric(label: String, value: String, modifier: Modifier = Modifier,
-    child: Pair<String, String>? = null) {
+private fun MealMacroMetric(
+    label: String,
+    value: String,
+    children: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
     Column(modifier.testTag("meal-macro-$label"), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         MealOverviewValue(value, "g", MaterialTheme.typography.titleLarge)
-        child?.let { (childLabel, childValue) -> MealSecondaryMetric(childLabel,
-            if (childValue == "?" || childValue == "미확인") childValue else "$childValue g") }
+        if (children.isNotEmpty()) {
+            FitnessNutrientSubgroup(label) {
+                children.forEach { (childLabel, childValue) ->
+                    MealSecondaryMetric(childLabel, mealMacroGramsText(childValue))
+                }
+            }
+        }
     }
+}
+
+internal fun mealMacroGramsText(value: String): String = when {
+    value == "?" || value == "미확인" -> value
+    value.endsWith(" 이상") -> "${value.removeSuffix(" 이상")}\u00A0g 이상"
+    else -> "$value\u00A0g"
 }
 
 @Composable
 internal fun MealSecondaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
-    Text("$label $value", modifier.padding(start = AppSpacing.small).testTag("meal-secondary-$label"),
+    Text("$label $value", modifier.testTag("meal-secondary-$label"),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
 @Composable
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready, onReviewFood: (NutritionFood) -> Unit = {}) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        if (!editor.manualFoodEntry) MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
         if (editor.category == MealCatalogCategory.RECIPE) {
             AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth(), enabled = !editor.saving) {
                 Text("내 요리 만들기 · 저장한 구성")
@@ -522,7 +549,8 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
                 actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error,
-                editor.manualBrandSearch, actions::selectManualFoodBrand, actions::moreManualFoodBrands, actions::retryManualFoodBrands)
+                editor.manualBrandSearch, actions::selectManualFoodBrand, actions::moreManualFoodBrands, actions::retryManualFoodBrands,
+                onSearchProduct = actions::openProductRegistration)
         } else MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
 }
@@ -568,20 +596,26 @@ internal fun DiningOutEditor(
         MealDiningComponentEditor(currentDiningMenu(editor), editor, actions, !editor.saving)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
         MealInputNotice(com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy.LABEL_GUIDANCE)
-        MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
-        MealNutritionField(draft.protein, actions::updateProtein, "단백질", "g", Modifier.fillMaxWidth(), !editor.saving)
-        MealNutritionField(draft.fat, actions::updateFat, "지방 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
         AppOutlinedButton(
             onClick = { showExtraNutrition = !showExtraNutrition },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
         ) { Text(if (showExtraNutrition) "선택 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)") }
+        if (showExtraNutrition) MealInputNotice("모르는 값은 비워 두면 미확인으로 저장돼요.")
+        MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
         if (showExtraNutrition) {
-            MealInputNotice("모르는 값은 비워 두면 미확인으로 저장돼요.")
+            FitnessNutrientSubgroup("탄수화물", Modifier.fillMaxWidth()) {
+                MealNutritionField(draft.sugars, actions::updateSugars, "당류", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
+            }
+        }
+        MealNutritionField(draft.protein, actions::updateProtein, "단백질", "g", Modifier.fillMaxWidth(), !editor.saving)
+        MealNutritionField(draft.fat, actions::updateFat, "지방 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
+        if (showExtraNutrition) {
+            FitnessNutrientSubgroup("지방", Modifier.fillMaxWidth()) {
+                MealNutritionField(draft.saturatedFat, actions::updateSaturatedFat, "포화지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
+                MealNutritionField(draft.transFat, actions::updateTransFat, "트랜스지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
+            }
             MealNutritionField(draft.sodium, actions::updateSodium, "나트륨", "mg", Modifier.fillMaxWidth(), !editor.saving, required = false)
-            MealNutritionField(draft.sugars, actions::updateSugars, "당류", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
-            MealNutritionField(draft.saturatedFat, actions::updateSaturatedFat, "포화지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
-            MealNutritionField(draft.transFat, actions::updateTransFat, "트랜스지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
         }
         editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         saveHint?.let { MealInputNotice(it) }

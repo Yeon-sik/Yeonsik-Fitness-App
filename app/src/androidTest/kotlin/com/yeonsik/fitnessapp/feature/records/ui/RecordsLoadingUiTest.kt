@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,6 +29,41 @@ import org.junit.Test
 
 class RecordsLoadingUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun monthChangesShowOrbOnFirstFrameAndReadyContentReturnsWithoutAnExtraWait() {
+        compose.mainClock.autoAdvance = false
+        val state = mutableStateOf<RecordsUiState>(RecordsUiState.Ready(
+            RecordsSnapshot("owner-a", "2026-10", "2026-10-29", emptyList(), emptyMap(), emptyList())
+        ))
+        compose.setContent {
+            // Use production timing: ImmediateLoadingTheme hid the 300 ms blank interval.
+            FitnessComposeTheme(true) {
+                Column {
+                    RecordsScreen(state.value, "owner-a", "2026-10-29", MassUnit.KG,
+                        "2026-10-29", actions)
+                }
+            }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithText("월").assertIsDisplayed()
+        for (month in listOf("2026-11", "2026-12")) {
+            compose.runOnIdle { state.value = RecordsUiState.Loading("owner-a", month, "2026-10-29") }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("thinking-orb").assertIsDisplayed()
+            compose.onNodeWithContentDescription("기록을 불러오는 중").assertIsDisplayed()
+            compose.onNodeWithText("월").assertDoesNotExist()
+            compose.mainClock.advanceTimeBy(100)
+        }
+        compose.runOnIdle {
+            state.value = RecordsUiState.Ready(
+                RecordsSnapshot("owner-a", "2026-12", "2026-10-29", emptyList(), emptyMap(), emptyList())
+            )
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("thinking-orb").assertDoesNotExist()
+        compose.onNodeWithText("월").assertIsDisplayed()
+    }
 
     @Test
     fun addWeightAndMealUseTheSelectedPastOrFutureDateAndWeightIsAlwaysNew() {
@@ -134,6 +170,7 @@ class RecordsLoadingUiTest {
     }
 
     private val actions = object : RecordsScreenActions {
+        override fun retry() = Unit
         override fun selectDate(date: String) = Unit
         override fun previousMonth() = Unit
         override fun nextMonth() = Unit

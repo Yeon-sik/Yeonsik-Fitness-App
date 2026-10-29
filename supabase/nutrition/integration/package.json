@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node canonical-import.integration.mjs",
     "test:meal": "node meal-import.integration.mjs",
-    "test:brand": "node brand-catalog.sql.mjs"
+    "test:brand": "node brand-catalog.sql.mjs",
+    "test:product-amount": "node --test product-nutrition-amount.test.mjs"
   },
   "devDependencies": {
     "dotenv": "^16.4.7",

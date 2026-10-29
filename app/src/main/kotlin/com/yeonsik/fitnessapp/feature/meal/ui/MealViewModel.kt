@@ -12,6 +12,8 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.data.NutritionFood
+import com.yeonsik.fitnessapp.data.NutritionProfile
+import com.yeonsik.fitnessapp.data.ProductReadV1
 import com.yeonsik.fitnessapp.data.MealCompositionItem
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.data.DiningOutComponent
@@ -30,6 +32,9 @@ import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorController
 import com.yeonsik.fitnessapp.feature.nutrition.api.PriceTraceBrandCatalog
 import com.yeonsik.fitnessapp.feature.nutrition.ui.PriceTraceBrandSearchController
 import com.yeonsik.fitnessapp.feature.nutrition.ui.PriceTraceBrandSearchState
+import com.yeonsik.fitnessapp.feature.nutrition.ui.FoodEntryField
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionProductLookup
+import com.yeonsik.fitnessapp.feature.nutrition.ui.ProductNutritionPreview
 import org.json.JSONObject
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
@@ -235,7 +240,29 @@ class MealViewModel @JvmOverloads constructor(
     private val diningExecutor: ExecutorService = Executors.newFixedThreadPool(2)
 ) : ViewModel() {
     private val main = Handler(Looper.getMainLooper())
-    val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor, nutritionIntegration)
+    val nutritionEditor = NutritionEditorController(savedStateHandle, nutritionCatalog, nutritionTemplates, executor,
+        object : NutritionProductLookup {
+            override fun search(query: String) = nutritionIntegration.searchProducts(query)
+            override fun nutrition(product: ProductReadV1): ProductNutritionPreview? {
+                val found = nutritionIntegration.loadPublicProductNutrition(product.catalogProductId) ?: return null
+                if (found.catalogProductId != product.catalogProductId || found.catalogProductRevision != product.revision ||
+                    found.catalogContentAmount != product.contentAmount || found.catalogContentUnit != product.contentUnit ||
+                    found.catalogPackageCount != product.packageCount || !found.basisAmount.isFinite() || found.basisAmount <= 0 ||
+                    !NutritionUnit.isSupported(found.basisUnit)) return null
+                if (listOf(NutritionProfile.CALORIES_KCAL, NutritionProfile.PROTEIN_GRAMS,
+                        NutritionProfile.CARBS_GRAMS, NutritionProfile.FAT_GRAMS).any { !found.profile.isKnown(it) }) return null
+                return ProductNutritionPreview(found.basisAmount, found.basisUnit, found.profile)
+            }
+        }, onFoodRegistered = { food ->
+            val current = mutableState.value as? MealUiState.Ready
+            if (current != null && current.ownerId == savedStateHandle.get<String>("meal.product.registration.owner") &&
+                current.date == savedStateHandle.get<String>("meal.product.registration.date") &&
+                food.ownerId == nutritionCatalog.currentOwnerId()) {
+                selectFood(food)
+                updateManualFood(ManualFoodDraft())
+                closeManualFood()
+            }
+        }, brandCatalog = nutritionIntegration)
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
     val uiState: LiveData<MealUiState> = mutableState
     private val mutablePriceTraceState = MutableLiveData<PriceTraceUiState>(PriceTraceUiState.Idle)
@@ -1517,6 +1544,26 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                 else -> state.manualFoodDraft.registrationKind
             }))
         resumeManualBrandSearch()
+    }
+
+    fun openProductRegistration() {
+        val current = mutableState.value as? MealUiState.Ready ?: return
+        if (current.saving || current.ownerId != ownerId) return
+        val draft = current.manualFoodDraft
+        val fields = mapOf(
+            FoodEntryField.NAME to draft.name, FoodEntryField.BRAND to draft.brand,
+            FoodEntryField.BASIS to draft.basisAmount, FoodEntryField.CALORIES to draft.calories,
+            FoodEntryField.PROTEIN to draft.protein, FoodEntryField.CARBS to draft.carbs,
+            FoodEntryField.FAT to draft.fat, FoodEntryField.SODIUM to draft.sodium,
+            FoodEntryField.SUGARS to draft.sugars, FoodEntryField.SATURATED_FAT to draft.saturatedFat,
+            FoodEntryField.TRANS_FAT to draft.transFat
+        )
+        savedStateHandle["meal.product.registration.owner"] = current.ownerId
+        savedStateHandle["meal.product.registration.date"] = current.date
+        val packageAmount = draft.packageAmount.toDoubleOrNull()?.let { value -> runCatching {
+            NutritionCalculator.trim(NutritionUnit.convert(value, draft.packageUnit, draft.basisUnit))
+        }.getOrNull() } ?: draft.packageAmount
+        nutritionEditor.openProductForMeal(fields, draft.basisUnit, packageAmount)
     }
 
     fun closeManualFood() {

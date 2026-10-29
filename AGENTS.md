@@ -11,7 +11,7 @@
 
 ## 프로젝트 경계
 
-- 이 저장소는 Java 17, Android View, SQLiteOpenHelper 기반 Fitness App이다.
+- 현재 저장소는 JVM target 17의 Java·Kotlin, Compose·Room과 `shared` KMP 모듈을 함께 사용한다. 실제 구조는 현재 소스와 Gradle 설정을 확인한다.
 - Kotlin·Compose·Room 전면 재작성은 명시적 요청과 별도 마이그레이션 계획 없이 진행하지 않는다.
 - 상세 운동·종목·세트는 Fitness App이 소유하고 Personal OS에는 완료 요약만 공유한다.
 - `.understand-anything/`와 생성 그래프 산출물은 제품 코드 근거에서 제외한다.
@@ -33,6 +33,8 @@
 ```
 
 release 완료를 주장하려면 서명, 운영 RLS, 두 계정 격리, 실기기 검증을 별도로 수행한다.
+
+Linux 원격 환경 준비와 검증은 `docs/CLOUD_DEVELOPMENT.md` 및 `scripts/cloud/`를 따른다. 클라우드 설정 파일 추가를 실제 Codex Cloud·Claude Cloud 실행 증거로 간주하지 않는다.
 
 ## 프로젝트 문서와 Notion
 

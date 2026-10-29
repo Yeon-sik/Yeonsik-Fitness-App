@@ -63,7 +63,7 @@ temporary users and remove them after the run.
 The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
 
 - a historical replay that runs all 28 recovered migrations from an empty database;
-- a second fresh replay that runs those same 28 migrations, applies all seven forward migrations in order, verifies the schema and grants, runs rollback fixtures, and exercises the authenticated canonical contract and nutrient relation matrices.
+- a second fresh replay that runs those same 28 migrations, applies all eight forward migrations in order, verifies the schema and grants, runs rollback fixtures, and exercises the authenticated canonical contract and nutrient relation matrices.
 
 The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
 
@@ -89,6 +89,17 @@ Run with Node.js, the Supabase CLI, Docker, and the integration package dependen
     node supabase/nutrition/integration/historical-replay/replay.mjs
 
 The runner removes only its uniquely created temporary project directories and Supabase data volumes. It never links to a hosted project and never runs db push.
+
+## Public product amount projection
+
+`npm run test:product-amount` runs the new read-time package-size projection in a
+disposable PGlite PostgreSQL instance. It uses the actual historical public read
+and guard functions, synthetic rows only, and the real forward migration. It
+does not start Docker, connect to a hosted DB, or write production data.
+See [`../PRODUCT_AMOUNT_READ.md`](../PRODUCT_AMOUNT_READ.md) for the unchanged
+public RPC signature, calculated-source provenance, trusted legacy read specs,
+and deployment boundary. Full historical replay now includes eight forward
+migrations; its final ACL smoke check runs after the existing import tests.
 
 ## Verified Meal ingest
 

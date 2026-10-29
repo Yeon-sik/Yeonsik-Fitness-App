@@ -4,12 +4,15 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /** Coordinates the shared Summary-v2 sync and optional Nutrition catalog sync. */
-public final class SyncApplicationService {
+public final class SyncApplicationService implements ManualSyncRunner {
     private final SupabaseAuthManager sharedAuth;
     private final SupabaseSyncManager sharedSync;
     private final NutritionIntegrationService nutrition;
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     public SyncApplicationService(
             SupabaseAuthManager sharedAuth,
@@ -25,12 +28,33 @@ public final class SyncApplicationService {
     }
 
     public Result run(SupabaseConfig sharedConfig, SupabaseConfig nutritionConfig) throws Exception {
+        return run(sharedConfig, nutritionConfig, ignored -> {});
+    }
+
+    @Override
+    public Result run(
+            SupabaseConfig sharedConfig, SupabaseConfig nutritionConfig, Consumer<String> progress
+    ) throws Exception {
+        if (!running.compareAndSet(false, true)) {
+            throw new IllegalStateException("이미 동기화가 진행 중입니다.");
+        }
+        try {
+            return execute(sharedConfig, nutritionConfig, progress);
+        } finally {
+            running.set(false);
+        }
+    }
+
+    private Result execute(
+            SupabaseConfig sharedConfig, SupabaseConfig nutritionConfig, Consumer<String> progress
+    ) throws Exception {
         if (sharedConfig == null || !sharedConfig.isConfigured()) {
             throw new IllegalStateException("Supabase 연결 설정을 저장하고 계정에 로그인하세요.");
         }
 
+        progress.accept("계정 연결을 확인하고 있습니다.");
         SupabaseConfig activeShared = sharedAuth.refresh(sharedConfig);
-        SupabaseSyncManager.SyncResult sharedResult = sharedSync.manualSync(activeShared);
+        SupabaseSyncManager.SyncResult sharedResult = sharedSync.manualSync(activeShared, progress);
         SupabaseConfig activeNutrition = nutritionConfig;
         NutritionIntegrationService.SyncResult nutritionResult = null;
         boolean nutritionFailed = false;
@@ -40,6 +64,7 @@ public final class SyncApplicationService {
             nutritionStatus = "영양 DB 연결 없음";
         } else {
             try {
+                progress.accept("영양 카탈로그를 확인하고 변경분을 동기화하고 있습니다.");
                 nutritionResult = nutrition.syncCatalog(nutritionConfig);
                 activeNutrition = nutritionResult.nutritionConfig;
                 nutritionStatus = "영양 DB push " + nutritionResult.pushedRows

@@ -7,9 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.yeonsik.fitnessapp.core.ui.*
 
 /** Icons accompany visible names, so decorative glyphs do not repeat TalkBack announcements. */
@@ -32,19 +35,21 @@ internal fun DevelopmentGroupCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     FitnessCard(modifier, onClick = onClick) {
-        Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
                 verticalAlignment = Alignment.CenterVertically) {
                 DevelopmentIconBadge(icon)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                    Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+                    Text(title, Modifier.semantics { heading() },
+                        fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
                     subtitle?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium,
+                        Text(it, fontSize = 14.sp, lineHeight = 22.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                trailingContent?.invoke()
+                if (LocalDensity.current.fontScale <= 1.3f) trailingContent?.invoke()
             }
+            if (LocalDensity.current.fontScale > 1.3f) trailingContent?.invoke()
             content()
         }
     }
@@ -55,7 +60,7 @@ internal fun DevelopmentGroupCard(
 internal fun DevelopmentDisclosureHint(text: String, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+        Text(text, Modifier.weight(1f), fontSize = 14.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
         Icon(FitnessActionNextIcon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -75,9 +80,9 @@ internal fun DevelopmentActionRow(
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
             Icon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(title, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
                 subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(it, fontSize = 14.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Icon(trailingIcon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -87,10 +92,17 @@ internal fun DevelopmentActionRow(
 
 @Composable
 internal fun DevelopmentFactRow(label: String, value: String, modifier: Modifier = Modifier) {
+    if (LocalDensity.current.fontScale > 1.3f) {
+        Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, fontSize = 14.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+        }
+        return
+    }
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
         verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+        Text(label, Modifier.weight(1f), fontSize = 14.sp, lineHeight = 22.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleSmall)
+        Text(value, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
     }
 }

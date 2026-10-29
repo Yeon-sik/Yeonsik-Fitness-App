@@ -91,7 +91,7 @@ class HomeDestinationUiTest {
 
         compose.onNodeWithText("등 · 이두").assertExists()
         compose.onNodeWithText("유산소 32분").assertExists()
-        compose.onNodeWithText("3회").assertExists()
+        compose.onNodeWithText("3끼").assertExists()
         compose.onNodeWithText("88.4 kg").assertExists()
         compose.onNodeWithText("운동 시작").assertDoesNotExist()
         compose.onNodeWithText("기록 보기").assertDoesNotExist()
@@ -106,7 +106,7 @@ class HomeDestinationUiTest {
     }
 
     @Test
-    fun activeSessionPutsContinueActionFirstEvenWhenWorkoutIsCompleted() {
+    fun activeSessionKeepsStatusAndDoesNotRestoreTheRemovedHeroAction() {
         val actions = RecordingActions()
         showHome(
             snapshot().copy(
@@ -119,8 +119,8 @@ class HomeDestinationUiTest {
         compose.onNodeWithText("오늘").assertExists()
         compose.onNodeWithText("진행 중").assertExists()
         compose.onNodeWithText("등 · 이두").assertExists()
-        compose.onNodeWithText("운동 이어가기").performClick()
-        assertEquals(1, actions.continues)
+        compose.onNodeWithText("운동 이어가기").assertDoesNotExist()
+        assertEquals(0, actions.continues)
     }
 
     @Test

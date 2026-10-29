@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.nutrition.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessNutrientSubgroup
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogFile
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
@@ -50,7 +52,8 @@ internal fun NutritionEditorDialog(
                 if (state.mode == NutritionEditorMode.COMPOSITION || state.mode == NutritionEditorMode.RECIPE) {
                     NutritionTotalPreview(foodPortionTotals(state.portions), label = "식품 ${state.portions.size}개")
                 }
-                AppButton(actions::save, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading) {
+                AppButton(actions::save, Modifier.fillMaxWidth().testTag("nutrition-register-save"), enabled = !state.saving && !state.loading &&
+                    (state.mode != NutritionEditorMode.FOOD || !state.productPicker.loading)) {
                     Text(if (state.saving) "저장 중…" else when (state.mode) {
                         NutritionEditorMode.FOOD -> "등록하기"
                         NutritionEditorMode.RECIPE -> "내 요리 저장하기"
@@ -199,10 +202,14 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
                     enabled = !state.saving, selected = state.registrationKind == kind) { Text(kind.label) }
             }
         }
-        OutlinedTextField(state.field(FoodEntryField.NAME), { actions.updateField(FoodEntryField.NAME, it) }, Modifier.fillMaxWidth(),
-            label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving,
+        if (state.registrationKind == NutritionRegistrationKind.PRODUCT) {
+            NutritionProductPicker(state.productPicker, actions, enabled = !state.saving)
+        }
+        OutlinedTextField(state.field(FoodEntryField.NAME), { actions.updateField(FoodEntryField.NAME, it) }, Modifier.fillMaxWidth().testTag("nutrition-product-name"),
+            label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving && state.productPicker.selected == null,
             isError = state.submitted && state.field(FoodEntryField.NAME).isBlank(), shape = FitnessShape.input)
-        AppTextField(state.field(FoodEntryField.BRAND), { actions.updateField(FoodEntryField.BRAND, it) }, Modifier.fillMaxWidth(), label = { Text("브랜드 (선택)") }, enabled = !state.saving)
+        AppTextField(state.field(FoodEntryField.BRAND), { actions.updateField(FoodEntryField.BRAND, it) }, Modifier.fillMaxWidth(), label = { Text("브랜드 (선택)") },
+            enabled = !state.saving && state.productPicker.selected == null)
     }
     if (state.registrationKind == NutritionRegistrationKind.PRODUCT) {
         NutritionFormSection("PriceTrace 브랜드 연결", Modifier.fillMaxWidth(), "선택 사항 · 라벨에 적힌 브랜드 이름은 그대로 보존됩니다.") {
@@ -233,15 +240,32 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
     NutritionFormSection("기본 영양정보", Modifier.fillMaxWidth(), "위 기준량에 들어 있는 값입니다.") {
         Text(NutritionConsistencyPolicy.LABEL_GUIDANCE, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN, FoodEntryField.CARBS, FoodEntryField.FAT),
+        NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN),
             state::field, actions::updateField, enabled = !state.saving, submitted = state.submitted)
-        TextButton({ additional = !additional }, enabled = !state.saving) { Text(if (additional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)") }
-        if (additional || state.submitted) {
+        TextButton({ additional = !additional }, enabled = !state.saving) {
+            Text(if (additional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)")
+        }
+        val showAdditional = additional || state.submitted
+        if (showAdditional) {
             Text("모르는 값은 비워 두세요. 실제 0인 값만 0으로 입력하세요.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            NutritionFieldGrid(listOf(FoodEntryField.SODIUM, FoodEntryField.SUGARS, FoodEntryField.SATURATED_FAT),
-                state::field, actions::updateField, enabled = !state.saving, required = false, submitted = state.submitted)
-            NutritionFieldGrid(listOf(FoodEntryField.TRANS_FAT), state::field, actions::updateField,
+        }
+        NutritionEntryField(FoodEntryField.CARBS, state::field, actions::updateField, Modifier.fillMaxWidth(),
+            enabled = !state.saving, submitted = state.submitted)
+        if (showAdditional) {
+            FitnessNutrientSubgroup("탄수화물", Modifier.fillMaxWidth()) {
+                NutritionEntryField(FoodEntryField.SUGARS, state::field, actions::updateField, Modifier.fillMaxWidth(),
+                    enabled = !state.saving, required = false, submitted = state.submitted)
+            }
+        }
+        NutritionEntryField(FoodEntryField.FAT, state::field, actions::updateField, Modifier.fillMaxWidth(),
+            enabled = !state.saving, submitted = state.submitted)
+        if (showAdditional) {
+            FitnessNutrientSubgroup("지방", Modifier.fillMaxWidth()) {
+                NutritionFieldGrid(listOf(FoodEntryField.SATURATED_FAT, FoodEntryField.TRANS_FAT),
+                    state::field, actions::updateField, enabled = !state.saving, required = false, submitted = state.submitted)
+            }
+            NutritionEntryField(FoodEntryField.SODIUM, state::field, actions::updateField, Modifier.fillMaxWidth(),
                 enabled = !state.saving, required = false, submitted = state.submitted)
         }
     }

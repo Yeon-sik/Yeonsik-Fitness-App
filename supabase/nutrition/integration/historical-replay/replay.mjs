@@ -10,7 +10,7 @@ const replayDir = path.dirname(fileURLToPath(import.meta.url));
 const integrationDir = path.resolve(replayDir, '..');
 const nutritionDir = path.resolve(replayDir, '../..');
 const migrationsDir = path.join(nutritionDir, 'supabase', 'migrations');
-const cli = 'supabase';
+const cli = process.platform === 'win32' ? 'supabase.cmd' : 'supabase';
 const docker = 'docker';
 const remote = [
   '20260808104704', '20260808112304', '20260808112544', '20260809093000',
@@ -23,7 +23,8 @@ const remote = [
 ];
 const relationGuardsVersion = '20261013065001';
 const canonicalV2EvidenceFixVersion = '20261013072000';
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111'];
+const productAmountProjectionVersion = '20261029060700';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111', productAmountProjectionVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -46,7 +47,10 @@ function run(command, args, options = {}) {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env || cliEnv,
-      shell: process.platform === 'win32',
+      // Only the Windows CLI shim needs cmd.exe. Passing node.exe through a
+      // shell breaks its normal "C:\\Program Files\\..." executable path.
+      shell: process.platform === 'win32' && command === cli,
+      windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     let stdout = '';
@@ -322,6 +326,11 @@ async function replay(label, final, kaguriId) {
     console.log('Applying Nutrition read v4 discriminator forward repair locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_brand_catalog_v4.sql'), 'utf8'));
+    stage(productAmountProjectionVersion, project.migrationsDir);
+    console.log('Applying read-time exact product amount projection locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_product_amount_projection.sql'), 'utf8'));
+
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {

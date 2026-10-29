@@ -55,7 +55,9 @@ data class NutritionEditorState(
     val saving: Boolean = false,
     val submitted: Boolean = false,
     val error: String? = null,
-    val notice: String? = null
+    val notice: String? = null,
+    val productPicker: NutritionProductPickerState = NutritionProductPickerState(),
+    val returnToMeal: Boolean = false
 ) {
     fun field(field: FoodEntryField): String = fields[field].orEmpty()
 }
@@ -87,6 +89,10 @@ interface NutritionEditorActions {
     fun closeBrandSearch() {}
     fun selectBrand(row: PriceTraceBrandRow) {}
     fun clearBrand() {}
+    fun updateProductQuery(value: String) {}
+    fun searchProducts() {}
+    fun selectProduct(product: ProductReadV1) {}
+    fun clearProductSelection() {}
     fun updateRecipeServings(value: String) {}
     fun updateCookedWeight(value: String) {}
     fun previewIngredientFile(contents: String) {}
@@ -100,6 +106,8 @@ class NutritionEditorController(
     private val catalog: NutritionCatalogRepositoryApi,
     private val templates: NutritionTemplateRepositoryApi?,
     private val executor: ExecutorService,
+    private val productLookup: NutritionProductLookup? = null,
+    private val onFoodRegistered: (NutritionFood) -> Unit = {},
     private val brandCatalog: PriceTraceBrandCatalog? = null
 ) : NutritionEditorActions {
     private val main = Handler(Looper.getMainLooper())
@@ -140,7 +148,16 @@ class NutritionEditorController(
             priceTraceBrand = runCatching { PriceTraceBrandSelection.fromSnapshot(savedState[KEY_BRAND_ID],
                 savedState[KEY_BRAND_NAME], savedState[KEY_PARENT_ID], savedState[KEY_PARENT_NAME]) }.getOrNull(),
             recipeServings = savedState[KEY_RECIPE_SERVINGS] ?: "1",
-            cookedWeightGrams = savedState[KEY_COOKED_WEIGHT] ?: ""
+            cookedWeightGrams = savedState[KEY_COOKED_WEIGHT] ?: "",
+            returnToMeal = savedState[KEY_RETURN_TO_MEAL] ?: false,
+            productPicker = NutritionProductPickerState(
+                query = savedState[KEY_PRODUCT_QUERY] ?: "",
+                selected = NutritionProductDraftCodec.decode(savedState[KEY_PRODUCT_SELECTION]),
+                manualFields = listOf(FoodEntryField.NAME, FoodEntryField.BRAND, FoodEntryField.BASIS)
+                    .associateWith { savedState.get<String>("$PREFIX.product.manual.${it.name}").orEmpty() },
+                manualUnit = savedState[KEY_PRODUCT_MANUAL_UNIT] ?: "",
+                manualPackageAmount = savedState[KEY_PRODUCT_MANUAL_PACKAGE] ?: ""
+            )
         )
     }
 
@@ -167,14 +184,14 @@ class NutritionEditorController(
         if (state.saving) return
         brandSearch.dismiss()
         ++version
-        update { it.copy(open = false, loading = false, error = null, editingBrandFood = null) }
+        update { it.copy(open = false, loading = false, error = null, editingBrandFood = null, productPicker = it.productPicker.copy(loading = false)) }
         restoringPortions = false
     }
 
     override fun showLibrary() {
         if (state.saving) return
         brandSearch.dismiss()
-        update { it.copy(mode = NutritionEditorMode.LIBRARY, error = null) }
+        update { it.copy(mode = NutritionEditorMode.LIBRARY, error = null, productPicker = it.productPicker.copy(loading = false)) }
         task({ Triple(listTemplates(), catalog.savedRecipes(), libraryProducts("")) }) { current, (found, recipes, products) ->
             current.copy(templates = found, recipes = recipes, query = "", editingBrandFood = null,
                 packagedFoods = products.first, brandEditableFoodIds = products.second)
@@ -230,7 +247,18 @@ class NutritionEditorController(
         brandSearch.dismiss()
         ++version
         update { it.copy(mode = NutritionEditorMode.FOOD, registrationKind = NutritionRegistrationKind.PRODUCT,
-            loading = false, submitted = false, error = null, notice = null, editingBrandFood = null) }
+            loading = false, submitted = false, error = null, notice = null, editingBrandFood = null, returnToMeal = false,
+            productPicker = it.productPicker.copy(loading = false)) }
+    }
+
+    fun openProductForMeal(fields: Map<FoodEntryField, String>, basisUnit: String, packageAmount: String) {
+        synchronizeOwner()
+        if (state.saving) return
+        ++version
+        update { it.copy(open = true, mode = NutritionEditorMode.FOOD, returnToMeal = true,
+            registrationKind = NutritionRegistrationKind.PRODUCT, fields = fields, basisUnit = basisUnit,
+            packageAmount = packageAmount, sourceType = "manual", priceTraceBrand = null, editingBrandFood = null, productPicker = NutritionProductPickerState(),
+            loading = false, submitted = false, error = null, notice = null) }
     }
 
     override fun search(query: String) {
@@ -260,15 +288,24 @@ class NutritionEditorController(
     override fun updateMemo(value: String) = update { it.copy(memo = value) }
     override fun updateFavorite(value: Boolean) = update { it.copy(favorite = value) }
     override fun updateField(field: FoodEntryField, value: String) {
+        if (state.productPicker.selected != null && field in listOf(FoodEntryField.NAME, FoodEntryField.BRAND)) return
+        cancelProductNutritionRead()
         val changedBrand = field == FoodEntryField.BRAND && state.field(field).trim() != value.trim()
         if (changedBrand) brandSearch.dismiss()
         update { it.copy(fields = it.fields + (field to value), error = null,
             priceTraceBrand = if (changedBrand) null else it.priceTraceBrand) }
     }
-    override fun updateUnit(value: String) = update { it.copy(basisUnit = value, error = null) }
+    override fun updateUnit(value: String) {
+        cancelProductNutritionRead()
+        update { it.copy(basisUnit = value, error = null) }
+    }
     override fun updateSource(value: String) = update { it.copy(sourceType = value) }
     override fun updateRegistrationKind(value: NutritionRegistrationKind) {
-        if (value != NutritionRegistrationKind.PRODUCT) brandSearch.dismiss()
+        if (state.saving) return
+        if (value != NutritionRegistrationKind.PRODUCT) {
+            brandSearch.dismiss()
+            clearProductSelection()
+        }
         update { it.copy(registrationKind = value, priceTraceBrand = if (value == NutritionRegistrationKind.PRODUCT) it.priceTraceBrand else null) }
     }
     override fun updatePackageAmount(value: String) = update { it.copy(packageAmount = value, error = null) }
@@ -334,6 +371,100 @@ class NutritionEditorController(
     override fun updateRecipeServings(value: String) = update { it.copy(recipeServings = value, error = null) }
     override fun updateCookedWeight(value: String) = update { it.copy(cookedWeightGrams = value, error = null) }
 
+    override fun updateProductQuery(value: String) {
+        if (state.saving) return
+        ++version
+        update { it.copy(productPicker = it.productPicker.copy(query = value, results = emptyList(),
+            loading = false, searched = false, error = null)) }
+    }
+
+    override fun searchProducts() {
+        if (state.saving || state.mode != NutritionEditorMode.FOOD || state.registrationKind != NutritionRegistrationKind.PRODUCT) return
+        val query = state.productPicker.query.trim()
+        if (query.isBlank()) {
+            update { it.copy(productPicker = it.productPicker.copy(error = "검색할 제품 이름을 입력하세요.")) }
+            return
+        }
+        productTask({ requireNotNull(productLookup) { "PriceTrace 제품 검색을 사용할 수 없습니다." }.search(query) }) { current, found ->
+            current.copy(productPicker = current.productPicker.copy(results = found, searched = true))
+        }
+    }
+
+    override fun selectProduct(product: ProductReadV1) {
+        if (state.saving || state.registrationKind != NutritionRegistrationKind.PRODUCT || product !in state.productPicker.results) return
+        brandSearch.dismiss()
+        ++version
+        val previous = state
+        val picker = previous.productPicker
+        var fields = previous.fields + (FoodEntryField.NAME to product.name) + (FoodEntryField.BRAND to product.brand.orEmpty())
+        val exact = product.isExactCatalogProduct()
+        val supportedUnit = product.contentUnit?.takeIf(NutritionUnit::isSupported)
+        if (exact && product.contentAmount?.let { it.isFinite() && it > 0 } == true && supportedUnit != null)
+            fields = fields + (FoodEntryField.BASIS to NutritionCalculator.trim(product.contentAmount))
+        update { it.copy(fields = fields, priceTraceBrand = null,
+            basisUnit = if (exact) supportedUnit ?: it.basisUnit else it.basisUnit,
+            packageAmount = if (exact && product.contentAmount?.let { amount -> amount.isFinite() && amount > 0 } == true && supportedUnit != null)
+                NutritionCalculator.trim(product.contentAmount) else it.packageAmount,
+            productPicker = picker.copy(selected = product, results = emptyList(), loading = false, error = null,
+                manualFields = if (picker.selected == null) previous.fields.filterKeys { key -> key in listOf(FoodEntryField.NAME, FoodEntryField.BRAND, FoodEntryField.BASIS) } else picker.manualFields,
+                manualUnit = if (picker.selected == null) previous.basisUnit else picker.manualUnit,
+                manualPackageAmount = if (picker.selected == null) previous.packageAmount else picker.manualPackageAmount,
+                notice = if (exact) "선택한 제품에 연결합니다. 영양정보는 확인하거나 직접 입력하세요."
+                    else "표준상품 선택됨 · 기준량과 일치하는 규격이 있을 때만 정확한 제품에 연결합니다."), error = null) }
+        if (!exact || !product.hasValidPriceTraceCatalogMetadata() || productLookup == null) return
+        val selectedFields = state.fields
+        val selectedUnit = state.basisUnit
+        productTask({ productLookup.nutrition(product) }) { current, nutrition ->
+            if (nutrition == null || current.fields != selectedFields || current.basisUnit != selectedUnit) current.copy(
+                productPicker = current.productPicker.copy(notice = "선택됨 · 공개 영양정보가 없거나 입력이 변경되어 직접 입력값을 유지합니다."))
+            else current.copy(fields = current.fields + profileFields(nutrition.profile) +
+                (FoodEntryField.BASIS to NutritionCalculator.trim(nutrition.basisAmount)), basisUnit = nutrition.basisUnit,
+                productPicker = current.productPicker.copy(notice = "선택됨 · 공개 영양정보를 불러왔습니다. 필요하면 수정하세요."))
+        }
+    }
+
+    override fun clearProductSelection() {
+        if (state.saving) return
+        ++version
+        val picker = state.productPicker
+        update { it.copy(fields = if (picker.selected == null) it.fields else it.fields + picker.manualFields,
+            basisUnit = if (picker.selected == null) it.basisUnit else picker.manualUnit.ifBlank { NutritionUnit.GRAM },
+            packageAmount = if (picker.selected == null) it.packageAmount else picker.manualPackageAmount,
+            productPicker = NutritionProductPickerState(query = picker.query), error = null) }
+    }
+
+    private fun cancelProductNutritionRead() {
+        if (state.saving || state.productPicker.selected == null || !state.productPicker.loading) return
+        ++version
+        update { it.copy(productPicker = it.productPicker.copy(loading = false)) }
+    }
+
+    private fun <T> productTask(work: () -> T, apply: (NutritionEditorState, T) -> NutritionEditorState) {
+        val owner = state.ownerId
+        val request = ++version
+        update { it.copy(productPicker = it.productPicker.copy(loading = true, error = null)) }
+        executor.execute {
+            val result = runCatching {
+                check(catalog.currentOwnerId() == owner) { "계정이 변경되었습니다. 등록 화면을 다시 여세요." }
+                work()
+            }
+            main.post {
+                if (request != version || !state.open || state.mode != NutritionEditorMode.FOOD ||
+                    state.ownerId != owner || catalog.currentOwnerId() != owner) return@post
+                update { current -> result.fold(
+                    { apply(current, it).let { next -> next.copy(productPicker = next.productPicker.copy(loading = false)) } },
+                    { current.copy(productPicker = current.productPicker.copy(loading = false, error = it.message ?: "PriceTrace 조회에 실패했습니다. 다시 검색하세요.")) }) }
+            }
+        }
+    }
+
+    private fun profileFields(profile: NutritionProfile): Map<FoodEntryField, String> = mapOf(
+        FoodEntryField.CALORIES to NutritionProfile.CALORIES_KCAL, FoodEntryField.PROTEIN to NutritionProfile.PROTEIN_GRAMS,
+        FoodEntryField.CARBS to NutritionProfile.CARBS_GRAMS, FoodEntryField.FAT to NutritionProfile.FAT_GRAMS,
+        FoodEntryField.SODIUM to NutritionProfile.SODIUM_MG, FoodEntryField.SUGARS to NutritionProfile.SUGARS_GRAMS,
+        FoodEntryField.SATURATED_FAT to NutritionProfile.SATURATED_FAT_GRAMS, FoodEntryField.TRANS_FAT to NutritionProfile.TRANS_FAT_GRAMS
+    ).mapValues { (_, key) -> profile.value(key)?.let(NutritionCalculator::trim).orEmpty() }
+
     override fun previewIngredientFile(contents: String) {
         val owner = state.ownerId
         update { it.copy(importPreview = null, error = null) }
@@ -352,7 +483,7 @@ class NutritionEditorController(
 
     override fun save() {
         val draft = state
-        if (draft.saving || draft.loading || !draft.open) return
+        if (draft.saving || draft.loading || !draft.open || (draft.mode == NutritionEditorMode.FOOD && draft.productPicker.loading)) return
         update { it.copy(submitted = true, error = null) }
         try {
             when (draft.mode) {
@@ -409,9 +540,16 @@ class NutritionEditorController(
             draft.packageAmount.trim().takeIf(String::isNotEmpty)?.let { requiredNumber(it, "제품 1개 용량") }, draft.basisUnit,
             draft.priceTraceBrand)
         if (draft.registrationKind == NutritionRegistrationKind.PRODUCT) require(input.packageAmount?.let { it > 0 } == true) { "제품 1개 용량을 입력하세요." }
-        task({ catalog.saveManualFoodInput(AccountScope(draft.ownerId), input)
-            ?: throw IllegalStateException("식품을 등록하지 못했습니다.") }, saving = true) { current, food ->
-            current.copy(mode = NutritionEditorMode.LIBRARY, fields = mapOf(FoodEntryField.BASIS to "100"), packageAmount = "",
+        task({
+            val selected = draft.productPicker.selected
+            val saved = if (selected == null) catalog.saveManualFoodInput(AccountScope(draft.ownerId), input)
+                else catalog.savePriceTraceProductInput(AccountScope(draft.ownerId), input, selected)
+            saved ?: throw IllegalStateException("식품을 등록하지 못했습니다.")
+        }, saving = true) { current, food ->
+            if (draft.returnToMeal) onFoodRegistered(food)
+            current.copy(open = !draft.returnToMeal, returnToMeal = false,
+                mode = NutritionEditorMode.LIBRARY, fields = mapOf(FoodEntryField.BASIS to "100"), packageAmount = "",
+                productPicker = NutritionProductPickerState(),
                 priceTraceBrand = null, brandSearch = null,
                 packagedFoods = if (food.isPackagedFood()) listOf(food) + current.packagedFoods else current.packagedFoods,
                 brandEditableFoodIds = if (food.isPackagedFood()) current.brandEditableFoodIds + food.id else current.brandEditableFoodIds,
@@ -485,6 +623,14 @@ class NutritionEditorController(
         savedState[KEY_PARENT_NAME] = next.priceTraceBrand?.parentCanonicalName
         savedState[KEY_RECIPE_SERVINGS] = next.recipeServings
         savedState[KEY_COOKED_WEIGHT] = next.cookedWeightGrams
+        savedState[KEY_RETURN_TO_MEAL] = next.returnToMeal
+        savedState[KEY_PRODUCT_QUERY] = next.productPicker.query
+        savedState[KEY_PRODUCT_SELECTION] = next.productPicker.selected?.let(NutritionProductDraftCodec::encode)
+        savedState[KEY_PRODUCT_MANUAL_UNIT] = next.productPicker.manualUnit
+        savedState[KEY_PRODUCT_MANUAL_PACKAGE] = next.productPicker.manualPackageAmount
+        listOf(FoodEntryField.NAME, FoodEntryField.BRAND, FoodEntryField.BASIS).forEach { field ->
+            savedState["$PREFIX.product.manual.${field.name}"] = next.productPicker.manualFields[field].orEmpty()
+        }
         if (!restoringPortions) {
             savedState[KEY_FOOD_IDS] = ArrayList(next.portions.map { it.food.id })
             savedState[KEY_AMOUNTS] = ArrayList(next.portions.map { it.quantity })
@@ -514,6 +660,11 @@ class NutritionEditorController(
         const val KEY_PARENT_NAME = "$PREFIX.pt_parent_name"
         const val KEY_RECIPE_SERVINGS = "$PREFIX.recipe_servings"
         const val KEY_COOKED_WEIGHT = "$PREFIX.cooked_weight"
+        const val KEY_RETURN_TO_MEAL = "$PREFIX.return_to_meal"
+        const val KEY_PRODUCT_QUERY = "$PREFIX.product.query"
+        const val KEY_PRODUCT_SELECTION = "$PREFIX.product.selection"
+        const val KEY_PRODUCT_MANUAL_UNIT = "$PREFIX.product.manual_unit"
+        const val KEY_PRODUCT_MANUAL_PACKAGE = "$PREFIX.product.manual_package"
         const val KEY_FOOD_IDS = "$PREFIX.food_ids"
         const val KEY_AMOUNTS = "$PREFIX.amounts"
         fun requiredNumber(value: String, label: String): Double {

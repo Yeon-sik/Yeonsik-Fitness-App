@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessNutrientSubgroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +106,28 @@ internal fun MealCatalogResultList(
 }
 
 @Composable
+private fun MealCartReviewAction(itemCount: Int, onReview: () -> Unit, enabled: Boolean) {
+    TextButton(onReview, enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+        modifier = Modifier.testTag("meal-cart-review").heightIn(min = 48.dp)) {
+        Text("담은 음식 ${itemCount}개 보기")
+    }
+}
+
+@Composable
+private fun MealCartCalorieValue(totals: NutritionTotals, modifier: Modifier = Modifier) {
+    val calories = totals.total(NutritionProfile.CALORIES_KCAL)
+    val value = when {
+        totals.itemCount() == 0 -> "0 kcal"
+        calories.knownCount() == 0 -> "칼로리 미확인"
+        else -> "${NutritionCalculator.trim(calories.knownSum())} kcal${if (calories.missingCount() > 0) " 이상" else ""}"
+    }
+    Text(value, modifier.testTag("meal-cart-calories"),
+        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+        textAlign = androidx.compose.ui.text.style.TextAlign.End)
+}
+
+@Composable
 @OptIn(ExperimentalLayoutApi::class)
 internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> Unit, enabled: Boolean,
     modifier: Modifier = Modifier) {
@@ -111,19 +135,17 @@ internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> U
         NutritionProfile.PROTEIN_GRAMS, NutritionProfile.FAT_GRAMS)
     val incomplete = totals.itemCount() > 0 && keys.any { totals.total(it).missingCount() > 0 }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onReview, enabled = enabled, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                modifier = Modifier.testTag("meal-cart-review").heightIn(min = 48.dp)) {
-                Text("담은 음식 ${totals.itemCount()}개 보기")
+        if (LocalDensity.current.fontScale >= 1.35f) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                MealCartReviewAction(totals.itemCount(), onReview, enabled)
+                MealCartCalorieValue(totals, Modifier.fillMaxWidth())
             }
-            val calories = totals.total(NutritionProfile.CALORIES_KCAL)
-            Text(when {
-                totals.itemCount() == 0 -> "0 kcal"
-                calories.knownCount() == 0 -> "칼로리 미확인"
-                else -> "${NutritionCalculator.trim(calories.knownSum())} kcal${if (calories.missingCount() > 0) " 이상" else ""}"
-            },
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                MealCartReviewAction(totals.itemCount(), onReview, enabled)
+                MealCartCalorieValue(totals, Modifier.weight(1f))
+            }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             listOf("탄수" to NutritionProfile.CARBS_GRAMS, "단백질" to NutritionProfile.PROTEIN_GRAMS,
@@ -136,16 +158,20 @@ internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> U
                 }
                 Column(Modifier.testTag("meal-cart-macro-$label"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("$label $value", style = MaterialTheme.typography.bodyMedium)
-                    val child = when (key) {
-                        NutritionProfile.CARBS_GRAMS -> "당류" to NutritionProfile.SUGARS_GRAMS
-                        NutritionProfile.FAT_GRAMS -> "포화지방" to NutritionProfile.SATURATED_FAT_GRAMS
-                        else -> null
+                    val children = when (key) {
+                        NutritionProfile.CARBS_GRAMS -> listOf("당류" to NutritionProfile.SUGARS_GRAMS)
+                        NutritionProfile.FAT_GRAMS -> listOf(
+                            "포화지방" to NutritionProfile.SATURATED_FAT_GRAMS,
+                            "트랜스지방" to NutritionProfile.TRANS_FAT_GRAMS
+                        )
+                        else -> emptyList()
                     }
-                    child?.let { (childLabel, childKey) ->
-                        val childTotal = totals.total(childKey)
-                        val childValue = if (childTotal.knownCount() == 0) "미확인"
-                            else "${NutritionCalculator.trim(childTotal.knownSum())} g${if (childTotal.missingCount() > 0) " 이상" else ""}"
-                        MealSecondaryMetric(childLabel, childValue)
+                    if (children.isNotEmpty()) {
+                        FitnessNutrientSubgroup(if (key == NutritionProfile.CARBS_GRAMS) "탄수화물" else "지방") {
+                            children.forEach { (childLabel, childKey) ->
+                                MealSecondaryMetric(childLabel, mealMacroGramsText(mealMacroTotalText(totals.total(childKey))))
+                            }
+                        }
                     }
                 }
             }
@@ -309,13 +335,17 @@ private fun MealDiningAmountEditor(menu: MealDiningDraftItem, onChange: (MealDin
         AppTextField(d.menu, { onChange(menu.copy(draft = d.copy(menu = it))) }, Modifier.fillMaxWidth(), { Text("메뉴명") }, enabled = enabled)
         MealNutritionField(d.calories, { onChange(menu.copy(draft = d.copy(calories = it))) }, "칼로리", "kcal",
             Modifier.fillMaxWidth().testTag("meal-dining-calories-${menu.id}"), enabled)
-        MealNutritionField(d.protein, { onChange(menu.copy(draft = d.copy(protein = it))) }, "단백질", "g", Modifier.fillMaxWidth(), enabled)
         MealNutritionField(d.carbs, { onChange(menu.copy(draft = d.copy(carbs = it))) }, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), enabled)
+        FitnessNutrientSubgroup("탄수화물", Modifier.fillMaxWidth()) {
+            MealNutritionField(d.sugars, { onChange(menu.copy(draft = d.copy(sugars = it))) }, "당류", "g", Modifier.fillMaxWidth(), enabled, required = false)
+        }
+        MealNutritionField(d.protein, { onChange(menu.copy(draft = d.copy(protein = it))) }, "단백질", "g", Modifier.fillMaxWidth(), enabled)
         MealNutritionField(d.fat, { onChange(menu.copy(draft = d.copy(fat = it))) }, "지방 (총)", "g", Modifier.fillMaxWidth(), enabled)
+        FitnessNutrientSubgroup("지방", Modifier.fillMaxWidth()) {
+            MealNutritionField(d.saturatedFat, { onChange(menu.copy(draft = d.copy(saturatedFat = it))) }, "포화지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
+            MealNutritionField(d.transFat, { onChange(menu.copy(draft = d.copy(transFat = it))) }, "트랜스지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
+        }
         MealNutritionField(d.sodium, { onChange(menu.copy(draft = d.copy(sodium = it))) }, "나트륨", "mg", Modifier.fillMaxWidth(), enabled, required = false)
-        MealNutritionField(d.sugars, { onChange(menu.copy(draft = d.copy(sugars = it))) }, "당류", "g", Modifier.fillMaxWidth(), enabled, required = false)
-        MealNutritionField(d.saturatedFat, { onChange(menu.copy(draft = d.copy(saturatedFat = it))) }, "포화지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
-        MealNutritionField(d.transFat, { onChange(menu.copy(draft = d.copy(transFat = it))) }, "트랜스지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
     }
     diningMenuRegistrationError(menu)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }
