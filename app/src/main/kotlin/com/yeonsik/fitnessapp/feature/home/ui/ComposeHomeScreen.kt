@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.backdrops.layerBackdrop
 import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
@@ -60,6 +64,8 @@ interface HomeScreenActions {
     fun openMealManagement(date: String, returnScreen: FitnessScreen)
 }
 
+private val HomeQuickActionMinHeight = 64.dp
+
 @Composable
 internal fun HomeDestination(
     homeState: HomeUiState,
@@ -77,26 +83,28 @@ internal fun HomeDestination(
     entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("HOME"),
     preferredMassUnit: MassUnit = MassUnit.KG,
     entranceToken: Long? = null,
-    isActualActive: Boolean = true
+    isActualActive: Boolean = true,
+    onRetry: () -> Unit = {}
 ) {
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
+    val failed = homeState is HomeUiState.Error && homeState.ownerId == ownerId &&
+        (homeState.date == null || homeState.date == today)
     val entrance = rememberTopLevelEntranceMotion(
-        entranceState, entranceToken, isActualActive, contentReady = ready != null
+        entranceState, entranceToken, isActualActive, contentReady = ready != null || failed
     )
-    if (ready == null) {
+    if (ready == null && !failed) {
         LoadingHome()
         return
     }
 
-    val snapshot = ready.snapshot
     val context = LocalContext.current
     val highContrast = Build.VERSION.SDK_INT >= 36 &&
         context.getSystemService(AccessibilityManager::class.java)
             ?.isHighContrastTextEnabled == true
     val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
-    val heroStatus = homeTodayHeroStatus(snapshot, preferredMassUnit)
+    val heroStatus = ready?.snapshot?.let { homeTodayHeroStatus(it, preferredMassUnit) }
 
     Column(
         Modifier.fillMaxWidth(),
@@ -104,7 +112,8 @@ internal fun HomeDestination(
     ) {
         TopLevelEntranceContent(entrance, order = 0) {
             FitnessSection("오늘 상태") {
-                HomeTodayHero(heroStatus, actions::continueWorkout)
+                if (heroStatus != null) HomeTodayHero(heroStatus, actions::continueWorkout)
+                else HomeStatusError(onRetry)
             }
         }
         TopLevelEntranceContent(entrance, order = 1) {
@@ -181,7 +190,7 @@ private fun HomeGlassWorkoutQuickActions(
     val colors = MaterialTheme.colorScheme
     val content: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.homeActionMinHeight),
+            modifier = Modifier.fillMaxWidth().heightIn(min = HomeQuickActionMinHeight),
             verticalAlignment = Alignment.CenterVertically
         ) {
             HomeQuickActionItem(
@@ -206,7 +215,7 @@ private fun HomeGlassWorkoutQuickActions(
     }
     if (useGlass) {
         HomeGlassPanel(
-            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight)
+            modifier = modifier.heightIn(min = HomeQuickActionMinHeight)
                 .testTag("home-quick-workout"),
             shape = FitnessShape.card,
             source = Brush.linearGradient(listOf(colors.surface, colors.surfaceContainerHigh)),
@@ -216,7 +225,7 @@ private fun HomeGlassWorkoutQuickActions(
         )
     } else {
         FitnessCard(
-            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight)
+            modifier = modifier.heightIn(min = HomeQuickActionMinHeight)
                 .testTag("home-quick-workout"),
             content = { content() }
         )
@@ -234,8 +243,8 @@ private fun HomeGlassQuickActionCard(
     val content: @Composable () -> Unit = {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .heightIn(min = FitnessSpacing.homeActionMinHeight)
-                .padding(horizontal = FitnessSpacing.card),
+                .heightIn(min = HomeQuickActionMinHeight)
+                .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -251,7 +260,7 @@ private fun HomeGlassQuickActionCard(
     if (useGlass) {
         val colors = MaterialTheme.colorScheme
         HomeGlassPanel(
-            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight),
+            modifier = modifier.heightIn(min = HomeQuickActionMinHeight),
             shape = FitnessShape.card,
             source = Brush.linearGradient(listOf(colors.surface, colors.surfaceContainerHigh)),
             tint = colors.surface.copy(alpha = 0.28f),
@@ -259,7 +268,7 @@ private fun HomeGlassQuickActionCard(
             onClick = onClick
         ) { content() }
     } else {
-        FitnessCard(modifier.heightIn(min = FitnessSpacing.homeActionMinHeight), onClick = onClick) {
+        FitnessCard(modifier.heightIn(min = HomeQuickActionMinHeight), onClick = onClick) {
             content()
         }
     }
@@ -274,10 +283,10 @@ private fun HomeQuickActionItem(
 ) {
     Row(
         modifier = modifier
-            .heightIn(min = FitnessSpacing.homeActionMinHeight)
+            .heightIn(min = HomeQuickActionMinHeight)
             .clip(FitnessShape.card)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = FitnessSpacing.card),
+            .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
         horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -287,7 +296,7 @@ private fun HomeQuickActionItem(
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
         )
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -334,6 +343,26 @@ private fun HomeGlassPanel(
             ).matchParentSize()
         )
         content()
+    }
+}
+
+@Composable
+private fun HomeStatusError(onRetry: () -> Unit) {
+    FitnessCard {
+        Column(Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+            Text("오늘 상태를 불러오지 못했어요.",
+                modifier = Modifier.testTag("home-status-error")
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.bodyLarge)
+            Text("다시 시도하거나 아래에서 기록을 이어갈 수 있어요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onRetry,
+                modifier = Modifier.heightIn(min = 48.dp).testTag("home-status-retry")) {
+                Text("다시 시도", color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
     }
 }
 

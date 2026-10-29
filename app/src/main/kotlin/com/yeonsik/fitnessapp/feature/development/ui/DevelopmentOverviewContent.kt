@@ -9,13 +9,17 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutProgressSession
@@ -61,7 +65,9 @@ internal fun DevelopmentOverviewContent(
                 Text("기록을 바탕으로 다음 할 일을 정리해요", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = { settingsOpen = true }) {
+            TextButton(onClick = { settingsOpen = true },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("development-settings"),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
                 Icon(FitnessSettingsIcon, null, Modifier.size(20.dp))
                 Spacer(Modifier.width(FitnessSpacing.micro))
                 Text("설정")
@@ -75,7 +81,11 @@ internal fun DevelopmentOverviewContent(
             if (nextTraining != null) {
                 SetSuggestionCard(nextTraining, startingWorkout,
                     onDetails = { selectedExerciseKey = nextTraining.exerciseKey },
-                    onStart = actions::startSuggestedWorkout)
+                    onStart = actions::startSuggestedWorkout,
+                    onPrepare = {
+                        actions.openRoutine(training.exercises.find { it.key == nextTraining.exerciseKey }
+                            ?.comparison?.current?.session?.routineId)
+                    })
             } else if (training.exercises.isEmpty()) {
                 DevelopmentGroupCard(FitnessStrengthIcon, "다음 운동", Modifier.fillMaxWidth(),
                     subtitle = "운동을 완료하면 세트 구성을 제안해요") {
@@ -100,18 +110,16 @@ internal fun DevelopmentOverviewContent(
             FitnessStatusMessage(FitnessSemanticStatus.ERROR, "다음 행동을 정리하지 못했어요", it)
             FitnessOutlinedButton(actions::refresh, Modifier.fillMaxWidth()) { Text("다시 불러오기") }
         }
-        guidance?.nutrition?.firstOrNull()?.let { advice ->
-            AdviceSummaryCard(advice, onAction = actions::openMeals, onDetails = { selectedAdviceId = advice.id })
-        }
         guidance?.recovery?.let { advice ->
             AdviceSummaryCard(advice, onAction = actions::showRecoveryCheckIn, onDetails = { selectedAdviceId = advice.id })
         }
         if (guidance != null && guidance.recovery == null && guidance.recoveryError == null) {
-            DevelopmentGroupCard(FitnessRecoveryIcon, "오늘 컨디션", Modifier.fillMaxWidth(),
-                subtitle = "수면과 에너지도 운동량을 정할 때 참고해요",
-                onClick = actions::showRecoveryCheckIn) {
-                DevelopmentDisclosureHint("오늘 컨디션 기록하기")
-            }
+            DevelopmentActionRow(FitnessRecoveryIcon, "오늘 컨디션 기록하기",
+                actions::showRecoveryCheckIn, Modifier.fillMaxWidth().testTag("development-recovery"),
+                subtitle = "수면·에너지 기록을 운동량 판단에 참고해요")
+        }
+        guidance?.nutrition?.firstOrNull()?.let { advice ->
+            AdviceSummaryCard(advice, onAction = actions::openMeals, onDetails = { selectedAdviceId = advice.id })
         }
         guidance?.nutritionError?.let {
             FitnessStatusMessage(FitnessSemanticStatus.ERROR, "식단 제안을 불러오지 못했어요", it)
@@ -124,7 +132,13 @@ internal fun DevelopmentOverviewContent(
         if (training != null && training.exercises.isNotEmpty()) {
             DevelopmentGroupCard(FitnessTrendIcon, "운동 변화", Modifier.fillMaxWidth(),
                 subtitle = "최근 기록을 같은 조건끼리 비교해요",
-                trailingContent = { TextButton(onClick = { pickerOpen = true }) { Text("운동 선택") } }) {
+                trailingContent = {
+                    TextButton(onClick = { pickerOpen = true },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("development-picker"),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+                        Text("운동 선택")
+                    }
+                }) {
                 state.trackingMessage?.let { DetailText(it) }
                 if (followed.isEmpty()) {
                     DevelopmentActionRow(FitnessStrengthIcon, "비교할 운동 고르기", { pickerOpen = true },
@@ -139,7 +153,8 @@ internal fun DevelopmentOverviewContent(
         }
         DevelopmentActionRow(FitnessWorkingSetsIcon,
             if (contextOpen) "훈련 분포·기록 참고 접기" else "훈련 분포·기록 참고 보기",
-            { contextOpen = !contextOpen }, Modifier.fillMaxWidth(),
+            { contextOpen = !contextOpen }, Modifier.fillMaxWidth().testTag("development-context")
+                .semantics { stateDescription = if (contextOpen) "펼쳐짐" else "접힘" },
             subtitle = "부위별 세트 · 체중 · 기록 현황",
             trailingIcon = if (contextOpen) FitnessCollapseIcon else FitnessExpandIcon)
         if (contextOpen) {
@@ -182,10 +197,21 @@ internal fun DevelopmentOverviewContent(
     }
     if (selectedExercise != null || selectedAdvice != null) {
         ModalBottomSheet(onDismissRequest = closeDetail,
+            modifier = Modifier.testTag("development-detail").semantics { paneTitle = "발전 상세" },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.card),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("판단 근거와 기록", Modifier.weight(1f).semantics { heading() },
+                    fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = closeDetail,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("development-detail-close"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+                    Text("닫기", fontSize = 16.sp)
+                }
+            }
             key(selectedExercise?.key, selectedAdvice?.id) {
-                Column(Modifier.fillMaxWidth().fillMaxHeight(0.9f).verticalScroll(rememberScrollState())
-                    .padding(horizontal = FitnessSpacing.card).padding(bottom = FitnessSpacing.card),
+                Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(horizontal = FitnessSpacing.card).padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
                     if (selectedExercise != null) {
                         ExerciseProgressDetail(selectedExercise, unit,
@@ -214,7 +240,6 @@ internal fun DevelopmentOverviewContent(
                             }
                         }
                     }
-                    TextButton(onClick = closeDetail, modifier = Modifier.fillMaxWidth()) { Text("닫기") }
                 }
             }
         }
@@ -224,17 +249,12 @@ internal fun DevelopmentOverviewContent(
 @Composable
 private fun WeeklyTrainingSummary(report: DevelopmentReport) {
     FitnessCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(FitnessSpacing.card), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
-            DevelopmentIconBadge(FitnessCalendarIcon)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                Text("이번 주", style = MaterialTheme.typography.titleMedium)
-                DetailText("${report.currentWeekStart.format(shortDate)}–${report.referenceDate.format(shortDate)}")
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                Text("${report.currentWeekCompletedWorkoutSessions}회 운동", style = MaterialTheme.typography.titleMedium)
-                DetailText("운동한 날 ${report.currentWeekCompletedWorkoutDays}일")
-            }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("이번 주 · ${report.currentWeekCompletedWorkoutSessions}회 운동",
+                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+            DetailText("${report.currentWeekStart.format(shortDate)}–${report.referenceDate.format(shortDate)} · " +
+                "운동한 날 ${report.currentWeekCompletedWorkoutDays}일")
         }
     }
 }
@@ -243,30 +263,67 @@ private fun WeeklyTrainingSummary(report: DevelopmentReport) {
 private fun SetSuggestionCard(
     suggestion: DevelopmentSetSuggestion, starting: Boolean, onDetails: () -> Unit,
     onStart: (com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal) -> Unit,
+    onPrepare: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    DevelopmentGroupCard(FitnessStrengthIcon, "다음 운동", modifier.fillMaxWidth(), subtitle = suggestion.exerciseName) {
+    DevelopmentGroupCard(FitnessStrengthIcon, "다음 운동",
+        modifier.fillMaxWidth().testTag("development-next-workout"), subtitle = suggestion.exerciseName) {
         SetCountPanel(suggestion)
-        Text(suggestion.reason, style = MaterialTheme.typography.bodyMedium)
-        suggestion.proposal?.let { proposal ->
-            FitnessButton({ onStart(proposal) }, Modifier.fillMaxWidth(), enabled = !starting) {
+        DetailText(suggestion.reason)
+        val proposal = suggestion.proposal
+        if (proposal != null) {
+            FitnessButton({ onStart(proposal) }, Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .testTag("development-start"), enabled = !starting) {
                 Icon(FitnessPlayIcon, null, Modifier.size(20.dp))
                 Spacer(Modifier.width(FitnessSpacing.small))
                 Text(if (starting) "운동 준비 중…" else "이 구성으로 루틴 시작", Modifier.weight(1f))
             }
-        }
-        TextButton(onClick = onDetails, modifier = Modifier.fillMaxWidth()) {
-            Icon(FitnessEvidenceIcon, null, Modifier.size(20.dp))
-            Spacer(Modifier.width(FitnessSpacing.small))
-            Text(if (suggestion.suggestedSets == null) "최근 운동 구성 확인" else "제안 이유·최근 기록 보기",
-                Modifier.weight(1f))
-            Icon(FitnessActionNextIcon, null, Modifier.size(20.dp))
+            SuggestionDetailsButton(onDetails, Modifier.fillMaxWidth())
+        } else {
+            DetailText("세트 자동 적용 없이 루틴에서 준비해 주세요.")
+            if (LocalDensity.current.fontScale > 1.3f) {
+                PrepareRoutineButton(onPrepare, starting, Modifier.fillMaxWidth())
+                SuggestionDetailsButton(onDetails, Modifier.fillMaxWidth())
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrepareRoutineButton(onPrepare, starting, Modifier.weight(1f))
+                    SuggestionDetailsButton(onDetails, Modifier.weight(1f))
+                }
+            }
         }
     }
 }
 
 @Composable
+private fun PrepareRoutineButton(onPrepare: () -> Unit, starting: Boolean, modifier: Modifier) {
+    FitnessOutlinedButton(onPrepare, modifier.heightIn(min = 48.dp).testTag("development-prepare"),
+        enabled = !starting) {
+        Text("루틴에서 준비", fontSize = 14.sp, lineHeight = 22.sp)
+    }
+}
+
+@Composable
+private fun SuggestionDetailsButton(onDetails: () -> Unit, modifier: Modifier) {
+    TextButton(onClick = onDetails, modifier = modifier.heightIn(min = 48.dp)
+        .testTag("development-suggestion-detail"),
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+        Text("근거·기록 보기", fontSize = 14.sp, lineHeight = 22.sp)
+    }
+}
+
+@Composable
 private fun SetCountPanel(suggestion: DevelopmentSetSuggestion, modifier: Modifier = Modifier) {
+    if (suggestion.suggestedSets == suggestion.baselineSets || suggestion.suggestedSets == null) {
+        Surface(modifier.fillMaxWidth(), shape = FitnessShape.input,
+            color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
+            Column(Modifier.heightIn(min = 64.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(developmentSetSummary(suggestion), fontSize = 18.sp, lineHeight = 26.sp,
+                    fontWeight = FontWeight.SemiBold)
+                Text("워밍업을 뺀 일반 세트 기준", fontSize = 14.sp, lineHeight = 22.sp)
+            }
+        }
+        return
+    }
     Surface(modifier.fillMaxWidth(), shape = FitnessShape.input, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(FitnessSpacing.gap), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -274,7 +331,11 @@ private fun SetCountPanel(suggestion: DevelopmentSetSuggestion, modifier: Modifi
                 Icon(FitnessWorkingSetsIcon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(setAdjustmentLabel(suggestion), style = MaterialTheme.typography.labelLarge)
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            if (LocalDensity.current.fontScale > 1.3f) {
+                Text("지난 운동 ${suggestion.baselineSets}세트", fontSize = 16.sp, lineHeight = 24.sp)
+                Text("다음 운동 제안 ${suggestion.suggestedSets}세트", fontSize = 18.sp, lineHeight = 26.sp,
+                    fontWeight = FontWeight.SemiBold)
+            } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
                     DetailText("지난 운동")
@@ -304,8 +365,9 @@ private fun AdviceSummaryCard(advice: DevelopmentAdvice, onAction: () -> Unit,
     val startsMealLog = advice.id == "nutrition-start"
     DevelopmentGroupCard(icon, if (recovery) "오늘 컨디션" else "식사 보완", modifier.fillMaxWidth(),
         onClick = if (startsMealLog) onAction else onDetails) {
-        Text(if (startsMealLog) "식사 기록부터 시작해요" else advice.title, style = MaterialTheme.typography.titleLarge)
-        Text(advice.summary, style = MaterialTheme.typography.bodyMedium)
+        Text(if (startsMealLog) "식사 기록부터 시작해요" else advice.title,
+            fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
+        DetailText(advice.summary)
         DevelopmentDisclosureHint(when {
             startsMealLog -> "식사 기록하기"
             recovery -> "컨디션과 운동량 살펴보기"
@@ -339,7 +401,9 @@ private fun ExerciseProgressRow(progress: DevelopmentExerciseProgress, unit: Mas
     modifier: Modifier = Modifier, onDetails: () -> Unit) {
     DevelopmentActionRow(FitnessStrengthIcon, progress.name, onDetails,
         modifier.fillMaxWidth().testTag("development-exercise-${progress.key}"),
-        subtitle = "${comparisonHeadline(progress.comparison, unit)}\n${shortDateLabel(progress.comparison.current.session.date)} · ${sessionContext(progress.comparison.current.session)}")
+        subtitle = "${developmentComparisonValues(progress.comparison, unit)}\n" +
+            "${comparisonHeadline(progress.comparison, unit)}\n" +
+            "${shortDateLabel(progress.comparison.current.session.date)} · ${sessionContext(progress.comparison.current.session)}")
 }
 
 @Composable
@@ -411,7 +475,8 @@ private fun ExerciseProgressDetail(
     DetailText("같은 운동 변형·부하 방식·그룹끼리 비교해요. 수치 변화는 근육 성장이나 회복 정도를 뜻하지 않습니다.")
     DevelopmentActionRow(FitnessEvidenceIcon,
         if (historyOpen) "최근 기록 접기" else "최근 기록 ${progress.history.size}회 보기",
-        { historyOpen = !historyOpen }, trailingIcon = if (historyOpen) FitnessCollapseIcon else FitnessExpandIcon)
+        { historyOpen = !historyOpen }, Modifier.semantics { stateDescription = if (historyOpen) "펼쳐짐" else "접힘" },
+        trailingIcon = if (historyOpen) FitnessCollapseIcon else FitnessExpandIcon)
     if (historyOpen) {
         DetailText("최근 8주 중 최대 8회 · 일반 본세트 기준")
         progress.history.asReversed().forEach { sample ->
@@ -521,7 +586,7 @@ private fun DevelopmentSettingsDialog(
 
 @Composable
 private fun DetailText(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(text, fontSize = 14.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private val shortDate = DateTimeFormatter.ofPattern("M/d", Locale.KOREA)
@@ -555,7 +620,7 @@ private fun sampleSummary(sample: DevelopmentPerformanceSample, unit: MassUnit):
 private fun comparisonHeadline(comparison: DevelopmentExerciseComparison, unit: MassUnit): String {
     return when (comparison.state) {
         DevelopmentComparisonState.FIRST_RECORD -> "다음 비교의 기준이 생겼어요"
-        DevelopmentComparisonState.DIFFERENT_CONDITIONS -> "중량이나 세트 구성이 달라졌어요"
+        DevelopmentComparisonState.DIFFERENT_CONDITIONS -> "조건이 달라 직접 비교하기 어려워요"
         DevelopmentComparisonState.UNAVAILABLE -> "비교할 조건을 확인해 주세요"
         DevelopmentComparisonState.COMPARABLE -> {
             val delta = requireNotNull(comparison.currentValue) - requireNotNull(comparison.previousValue)

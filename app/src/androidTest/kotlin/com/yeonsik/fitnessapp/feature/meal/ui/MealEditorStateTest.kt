@@ -354,7 +354,8 @@ class MealEditorStateTest {
         val meal = HomeMealSummary(id, date, "1끼", food.name, 100, 10.0, 10.0, 1.0, 1,
             food.name, "12:30", "food", null, "", "", "", "recorded", "", "", true, null, "", "")
         onMain {
-            model.openRecordEditor(meal)
+            model.closeDraft()
+            model.openMealDateTimeEditor(meal)
             model.saveMealDateTime(scope, id, target, "19:20")
             assertTrue(state().recordActionSaving)
         }
@@ -458,7 +459,7 @@ class MealEditorStateTest {
             model.selectFood(food)
             assertEquals(1, mealFoodItems(state()).size)
             val menu = NutritionFood.builder().id("mixed-menu").ownerId(nutritionOwner).name("외식 메뉴")
-                .brand("식당").kind(NutritionFood.KIND_EXTERNAL_MENU).basis(1.0, NutritionUnit.SERVING)
+                .brand("식당").kind(NutritionFood.KIND_EXTERNAL_MENU).source("manual_estimate", null).basis(1.0, NutritionUnit.SERVING)
                 .profile(NutritionProfile.ofMacros(200.0, 20.0, 25.0, 4.0)).build()
             model.selectFood(menu)
             assertFalse(state().diningOut)
@@ -468,6 +469,34 @@ class MealEditorStateTest {
             assertEquals(1, mealFoodItems(state()).size)
             assertEquals("기준", state().query)
         }
+    }
+
+    @Test fun productRegistrationReturnsToTheSameMealWithoutDroppingItsExistingCart() {
+        createModel()
+        val existing = registerBaseFood()
+        onMain {
+            model.selectFood(existing)
+            model.openManualFood()
+            model.updateManualFood(ManualFoodDraft(name = "추가 제품", brand = "브랜드", basisAmount = "100",
+                calories = "400", protein = "20", carbs = "30", fat = "20",
+                registrationKind = com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT,
+                packageAmount = "100"))
+            model.openProductRegistration()
+            assertTrue(model.nutritionEditor.uiState.value!!.returnToMeal)
+            model.nutritionEditor.save()
+        }
+        background.runAll()
+        instrumentation.waitForIdleSync()
+        flushMain()
+        onMain {
+            assertFalse(model.nutritionEditor.uiState.value!!.open)
+            assertFalse(state().manualFoodEntry)
+            assertEquals(2, mealFoodItems(state()).size)
+            assertTrue(mealFoodItems(state()).any { it.food.id == existing.id })
+            assertTrue(mealFoodItems(state()).any { it.food.name == "추가 제품" })
+            assertTrue(state().editing)
+        }
+        assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
     }
 
     private fun registerBaseFood(): NutritionFood {

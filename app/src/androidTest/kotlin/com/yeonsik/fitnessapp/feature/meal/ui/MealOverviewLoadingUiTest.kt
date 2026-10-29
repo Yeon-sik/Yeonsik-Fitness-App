@@ -44,18 +44,18 @@ class MealOverviewLoadingUiTest {
         show(date, home)
         val before = overviewBounds()
         val buttonBefore = compose.onNodeWithText("식단 기록하기").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithText("1200").assertIsDisplayed()
+        compose.onNodeWithText("1200\u00A0kcal").assertIsDisplayed()
 
         compose.runOnIdle { date.value = secondDate; home.value = HomeUiState.Loading }
         assertSameBounds(before, overviewBounds())
         assertSameBounds(buttonBefore, compose.onNodeWithText("식단 기록하기").fetchSemanticsNode().boundsInRoot)
         assertLoading()
-        compose.onNodeWithText("1200").assertDoesNotExist()
+        compose.onNodeWithText("1200\u00A0kcal").assertDoesNotExist()
         savePreview("meal-overview-loading.png")
 
         compose.runOnIdle { home.value = ready(secondDate, 850.0) }
         assertSameBounds(before, overviewBounds())
-        compose.onNodeWithText("850").assertIsDisplayed()
+        compose.onNodeWithText("850\u00A0kcal").assertIsDisplayed()
         compose.onNodeWithTag("meal-day-overview-loading").assertDoesNotExist()
         savePreview("meal-overview-ready.png")
     }
@@ -69,20 +69,20 @@ class MealOverviewLoadingUiTest {
 
         compose.runOnIdle { home.value = ready(firstDate, 1200.0) }
         assertLoading()
-        compose.onNodeWithText("1200").assertDoesNotExist()
+        compose.onNodeWithText("1200\u00A0kcal").assertDoesNotExist()
         compose.runOnIdle { home.value = ready(secondDate, 999.0, "another-owner") }
         assertLoading()
-        compose.onNodeWithText("999").assertDoesNotExist()
+        compose.onNodeWithText("999\u00A0kcal").assertDoesNotExist()
         compose.runOnIdle { date.value = "2026-10-03"; home.value = ready(secondDate, 850.0) }
         assertLoading()
-        compose.onNodeWithText("850").assertDoesNotExist()
+        compose.onNodeWithText("850\u00A0kcal").assertDoesNotExist()
         compose.runOnIdle { home.value = ready(date.value, 700.0) }
         assertSameBounds(before, overviewBounds())
-        compose.onNodeWithText("700").assertIsDisplayed()
+        compose.onNodeWithText("700\u00A0kcal").assertIsDisplayed()
         compose.runOnIdle { home.value = ready(secondDate, 850.0) }
         assertLoading()
-        compose.onNodeWithText("700").assertDoesNotExist()
-        compose.onNodeWithText("850").assertDoesNotExist()
+        compose.onNodeWithText("700\u00A0kcal").assertDoesNotExist()
+        compose.onNodeWithText("850\u00A0kcal").assertDoesNotExist()
     }
 
     @Test fun refreshAndFailureKeepTheSameBoxAndHideOldMetrics() {
@@ -93,15 +93,15 @@ class MealOverviewLoadingUiTest {
         compose.runOnIdle { home.value = HomeUiState.Loading }
         assertLoading()
         assertSameBounds(before, overviewBounds())
-        compose.onNodeWithText("1200").assertDoesNotExist()
+        compose.onNodeWithText("1200\u00A0kcal").assertDoesNotExist()
 
         compose.runOnIdle { home.value = HomeUiState.Error(owner, "read failure", firstDate) }
         assertSameBounds(before, overviewBounds())
         compose.onNodeWithText("식단을 불러오지 못했습니다.").assertIsDisplayed()
         compose.onNodeWithTag("meal-day-overview-loading").assertDoesNotExist()
-        compose.onNodeWithText("1200").assertDoesNotExist()
+        compose.onNodeWithText("1200\u00A0kcal").assertDoesNotExist()
         compose.runOnIdle { home.value = ready(firstDate, 1300.0) }
-        compose.onNodeWithText("1300").assertIsDisplayed()
+        compose.onNodeWithText("1300\u00A0kcal").assertIsDisplayed()
         assertSameBounds(before, overviewBounds())
     }
 
@@ -114,7 +114,7 @@ class MealOverviewLoadingUiTest {
         savePreview("meal-overview-loading-large-dark.png")
         compose.runOnIdle { home.value = ready(firstDate, 1200.0) }
         assertSameBounds(before, overviewBounds())
-        compose.onNodeWithText("1200").assertIsDisplayed()
+        compose.onNodeWithText("1200\u00A0kcal").assertIsDisplayed()
     }
 
     @Test fun asynchronousEditorDateChangesKeepRegistrationAndManagementInPlace() {
@@ -122,7 +122,7 @@ class MealOverviewLoadingUiTest {
         val home = mutableStateOf<HomeUiState>(ready(firstDate, 1200.0))
         val editor = mutableStateOf<MealUiState>(baseEditor(firstDate))
         show(date, home, editorState = editor)
-        val labels = listOf("식단 기록하기", "내 식단 · 식품 관리", "외식 영양정보 관리", "기록한 식단")
+        val labels = listOf("식단 기록하기", "내 식단 · 식품 관리", "외식 영양정보 연결 · 공개", "기록한 식단")
         val before = labels.associateWith { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot }
         val nodeIds = labels.associateWith { compose.onNodeWithText(it).fetchSemanticsNode().id }
         compose.runOnIdle { date.value = secondDate; home.value = HomeUiState.Loading }

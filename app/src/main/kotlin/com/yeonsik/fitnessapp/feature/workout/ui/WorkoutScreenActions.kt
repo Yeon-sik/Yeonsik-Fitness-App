@@ -17,9 +17,11 @@ internal interface WorkoutOverviewActions {
     fun navigate(screen: FitnessScreen)
     fun showBodyMetric()
     fun openMeals()
+    fun retryOverview()
 }
 
 internal interface StrengthActions {
+    fun retryRoutines() {}
     fun createRoutine(name: String)
     fun startEmptyWorkout()
     fun showPastWorkout()

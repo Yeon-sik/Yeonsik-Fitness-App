@@ -91,6 +91,7 @@ interface MealScreenActions {
     fun updateTime(value: String)
     fun saveFood()
     fun openManualFood()
+    fun openProductRegistration() { openNutritionEditor() }
     fun closeManualFood()
     fun updateManualFood(draft: ManualFoodDraft)
     fun saveManualFood()
@@ -246,12 +247,12 @@ internal fun MealScreen(
                     .semantics { contentDescription = "다음 날짜" },
                 enabled = selectedDate.isBefore(LocalDate.now()) && editor?.saving != true
             ) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            TextButton(
+                onClick = { actions.selectDate(LocalDate.now().toString()) },
+                enabled = !selectedDate.isEqual(LocalDate.now()) && editor?.saving != true,
+                modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "오늘로 이동" }
+            ) { Text("오늘") }
         }
-        AppOutlinedButton(
-            onClick = { actions.selectDate(LocalDate.now().toString()) },
-            enabled = !selectedDate.isEqual(LocalDate.now()) && editor?.saving != true,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("오늘로 이동") }
     }
     Spacer(Modifier.height(AppSpacing.gap))
     MealOverviewGlassSurface(Modifier.testTag("meal-day-overview")) {
@@ -322,8 +323,6 @@ internal fun MealScreen(
     } else {
         MealEntryDialog(actions, editor, priceTraceState, mealLabel = "식단")
     }
-    AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth()) { Text("내 식단 · 식품 관리") }
-    TextButton(actions::openNutritionPublication, modifier = Modifier.fillMaxWidth()) { Text("외식 영양정보 관리") }
     if (nutritionPublicationState.ownerId == ownerId && !nutritionPublicationState.open) {
         val publicationMessage = nutritionPublicationState.progressLabel
             ?: nutritionPublicationState.error ?: nutritionPublicationState.notice
@@ -342,8 +341,9 @@ internal fun MealScreen(
     }
 
     Spacer(Modifier.height(AppSpacing.section))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("기록한 식단", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("기록한 식단", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold)
         Text(snapshot?.today ?: today, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -416,6 +416,10 @@ internal fun MealScreen(
         }
     }
     Spacer(Modifier.height(AppSpacing.gap))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Text("식품 및 영양정보 관리", style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold)
+    AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth()) { Text("내 식단 · 식품 관리") }
     AppOutlinedButton(
         onClick = actions::openNutritionPublication,
         modifier = Modifier.fillMaxWidth(),
@@ -506,6 +510,7 @@ internal fun MealSecondaryMetric(label: String, value: String, modifier: Modifie
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready, onReviewFood: (NutritionFood) -> Unit = {}) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        if (!editor.manualFoodEntry) MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
         if (editor.category == MealCatalogCategory.RECIPE) {
             AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth(), enabled = !editor.saving) {
                 Text("내 요리 만들기 · 저장한 구성")
@@ -522,7 +527,8 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
                 actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error,
-                editor.manualBrandSearch, actions::selectManualFoodBrand, actions::moreManualFoodBrands, actions::retryManualFoodBrands)
+                editor.manualBrandSearch, actions::selectManualFoodBrand, actions::moreManualFoodBrands, actions::retryManualFoodBrands,
+                onSearchProduct = actions::openProductRegistration)
         } else MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
 }

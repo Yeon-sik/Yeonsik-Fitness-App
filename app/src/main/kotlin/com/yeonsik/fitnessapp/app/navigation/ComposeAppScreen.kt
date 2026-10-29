@@ -1044,6 +1044,7 @@ private fun AppRoot(
                                     onActivityNext = viewModels.getHome()::nextActivityPage,
                                     onActivitySelectPage = viewModels.getHome()::selectActivityPage,
                                     onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                    onRetry = { viewModels.getHome().enter(AccountScope(ownerId), pageDate) },
                                     activityDayDetails = homeActivityDayDetails,
                                     onActivityDateSelected = viewModels.getHome()::selectActivityDay,
                                     onActivityOpenRecords = { date ->
@@ -1927,6 +1928,7 @@ private fun AppDestination(
         override fun moreManualFoodBrands() = viewModels.getMeal().moreManualFoodBrands()
         override fun retryManualFoodBrands() = viewModels.getMeal().retryManualFoodBrands()
         override fun saveManualFood() = viewModels.getMeal().saveManualFood(AccountScope(ownerId))
+                    override fun openProductRegistration() = viewModels.getMeal().openProductRegistration()
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)
         override fun updateBranch(value: String) = viewModels.getMeal().updateBranch(value)
         override fun updateMenu(value: String) = viewModels.getMeal().updateMenu(value)
@@ -2034,6 +2036,9 @@ private fun AppDestination(
     val recordsToday = navigation.uiState.value?.today ?: today
     val recordsSelectedDate = navigation.uiState.value?.selectedRecordsDate ?: today
     val recordsActions = object : RecordsScreenActions {
+        override fun retry() = viewModels.getRecords().refresh(
+            AccountScope(ownerId), recordsToday, recordsSelectedDate
+        )
         override fun selectDate(date: String) {
             val scope = AccountScope(ownerId)
             viewModels.getRecords().rememberSelectedDate(scope, date)
@@ -2150,6 +2155,7 @@ private fun AppDestination(
                 today,
                 unit,
                 object : WorkoutOverviewActions {
+                    override fun retryOverview() = viewModels.getHome().enter(AccountScope(ownerId), today)
                     override fun continueWorkout() = viewModels.getWorkoutSession()
                         .continueIfAvailable(AccountScope(ownerId))
                     override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
@@ -2169,6 +2175,10 @@ private fun AppDestination(
                 routineState,
                 ownerId,
                 object : StrengthActions {
+                    override fun retryRoutines() {
+                        viewModels.getHome().enter(AccountScope(ownerId), today)
+                        viewModels.getRoutineEntry().enter(AccountScope(ownerId))
+                    }
                     override fun createRoutine(name: String) {
                         viewModels.getRoutineEntry().createRoutine(AccountScope(ownerId), name)
                     }
@@ -2217,6 +2227,7 @@ private fun AppDestination(
                 object : StatisticsScreenActions {
                     override fun selectPeriod(period: com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPeriod) =
                         viewModels.getStatistics().selectPeriod(AccountScope(ownerId), today, period)
+                    override fun retry() = viewModels.getStatistics().refresh(AccountScope(ownerId), today)
                 }
             )
             FitnessScreen.DEVELOPMENT -> DevelopmentScreen(

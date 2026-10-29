@@ -64,6 +64,7 @@ class StatisticsReadRepositoryTest {
         assertEquals(2, snapshot.sufficiency.weightDays)
         assertEquals(1, snapshot.sufficiency.mealDays)
         assertEquals(StatisticsSufficiencyLevel.READY, snapshot.sufficiency.level)
+        assertEquals(listOf("운동 기록 2일 · 세션 2회 / 7일", "체중 기록 2일", "식단 기록 1일"), snapshot.observedPatterns)
 
         val volumeMetric = snapshot.comparison.first { it.label == "운동 볼륨" }
         assertEquals(150.0, volumeMetric.current!!, 0.001)

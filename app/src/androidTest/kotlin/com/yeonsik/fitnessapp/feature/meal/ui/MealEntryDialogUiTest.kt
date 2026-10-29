@@ -101,14 +101,14 @@ class MealEntryDialogUiTest {
         assertTotal("262.5 kcal")
         compose.onNodeWithTag("meal-food-quantity-rice").performScrollTo().performClick().performTextReplacement("200")
         assertTotal("300 kcal")
-        compose.onNodeWithText("6끼 기록하기").assertIsDisplayed().performClick()
+        compose.onNodeWithText("6끼 기록하기").reveal().performClick()
         compose.runOnIdle { assertTrue(saved) }
         compose.onNodeWithTag("meal-cart-remove-food-rice").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(state.foodPortions.isEmpty()) }
         compose.onNodeWithText("6끼 기록하기").assertIsNotEnabled()
     }
 
-    @Test fun darkAppearanceAndLargeTextKeepTheSaveActionVisible() {
+    @Test fun darkAppearanceAndLargeTextKeepTheFormAndSaveActionReachable() {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
@@ -116,9 +116,28 @@ class MealEntryDialogUiTest {
             }
         }
         compose.onNodeWithText("12끼 기록").assertIsDisplayed()
-        compose.onNodeWithText("12끼 기록하기").assertIsDisplayed()
-        compose.onNodeWithText("225 kcal").assertIsDisplayed()
+        compose.onNodeWithTag("meal-catalog-query").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("225 kcal").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("12끼 기록하기").performScrollTo().assertIsDisplayed()
         savePreview("meal-entry-dark-large-text.png", "12끼 기록")
+    }
+
+    @Test fun keyboardKeepsSearchEditableAndCartAndSaveRemainReachable() {
+        var state by mutableStateOf(foodState())
+        var saves = 0
+        val actions = actions { name, args -> when (name) {
+            "searchFood" -> state = state.copy(query = args!![0] as String)
+            "saveFood" -> saves++
+        } }
+        compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions, state, PriceTraceUiState.Idle, "식단") } }
+        compose.onNodeWithTag("meal-catalog-query").performScrollTo().performClick().performTextReplacement("rice")
+        compose.onNodeWithTag("meal-catalog-query").assertIsDisplayed().assertTextContains("rice")
+        compose.onNodeWithTag("meal-catalog-query").performImeAction()
+        compose.onNodeWithTag("meal-cart-review").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("meal-entry-find").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-catalog-query").performScrollTo().assertTextContains("rice")
+        compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(1, saves); assertEquals("rice", state.query) }
     }
 
     @Test fun diningPercentUpdatesTheSummaryWithoutChangingFullNutrition() {
@@ -159,7 +178,12 @@ class MealEntryDialogUiTest {
     }
 
     private fun assertTotal(value: String) = compose.onNode(hasText(value) and hasAnyAncestor(hasTestTag("meal-entry-totals")))
-        .assertIsDisplayed()
+        .reveal()
+
+    private fun SemanticsNodeInteraction.reveal() = apply {
+        if (!isDisplayed()) performScrollTo()
+        assertIsDisplayed()
+    }
 
     private fun foodState(): MealUiState.Ready {
         val rice = NutritionFood.builder().id("rice").ownerId("nutrition-owner").name("밥")

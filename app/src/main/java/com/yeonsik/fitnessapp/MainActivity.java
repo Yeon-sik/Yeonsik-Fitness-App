@@ -175,7 +175,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             return;
         }
         ArrayList<String> savedHistory = state.getStringArrayList(STATE_NAVIGATION_HISTORY);
-        workoutSessionViewModel.rememberActiveRecord(state.getString(STATE_RECORD_ID));
+        String savedRecordId = state.getString(STATE_RECORD_ID);
+        // Fitness entry and meal screens legitimately have no active workout to restore.
+        if (savedRecordId != null && !savedRecordId.isBlank()) {
+            workoutSessionViewModel.rememberActiveRecord(savedRecordId);
+        }
         workoutExerciseDetailViewModel.rememberActiveExercise(state.getString(STATE_EXERCISE_ID));
         exercisePickerViewModel.rememberReplacementExercise(state.getString(STATE_REPLACEMENT_ID));
         navigationViewModel.restore(

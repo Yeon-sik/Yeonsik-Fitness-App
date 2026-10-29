@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogFile
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
@@ -50,7 +51,8 @@ internal fun NutritionEditorDialog(
                 if (state.mode == NutritionEditorMode.COMPOSITION || state.mode == NutritionEditorMode.RECIPE) {
                     NutritionTotalPreview(foodPortionTotals(state.portions), label = "식품 ${state.portions.size}개")
                 }
-                AppButton(actions::save, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading) {
+                AppButton(actions::save, Modifier.fillMaxWidth().testTag("nutrition-register-save"), enabled = !state.saving && !state.loading &&
+                    (state.mode != NutritionEditorMode.FOOD || !state.productPicker.loading)) {
                     Text(if (state.saving) "저장 중…" else when (state.mode) {
                         NutritionEditorMode.FOOD -> "등록하기"
                         NutritionEditorMode.RECIPE -> "내 요리 저장하기"
@@ -199,10 +201,14 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
                     enabled = !state.saving, selected = state.registrationKind == kind) { Text(kind.label) }
             }
         }
-        OutlinedTextField(state.field(FoodEntryField.NAME), { actions.updateField(FoodEntryField.NAME, it) }, Modifier.fillMaxWidth(),
-            label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving,
+        if (state.registrationKind == NutritionRegistrationKind.PRODUCT) {
+            NutritionProductPicker(state.productPicker, actions, enabled = !state.saving)
+        }
+        OutlinedTextField(state.field(FoodEntryField.NAME), { actions.updateField(FoodEntryField.NAME, it) }, Modifier.fillMaxWidth().testTag("nutrition-product-name"),
+            label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving && state.productPicker.selected == null,
             isError = state.submitted && state.field(FoodEntryField.NAME).isBlank(), shape = FitnessShape.input)
-        AppTextField(state.field(FoodEntryField.BRAND), { actions.updateField(FoodEntryField.BRAND, it) }, Modifier.fillMaxWidth(), label = { Text("브랜드 (선택)") }, enabled = !state.saving)
+        AppTextField(state.field(FoodEntryField.BRAND), { actions.updateField(FoodEntryField.BRAND, it) }, Modifier.fillMaxWidth(), label = { Text("브랜드 (선택)") },
+            enabled = !state.saving && state.productPicker.selected == null)
     }
     if (state.registrationKind == NutritionRegistrationKind.PRODUCT) {
         NutritionFormSection("PriceTrace 브랜드 연결", Modifier.fillMaxWidth(), "선택 사항 · 라벨에 적힌 브랜드 이름은 그대로 보존됩니다.") {

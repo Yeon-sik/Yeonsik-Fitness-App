@@ -24,6 +24,25 @@ import org.junit.Test
 class RecordsMealPreviewUiTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun mealPreviewFromDaySheetClosesBackToTheSameDaySheet() {
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    RecordsScreen(state("owner-a", DATE, listOf(meal("meal-1"))),
+                        "owner-a", DATE, MassUnit.KG, DATE, actions)
+                }
+            }
+        }
+        compose.onNodeWithTag("records-open-day").performClick()
+        compose.onNodeWithTag("records-sheet-meal-meal-1").performScrollTo().performClick()
+        compose.onNodeWithTag("records-meal-dialog").assertIsDisplayed()
+        compose.onNodeWithText("410 kcal").assertIsDisplayed()
+        compose.onNodeWithTag("records-meal-dialog-close").performClick()
+        compose.onNodeWithTag("records-day-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("records-day-sheet-close").performClick()
+        compose.onNodeWithTag("records-day-sheet").assertDoesNotExist()
+    }
+
     @Test fun selectedMealShowsItsEatenTimeCaloriesAndMacrosAndCanClose() {
         val meals = listOf(
             meal("meal-1", label = "1끼", time = "08:10"),
@@ -168,6 +187,7 @@ class RecordsMealPreviewUiTest {
     )
 
     private val actions = object : RecordsScreenActions {
+        override fun retry() = Unit
         override fun selectDate(date: String) = Unit
         override fun previousMonth() = Unit
         override fun nextMonth() = Unit

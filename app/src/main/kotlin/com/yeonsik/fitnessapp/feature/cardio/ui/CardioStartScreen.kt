@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
@@ -38,22 +40,21 @@ internal fun CardioStartContent(
     val focus = LocalFocusManager.current
     Column(modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
         FitnessHeader("유산소", back = onBack)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-            FitnessTextField(state.query, onSearch, Modifier.fillMaxWidth().testTag("cardio_search"),
-                label = { Text("운동 검색") })
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("운동 종류", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                Text("최근 사용순 · 이름순", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).testTag("cardio-start-scroll"),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("1. 운동 선택", Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            AppTextField(state.query, onSearch, Modifier.fillMaxWidth().testTag("cardio_search"),
+                enabled = !starting, label = { Text("운동 검색") })
+            Text("최근 사용순 · 이름순", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Surface(Modifier.fillMaxWidth(), shape = FitnessShape.card,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                LazyColumn(Modifier.fillMaxWidth().height(220.dp).selectableGroup().testTag("cardio_activities"),
+                LazyColumn(Modifier.fillMaxWidth().height(280.dp).selectableGroup().testTag("cardio_activities"),
                     contentPadding = PaddingValues(4.dp)) {
                     items(state.activities, key = { it.id }) { type ->
                         CardioActivityRow(type, type == state.selectedActivity,
-                            state.lastStartedAt.containsKey(type.id), onClick = {
+                            state.lastStartedAt.containsKey(type.id), enabled = !starting, onClick = {
                                 focus.clearFocus(); onSelectActivity(type)
                             })
                     }
@@ -62,9 +63,9 @@ internal fun CardioStartContent(
                     }
                 }
             }
-            state.notice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            CardioActivityDescription(state)
-            Text("운동 환경", style = MaterialTheme.typography.titleMedium)
+            state.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            Text("2. 운동 환경", Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
                 CardioEnvironment.entries.forEach { environment ->
                     FitnessOutlinedButton(
@@ -74,7 +75,15 @@ internal fun CardioStartContent(
                     ) { Text(environment.labelKo) }
                 }
             }
+            if (state.selectedActivity != null) CardioActivityDescription(state)
         }
+        Text(when {
+            state.loading -> "운동 목록을 준비하고 있습니다."
+            state.selectedActivity == null -> "운동을 선택하세요."
+            state.environment == null -> "실내 또는 실외를 선택하세요."
+            else -> "${state.selectedActivity.labelKo} · ${state.environment.labelKo}"
+        }, Modifier.fillMaxWidth().testTag("cardio-start-status"),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FitnessButton(onClick = {
             val type = state.selectedActivity
             val environment = state.environment
@@ -89,11 +98,11 @@ internal fun CardioStartContent(
 
 @Composable
 private fun CardioActivityRow(type: CardioActivityType, selected: Boolean, recent: Boolean,
-                             onClick: () -> Unit, modifier: Modifier = Modifier) {
+                             onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Surface(modifier.fillMaxWidth(), shape = FitnessShape.button,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-            .selectable(selected, role = Role.RadioButton, onClick = onClick)
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .testTag("cardio_activity_${type.id}")
             .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
             verticalAlignment = Alignment.CenterVertically,
@@ -102,8 +111,8 @@ private fun CardioActivityRow(type: CardioActivityType, selected: Boolean, recen
                 Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             Text(type.labelKo, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-            if (recent) Text("최근", style = MaterialTheme.typography.labelSmall)
-            if (selected) Text("선택", style = MaterialTheme.typography.labelSmall)
+            if (selected) Text("선택", style = MaterialTheme.typography.bodyMedium)
+            else if (recent) Text("최근", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -122,7 +131,7 @@ private fun CardioActivityDescription(state: CardioStartUiState) {
                     type.supportsManualDistance -> "시간 · 기구 거리(선택) · 평균 심박수(선택)"
                     else -> "시간 · 평균 심박수(선택)"
                 }
-                Text(values, style = MaterialTheme.typography.bodySmall,
+                Text(values, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else Text("선택한 운동의 기록 항목과 환경을 여기서 확인할 수 있습니다.",
                 style = MaterialTheme.typography.bodySmall)

@@ -134,6 +134,7 @@ class RecordsLoadingUiTest {
     }
 
     private val actions = object : RecordsScreenActions {
+        override fun retry() = Unit
         override fun selectDate(date: String) = Unit
         override fun previousMonth() = Unit
         override fun nextMonth() = Unit
