@@ -23,7 +23,8 @@ const remote = [
 ];
 const relationGuardsVersion = '20261013065001';
 const canonicalV2EvidenceFixVersion = '20261013072000';
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion];
+const productAmountProjectionVersion = '20261029060700';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, productAmountProjectionVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -314,6 +315,10 @@ async function replay(label, final, kaguriId) {
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_canonical_v2_evidence_fix.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'nutrition-relation-guards');
+    stage(productAmountProjectionVersion, project.migrationsDir);
+    console.log('Applying read-time exact product amount projection locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_product_amount_projection.sql'), 'utf8'));
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {

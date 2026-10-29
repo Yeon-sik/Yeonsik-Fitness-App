@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "test": "node canonical-import.integration.mjs",
-    "test:meal": "node meal-import.integration.mjs"
+    "test:meal": "node meal-import.integration.mjs",
+    "test:product-amount": "node --test product-nutrition-amount.test.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "dotenv": "^16.4.7"
   }
 }

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-29T06:27:11.7772398+00:00",
+  "repository": "Yeon-sik/Yeonsik-Fitness-App",
+  "branch": "feat/nutrition-public-serving-projection",
+  "baseCommit": "8c06a28c881893d7cd2d5441b33ec6810fad043e",
+  "scope": "Nutrition existing public RPC read-time package amount conversion; AR unchanged",
+  "migration": "supabase/nutrition/supabase/migrations/20261029060700_public_product_nutrition_amount_projection.sql",
+  "migrationSha256": "c2e0a7935f737766a954f007db47b99253d98d29a91a04da4c2b4b61f2946500",
+  "tests": {
+    "sqlDetailed": {
+      "status": "PASS",
+      "passed": 41,
+      "failed": 0,
+      "nodeAggregatePassed": 42,
+      "command": "npm run test:product-amount --prefix supabase/nutrition/integration",
+      "engine": "PGlite PostgreSQL 0.5.8",
+      "scope": "disposable local database with historical public read/guard functions and synthetic rows"
+    },
+    "migrationInventory": {
+      "status": "PASS",
+      "historical": 28,
+      "forward": 8
+    },
+    "projectDocumentValidation": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 0
+    },
+    "dockerFullReplay": {
+      "status": "NOT_RUN",
+      "reason": "Docker daemon unavailable"
+    },
+    "androidAssemble": {
+      "status": "PASS",
+      "task": "assembleDebug",
+      "installedOnDevice": false
+    },
+    "androidUnit": {
+      "status": "FAIL_INITIALIZATION",
+      "failedClasses": 115,
+      "exception": "ClassNotFoundException",
+      "causeConfirmed": false
+    },
+    "androidAsciiRetry": {
+      "status": "BLOCKED",
+      "reason": "classes.jar file lock",
+      "temporaryDriveRemoved": true
+    },
+    "gitDiffCheck": {
+      "status": "PASS"
+    }
+  },
+  "readOnlyProductionPreflight": {
+    "sourceBodyMd5": "5a9d4cebe460d77c71f1f7dd38976038",
+    "linkGuardMd5": "b5fb23a29a0a421e8e42cd2540cda162",
+    "basisGuardMd5": "6c5e04fc89c8c861218281269bd5c520",
+    "readSpecTableExists": false,
+    "privateSourceAliasExists": false,
+    "sourceFoodAmount": 210,
+    "sourceFoodUnit": "g",
+    "sourceCaloriesKcal": 315,
+    "targetCatalogAmount": 130,
+    "expectedCalculatedCaloriesKcal": 195,
+    "isLabelVerification": false
+  },
+  "operational": {
+    "migrationApplied": false,
+    "legacyReadSpecRegistered": false,
+    "anonymousRestAfterMigration": "NOT_RUN",
+    "physicalDevice": "NOT_RUN",
+    "barcode8801007002989": "PT_NOT_LINKED_AT_INVESTIGATION",
+    "remoteDataWrites": false,
+    "originalFoodsLinksMealsChanged": false
+  },
+  "resumeFirst": "Start Docker daemon, run the full Nutrition migration replay on this branch, then recheck production and obtain approval immediately before remote application."
+}
