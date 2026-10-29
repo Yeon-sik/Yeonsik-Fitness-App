@@ -2,7 +2,7 @@
 
 구현 브랜치: `feat/nutrition-public-serving-projection`.
 마이그레이션: `20261029060700_public_product_nutrition_amount_projection.sql`.
-운영 반영: **미적용, 별도 승인 대기**.
+운영 반영: **2026-10-29 사용자 승인 후 적용 완료, 익명 HTTP 12/12 검증 통과**.
 
 ## 기존 호출 유지
 
@@ -49,7 +49,7 @@ POST /rest/v1/rpc/get_public_product_nutrition_v1
 ## 빈 레거시 규격 보완
 
 햇반 130g의 기존 승인 연결에는 PT 용량 스냅샷 4필드가 모두 NULL이다.
-현재 운영 공개 응답은 원본 `210g / 315kcal`다. 변경을 적용할 때 다음 둘을 함께 수행해야 한다.
+반영 전 운영 공개 응답은 원본 `210g / 315kcal`였다. 다음 두 작업을 함께 완료했다.
 
 1. 이 마이그레이션을 Nutrition 프로젝트에만 적용한다.
 2. 신뢰된 서버가 PT의 정확한 130g `product-read.v1`을 다시 읽고,
@@ -88,28 +88,35 @@ RLS·ACL, 정확한 identity, 단위, NULL, 멱등성, 승인 철회·공개 해
 반영 직전 달라졌으면 중단하고 변경 내용을 재검토한다. 현재 이력은 로컬 과거 목록과 일부 version 이름이 다르므로
 무관한 pending migration 전체를 `db push`하지 않는다.
 
-승인 후에는 이번 SQL과 햇반 130g 조회용 규격 등록만 트랜잭션으로 적용하고, migration 이력을 별도로 확인한다.
-반영 후 익명 REST로 130g·195kcal·추정 표시 메타데이터, 기존 진라면 120g·510kcal·The미식 121g·405kcal,
-권한 차단, 원본 식품/링크 보존을 재검증한다. 원격·실기기 검증은 별도 결과로 기록한다.
+사용자 승인 후 이번 SQL과 햇반 130g 조회용 규격 등록만 트랜잭션으로 적용했다.
+트랜잭션 안에서 원본 식품·연결·미량 영양의 변경 여부와 보호 함수/반환형 보존을 검사한 뒤 COMMIT했다.
+SQL 적용을 독립 조회로 확인한 후 CLI `migration repair 20261029060700 --linked --status applied`로
+해당 version만 기록했다. 이력 이름과 23개 SQL statements를 다시 확인했다. 다른 pending migration은 적용하지 않았다.
+반영 후 익명 REST와 DB 권한/원본 보존을 검증했다. 실기기 검증과 구분한다.
 
 ## 인수인계 — 2026-10-29
 
-다음 작업 시작점은 **이 Nutrition 브랜치의 Docker 전체 migration replay**다.
-현재 로컬 SQL 검증과 소스 inventory 검증이 통과했으며, 운영 migration/조회용 규격 등록은 아직 수행하지 않았다.
+운영 반영과 API 검증을 완료했다. 익명 공개 조회 8개(햇반·기존 4종·공개 영양 없는 테아닌·없는 규격·다른 namespace),
+비공개 source/등록/환산 helper 및 조회용 테이블 접근 거절 4개가 모두 통과했다.
 
-1. Docker daemon을 준비하고 아래 전체 replay를 실행한다. 소스 inventory 검증으로 대체하지 않는다.
+| 공개 상품 | 실제 운영 API 응답 |
+|---|---|
+| 햇반 130g | 130g·195kcal, `calculated_product_amount`, 추정 근거 포함 |
+| 진라면 | 120g·510kcal, 기존 원본 출처 유지 |
+| The미식 | 121g·405kcal, 기존 원본 출처 유지 |
+| 스낵면 | 108g·460kcal, 기존 원본 출처 유지 |
+| 더단백 | 40g·185kcal, 기존 원본 출처 유지 |
 
-   ```powershell
-   node supabase/nutrition/integration/historical-replay/replay.mjs
-   ```
+운영 보안 advisor 경고 18개 중 이번 공개 RPC 관련 항목은 2개다. anon/authenticated가
+`SECURITY DEFINER` 공개 조회 함수를 실행할 수 있다는 경고이며, 기존 계약의 의도된 공개 권한이다.
+승인·공개된 정확 상품만 읽는 원본 필터, 빈 search_path, 내부 helper/등록/테이블 접근 거절을 확인했다.
+나머지 경고 16개는 이번 객체 범위 밖이며 이 작업으로 변경하지 않았다. 전체 보안 경고가 0건이라고 주장하지 않는다.
 
-2. 운영 공개 RPC·보호 함수·migration 이력을 다시 읽고 준비 당시 기록과 비교한다.
-   Nutrition 프로젝트와 PT 프로젝트를 구분하고, 원격 반영 직전 사용자 승인을 받는다.
-3. 승인된 이번 migration만 반영하고, PT에서 새로 읽은 햇반 130g의 정확한 상품 문서로 조회용 규격을 등록한다.
-   바코드나 원본 영양·발행 상태는 이 작업으로 바꾸지 않는다.
-4. 익명 REST에서 130g·195kcal·계산 근거, 기존 진라면·The미식 영양 보존, 비공개 helper 접근 차단을 확인한다.
-5. 앱 스캔까지 시험하려면 PT 바코드 `8801007002989`의 정확한 130g 포장 연결을 별도로 확인·등록해야 한다.
-   현재 AR 앱의 기존 5분 조회 캐시도 구분해서 검증한다.
+남은 검증은 Docker 복구 후 전체 historical replay와 실기기 화면 확인이다.
+전체 replay 명령은 `node supabase/nutrition/integration/historical-replay/replay.mjs`이며, inventory 확인으로 대체하지 않는다.
+앱 스캔까지 시험하려면 PT 바코드 `8801007002989`의 정확한 130g 포장 연결을 별도로 확인·등록해야 한다.
+2026-10-29 22:30 KST 공개 바코드 조회는 `not_linked`였으며 이번 작업에서 PT는 변경하지 않았다.
+현재 AR 앱의 기존 5분 조회 캐시도 구분해서 검증한다.
 
 검증 상태:
 
@@ -118,14 +125,16 @@ RLS·ACL, 정확한 identity, 단위, NULL, 멱등성, 승인 철회·공개 해
 | 새 Nutrition SQL 세부 검증 | 41/41 통과 (Node 외부 컨테이너 포함 42/42) |
 | migration inventory | 28개 과거 + 8개 forward 확인, 통과 |
 | 저장소 문서 validator | 오류 0, 경고 0 |
-| Docker 전체 replay | 미수행 — daemon 연결 불가 |
+| Docker 전체 replay | 미수행 — Docker Inference 소켓 초기화 실패 |
 | FitnessApp `assembleDebug` | APK 조립 완료, 기기 설치 없음 |
 | FitnessApp `testDebugUnitTest` | 미통과 — 115개 클래스 모두 초기 로딩 시 `ClassNotFoundException` |
 | ASCII 임시 경로의 관련 Android 시험 재시도 | 클래스 JAR 파일 잠금으로 중단, 원인 확정 안 됨 |
-| 운영 Nutrition·A25 기능 확인 | 미수행 |
+| 운영 Nutrition 익명 HTTP | 12/12 통과 |
+| 운영 migration 이력·RLS·ACL·원본 보존 | 확인 완료 |
+| A25 화면 확인 | 미수행, AR 코드·설치 APK 변경 없음 |
 
 2026-10-29 22:28 KST 재확인에서도 운영 함수 본문과 원본 210g·315kcal,
-PT 대상 규격 130g을 확인했다. 새 테이블·내부 함수는 운영 DB에 아직 없다.
+PT 대상 규격 130g을 확인했다. 이 시점에는 운영 미적용이었고, 이후 사용자 승인을 받아 반영했다.
 독립 `npm ci` 의존성으로 SQL 세부 41개 검증을 다시 통과했다.
 Docker Desktop을 시작했으나 `dockerInference` 소켓 초기화 오류로 엔진이 종료되어
 전체 replay는 실행하지 못했다. 이번에 시작한 Docker 프로세스만 종료했으며 데이터 초기화는 하지 않았다.
