@@ -18,6 +18,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,9 +39,14 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
     @Override
     public int reconcileSharedWorkoutSummaries(String ownerId) {
         String normalizedOwnerId = requireOwner(ownerId);
+        Map<String, List<String>> uiParts = new HashMap<>();
+        for (WorkoutRoomDao.SummaryUiPart row : workoutDao.sharedSummaryUiParts(normalizedOwnerId)) {
+            uiParts.computeIfAbsent(row.getRecordId(), ignored -> new ArrayList<>()).add(row.getUiPart());
+        }
         int changedCount = 0;
-        for (String recordId : workoutDao.sharedSummaryRecordIds(normalizedOwnerId)) {
-            if (updateSharedWorkoutSummary(normalizedOwnerId, recordId, true)) {
+        for (WorkoutRecordsRoomEntity record : workoutDao.sharedSummaryRecords(normalizedOwnerId)) {
+            if (updateSharedWorkoutSummary(normalizedOwnerId, record,
+                    uiParts.getOrDefault(record.getId(), Collections.emptyList()), true)) {
                 changedCount++;
             }
         }
@@ -62,7 +68,17 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
         if (record == null || !"fitness".equals(record.getSourceApp())) {
             return false;
         }
+        List<String> uiParts = "strength".equals(record.getWorkoutType())
+                ? workoutDao.visibleUiParts(recordId, normalizedOwnerId) : Collections.emptyList();
+        return updateSharedWorkoutSummary(normalizedOwnerId, record, uiParts, publishToOs);
+    }
 
+    private boolean updateSharedWorkoutSummary(
+            String normalizedOwnerId,
+            WorkoutRecordsRoomEntity record,
+            List<String> uiParts,
+            boolean publishToOs
+    ) {
         String workoutType = record.getWorkoutType();
         String currentCategory = record.getCategory();
         String currentMetadata = record.getMetadata();
@@ -71,7 +87,7 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
         if ("cardio".equals(workoutType)) {
             categories.add(sharedCardioCategory(currentCategory));
         } else if ("strength".equals(workoutType)) {
-            for (String uiPart : workoutDao.visibleUiParts(recordId, normalizedOwnerId)) {
+            for (String uiPart : uiParts) {
                 String category = personalOsStrengthCategory(uiPart);
                 if (!category.isEmpty() && !categories.contains(category)) {
                     categories.add(category);
@@ -115,13 +131,18 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
             return false;
         }
 
-        return workoutDao.updateSharedSummary(
-                recordId,
+        // Batch reads may overlap an editor save. Never replace a newer local snapshot.
+        return workoutDao.updateSharedSummaryIfUnchanged(
+                record.getId(),
                 normalizedOwnerId,
                 nextCategory,
                 nextMetadata,
                 nextScope,
-                OffsetDateTime.now().toString()
+                OffsetDateTime.now().toString(),
+                record.getUpdatedAt(),
+                currentMetadata,
+                currentCategory,
+                currentScope
         ) > 0;
     }
 
@@ -130,6 +151,7 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
             String ownerId
     ) {
         String normalizedOwnerId = requireOwner(ownerId);
+        Map<String, Map<String, Integer>> completedSetsByRecord = completedSetCountsByRecord(normalizedOwnerId);
         List<FitnessSummaryProjectionV2> projections = new ArrayList<>();
         for (WorkoutRecordsRoomEntity record
                 : workoutDao.completedSummaryRecords(normalizedOwnerId)) {
@@ -147,10 +169,8 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
                 );
                 totalDurationSeconds = derivedDuration > 0 ? derivedDuration : null;
             }
-            Map<String, Integer> completedSets = completedSetCountsByPart(
-                    normalizedOwnerId,
-                    record.getId()
-            );
+            Map<String, Integer> completedSets = completedSetsByRecord.getOrDefault(
+                    record.getId(), Collections.emptyMap());
             Integer cardioDurationSeconds = "cardio".equals(record.getWorkoutType())
                     ? totalDurationSeconds
                     : null;
@@ -184,19 +204,20 @@ public final class WorkoutSummaryRepository implements WorkoutSummaryApi {
         return projections;
     }
 
-    private Map<String, Integer> completedSetCountsByPart(String ownerId, String recordId) {
-        Map<String, Integer> counts = new HashMap<>();
-        for (WorkoutRoomDao.SummarySetCount row
-                : workoutDao.summarySetCounts(recordId, ownerId)) {
+    private Map<String, Map<String, Integer>> completedSetCountsByRecord(String ownerId) {
+        Map<String, Map<String, Integer>> countsByRecord = new HashMap<>();
+        for (WorkoutRoomDao.RecordSummarySetCount row : workoutDao.completedSummarySetCounts(ownerId)) {
             String part = summaryPartKey(row.getUiPart());
             if ("arms".equals(part)) {
                 part = summaryPartKey(row.getPrimarySubPart());
             }
             if (part != null) {
+                Map<String, Integer> counts = countsByRecord.computeIfAbsent(
+                        row.getRecordId(), ignored -> new HashMap<>());
                 counts.put(part, counts.getOrDefault(part, 0) + row.getSetCount());
             }
         }
-        return counts;
+        return countsByRecord;
     }
 
     private static int setCount(Map<String, Integer> counts, String part) {

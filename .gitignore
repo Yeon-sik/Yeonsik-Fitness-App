@@ -25,3 +25,5 @@ local.properties
 *.pfx
 *.pem
 *.key
+/.serena/
+/supabase/nutrition/integration/node_modules/

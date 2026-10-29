@@ -30,8 +30,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * HTTP/RPC and JSON adapter for the Nutrition catalog sync contract.
@@ -41,6 +44,21 @@ import java.util.Map;
  */
 public final class NutritionCatalogSyncClient {
     private static final int PAGE_SIZE = 500;
+    private static final int REFRESH_BATCH_SIZE = 50;
+    private final ConnectionFactory connections;
+
+    public interface ConnectionFactory {
+        HttpURLConnection open(URL url) throws IOException;
+    }
+
+    public NutritionCatalogSyncClient() {
+        this(url -> (HttpURLConnection) url.openConnection());
+    }
+
+    public NutritionCatalogSyncClient(ConnectionFactory connections) {
+        if (connections == null) throw new IllegalArgumentException("Connection factory is required.");
+        this.connections = connections;
+    }
 
     public SyncResult sync(
             SupabaseConfig config,
@@ -50,11 +68,12 @@ public final class NutritionCatalogSyncClient {
             return new SyncResult(0, 0);
         }
 
-        int pulledRows = pullFoods(config, store);
-        pulledRows += pullNutrients(config, store);
-        pulledRows += pullComponents(config, store);
+        SyncSession session = new SyncSession();
+        int pulledRows = pullFoods(config, store, session);
+        pulledRows += pullNutrients(config, store, session);
+        pulledRows += pullComponents(config, store, session);
         if (config.isConfigured()) {
-            pulledRows += pullProductLinks(config, store);
+            pulledRows += pullProductLinks(config, store, session);
         }
 
         int pushedRows = 0;
@@ -62,91 +81,94 @@ public final class NutritionCatalogSyncClient {
             NutritionCatalogSyncSnapshot snapshot = store.exportSyncSnapshot(
                     config.effectiveUserId()
             );
-            pushedRows += postRows(config, "nutrition_foods", toFoodJson(snapshot.getFoods()));
+            pushedRows += postRows(config, "nutrition_foods", toFoodJson(snapshot.getFoods()), session);
             pushedRows += postRows(
                     config,
                     "nutrition_food_nutrients",
-                    toNutrientJson(snapshot.getNutrients())
+                    toNutrientJson(snapshot.getNutrients()), session
             );
             pushedRows += postRows(
                     config,
                     "nutrition_food_components",
-                    toComponentJson(snapshot.getComponents())
+                    toComponentJson(snapshot.getComponents()), session
             );
-            pushedRows += pushProductLinks(config, snapshot.getProductLinks());
+            pushedRows += pushProductLinks(config, snapshot.getProductLinks(), session);
 
-            // Conditional writes can lose a race without overwriting it. Pull once more to
-            // converge on the remote winner and to receive deletion tombstones.
-            pulledRows += pullFoods(config, store);
-            pulledRows += pullNutrients(config, store);
-            pulledRows += pullComponents(config, store);
-            pulledRows += pullProductLinks(config, store);
+            // Include failed conditional writes and retired conflicts, so their winners and
+            // tombstones still converge. An unchanged sync needs no second catalog download.
+            pulledRows += refreshAttemptedRows(config, store, session);
         }
         return new SyncResult(pushedRows, pulledRows);
     }
 
-    private int pullFoods(SupabaseConfig config, NutritionCatalogSyncStore store) throws Exception {
-        int rows = 0;
-        rows += store.applyRemoteFoodRows(parseFoodRows(getRows(
+    private int pullFoods(SupabaseConfig config, NutritionCatalogSyncStore store, SyncSession session) throws Exception {
+        JSONArray publicRows = getRows(
                 config,
                 "/rest/v1/nutrition_foods?visibility=eq.public&deleted_at=is.null&select=*"
-        )));
+        );
+        JSONArray ownerRows = new JSONArray();
         if (config.isConfigured()) {
-            rows += store.applyRemoteFoodRows(parseFoodRows(getRows(
+            ownerRows = getRows(
                     config,
                     "/rest/v1/nutrition_foods?owner_id=eq."
                             + encode(config.effectiveUserId()) + "&select=*"
-            )));
+            );
         }
-        return rows;
+        session.remember("nutrition_foods", ownerRows);
+        return store.applyRemoteFoodRows(parseFoodRows(mergeRows(publicRows, ownerRows, "revision")));
     }
 
-    private int pullNutrients(SupabaseConfig config, NutritionCatalogSyncStore store)
+    private int pullNutrients(SupabaseConfig config, NutritionCatalogSyncStore store, SyncSession session)
             throws Exception {
-        int rows = 0;
-        rows += store.applyRemoteNutrientRows(parseNutrientRows(getRows(
+        JSONArray publicRows = getRows(
                 config,
                 "/rest/v1/nutrition_food_nutrients?owner_id=is.null&deleted_at=is.null&select=*"
-        )));
+        );
+        JSONArray ownerRows = new JSONArray();
         if (config.isConfigured()) {
-            rows += store.applyRemoteNutrientRows(parseNutrientRows(getRows(
+            ownerRows = getRows(
                     config,
                     "/rest/v1/nutrition_food_nutrients?owner_id=eq."
                             + encode(config.effectiveUserId()) + "&select=*"
-            )));
+            );
         }
-        return rows;
+        session.remember("nutrition_food_nutrients", ownerRows);
+        return store.applyRemoteNutrientRows(parseNutrientRows(mergeRows(publicRows, ownerRows, "updated_at")));
     }
 
-    private int pullComponents(SupabaseConfig config, NutritionCatalogSyncStore store)
+    private int pullComponents(SupabaseConfig config, NutritionCatalogSyncStore store, SyncSession session)
             throws Exception {
-        int rows = 0;
-        rows += store.applyRemoteComponentRows(parseComponentRows(getRows(
+        JSONArray publicRows = getRows(
                 config,
                 "/rest/v1/nutrition_food_components?owner_id=is.null&deleted_at=is.null&select=*"
-        )));
+        );
+        JSONArray ownerRows = new JSONArray();
         if (config.isConfigured()) {
-            rows += store.applyRemoteComponentRows(parseComponentRows(getRows(
+            ownerRows = getRows(
                     config,
                     "/rest/v1/nutrition_food_components?owner_id=eq."
                             + encode(config.effectiveUserId()) + "&select=*"
-            )));
+            );
         }
-        return rows;
+        session.remember("nutrition_food_components", ownerRows);
+        return store.applyRemoteComponentRows(parseComponentRows(mergeRows(publicRows, ownerRows, "updated_at")));
     }
 
-    private int pullProductLinks(SupabaseConfig config, NutritionCatalogSyncStore store)
+    private int pullProductLinks(SupabaseConfig config, NutritionCatalogSyncStore store, SyncSession session)
             throws Exception {
-        return store.applyRemoteProductLinkRows(parseProductLinkRows(getRows(
+        JSONArray rows = getRows(
                 config,
                 "/rest/v1/product_nutrition_links?owner_id=eq."
                         + encode(config.effectiveUserId()) + "&select=*"
-        )));
+        );
+        session.remember("product_nutrition_links", rows);
+        return store.applyRemoteProductLinkRows(parseProductLinkRows(rows));
     }
 
     private int pushProductLinks(
             SupabaseConfig config,
-            List<NutritionProductLinkSyncRow> rows
+            List<NutritionProductLinkSyncRow> rows,
+            SyncSession session
     ) throws Exception {
         JSONArray deletedManualRows = new JSONArray();
         JSONArray activeManualRows = new JSONArray();
@@ -164,27 +186,23 @@ public final class NutritionCatalogSyncClient {
             }
         }
 
-        int pushed = postRows(config, "product_nutrition_links", deletedManualRows);
+        int pushed = postRows(config, "product_nutrition_links", deletedManualRows, session);
         for (JSONObject decision : deletedSuggestionRows) {
-            pushed += patchSuggestionDecision(config, decision);
+            pushed += patchSuggestionDecision(config, decision, session);
         }
-        pushed += postRows(config, "product_nutrition_links", activeManualRows);
+        pushed += postRows(config, "product_nutrition_links", activeManualRows, session);
         for (JSONObject decision : activeSuggestionDecisions) {
-            pushed += patchSuggestionDecision(config, decision);
+            pushed += patchSuggestionDecision(config, decision, session);
         }
         return pushed;
     }
 
-    private int patchSuggestionDecision(SupabaseConfig config, JSONObject row) throws Exception {
+    private int patchSuggestionDecision(SupabaseConfig config, JSONObject row, SyncSession session) throws Exception {
         String id = nullableString(row, "id");
         if (id == null) {
             return 0;
         }
-        JSONArray remoteRows = getRows(
-                config,
-                "/rest/v1/product_nutrition_links?owner_id=eq."
-                        + encode(config.effectiveUserId()) + "&select=*"
-        );
+        JSONArray remoteRows = session.rows("product_nutrition_links");
         JSONObject remote = rowsById(remoteRows).get(id);
         if (remote == null || compareRowVersions(row, remote, "revision") <= 0) {
             return 0;
@@ -195,23 +213,17 @@ public final class NutritionCatalogSyncClient {
                     && (compareVersions(
                     nullableString(row, "updated_at"),
                     nullableString(conflicting, "updated_at")
-            ) <= 0 || retireRemoteApprovedLink(config, conflicting, row) == 0)) {
+            ) <= 0 || retireRemoteApprovedLink(config, conflicting, row, session) == 0)) {
                 return 0;
             }
         }
-        return patchRowIfUnchanged(config, "product_nutrition_links", row, remote, "revision");
+        return patchRowIfUnchanged(config, "product_nutrition_links", row, remote, "revision", session);
     }
 
-    private int postRows(SupabaseConfig config, String table, JSONArray rows) throws Exception {
+    private int postRows(SupabaseConfig config, String table, JSONArray rows, SyncSession session) throws Exception {
         if (rows.length() == 0) {
             return 0;
         }
-        JSONArray remoteRows = getRows(
-                config,
-                "/rest/v1/" + table + "?owner_id=eq."
-                        + encode(config.effectiveUserId()) + "&select=*"
-        );
-        Map<String, JSONObject> remoteById = rowsById(remoteRows);
         int pushed = 0;
         for (int index = 0; index < rows.length(); index++) {
             JSONObject local = rows.getJSONObject(index);
@@ -219,16 +231,18 @@ public final class NutritionCatalogSyncClient {
             if (id == null) {
                 continue;
             }
-            JSONObject remote = remoteById.get(id);
+            // The same session snapshot includes responses to our earlier writes. In particular,
+            // approving one product link must affect the conflict check for the next link.
+            JSONObject remote = session.byId(table).get(id);
             if (remote == null) {
                 if ("product_nutrition_links".equals(table)
                         && hasActiveApprovedLink(local)) {
-                    JSONObject conflicting = approvedSlotConflict(remoteRows, local);
+                    JSONObject conflicting = approvedSlotConflict(session.rows(table), local);
                     if (conflicting != null) {
                         if (compareVersions(
                                 nullableString(local, "updated_at"),
                                 nullableString(conflicting, "updated_at")
-                        ) <= 0 || retireRemoteApprovedLink(config, conflicting, local) == 0) {
+                        ) <= 0 || retireRemoteApprovedLink(config, conflicting, local, session) == 0) {
                             continue;
                         }
                     }
@@ -237,10 +251,10 @@ public final class NutritionCatalogSyncClient {
                 if ("product_nutrition_links".equals(table)) {
                     insertPayload = directInsertProductLinkPayload(local);
                 }
-                int inserted = insertRowIfAbsent(config, table, insertPayload);
+                int inserted = insertRowIfAbsent(config, table, insertPayload, session);
                 pushed += inserted;
                 if (inserted > 0 && "product_nutrition_links".equals(table)) {
-                    patchRowIfUnchanged(config, table, local, insertPayload, "revision");
+                    patchRowIfUnchanged(config, table, local, insertPayload, "revision", session);
                 }
                 continue;
             }
@@ -249,7 +263,7 @@ public final class NutritionCatalogSyncClient {
             if (compareRowVersions(local, remote, versionKey) <= 0) {
                 continue;
             }
-            pushed += patchRowIfUnchanged(config, table, local, remote, versionKey);
+            pushed += patchRowIfUnchanged(config, table, local, remote, versionKey, session);
         }
         return pushed;
     }
@@ -277,8 +291,9 @@ public final class NutritionCatalogSyncClient {
         }
     }
 
-    private int insertRowIfAbsent(SupabaseConfig config, String table, JSONObject row)
+    private int insertRowIfAbsent(SupabaseConfig config, String table, JSONObject row, SyncSession session)
             throws Exception {
+        session.touch(table, row.getString("id"));
         HttpURLConnection connection = openConnection(
                 joinUrl(config.supabaseUrl, "/rest/v1/" + table + "?on_conflict=id"),
                 "POST",
@@ -294,7 +309,7 @@ public final class NutritionCatalogSyncClient {
         payload.put(row);
         write(connection, payload.toString());
         String body = readResponseOrThrow(connection, 200, 201);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
+        return session.written(table, body);
     }
 
     private int patchRowIfUnchanged(
@@ -302,8 +317,10 @@ public final class NutritionCatalogSyncClient {
             String table,
             JSONObject local,
             JSONObject remote,
-            String versionKey
+            String versionKey,
+            SyncSession session
     ) throws Exception {
+        session.touch(table, local.getString("id"));
         String expected = "revision".equals(versionKey)
                 ? String.valueOf(Math.max(1, remote.optInt("revision", 1)))
                 : nullableString(remote, "updated_at");
@@ -324,14 +341,16 @@ public final class NutritionCatalogSyncClient {
         patch.remove("owner_id");
         write(connection, patch.toString());
         String body = readResponseOrThrow(connection, 200);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
+        return session.written(table, body);
     }
 
     private int retireRemoteApprovedLink(
             SupabaseConfig config,
             JSONObject remote,
-            JSONObject localReplacement
+            JSONObject localReplacement,
+            SyncSession session
     ) throws Exception {
+        session.touch("product_nutrition_links", remote.getString("id"));
         String replacementTimestamp = emptyToDefault(
                 nullableString(localReplacement, "updated_at"),
                 now()
@@ -353,7 +372,64 @@ public final class NutritionCatalogSyncClient {
         patch.put("revision", Math.max(1, remote.optInt("revision", 1)) + 1);
         write(connection, patch.toString());
         String body = readResponseOrThrow(connection, 200);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
+        return session.written("product_nutrition_links", body);
+    }
+
+    private int refreshAttemptedRows(
+            SupabaseConfig config, NutritionCatalogSyncStore store, SyncSession session
+    ) throws Exception {
+        int applied = 0;
+        for (Map.Entry<String, Set<String>> entry : session.attempted.entrySet()) {
+            List<String> ids = new ArrayList<>(entry.getValue());
+            for (int offset = 0; offset < ids.size(); offset += REFRESH_BATCH_SIZE) {
+                StringBuilder filter = new StringBuilder();
+                for (String id : ids.subList(offset, Math.min(offset + REFRESH_BATCH_SIZE, ids.size()))) {
+                    if (filter.length() > 0) filter.append(',');
+                    filter.append(encode("\"" + id.replace("\\", "\\\\").replace("\"", "\\\"") + "\""));
+                }
+                JSONArray rows = getRows(config, "/rest/v1/" + entry.getKey()
+                        + "?owner_id=eq." + encode(config.effectiveUserId())
+                        + "&id=in.(" + filter + ")&select=*");
+                switch (entry.getKey()) {
+                    case "nutrition_foods": applied += store.applyRemoteFoodRows(parseFoodRows(rows)); break;
+                    case "nutrition_food_nutrients": applied += store.applyRemoteNutrientRows(parseNutrientRows(rows)); break;
+                    case "nutrition_food_components": applied += store.applyRemoteComponentRows(parseComponentRows(rows)); break;
+                    case "product_nutrition_links": applied += store.applyRemoteProductLinkRows(parseProductLinkRows(rows)); break;
+                    default: throw new IllegalArgumentException("Unsupported nutrition sync table.");
+                }
+            }
+        }
+        return applied;
+    }
+
+    private static JSONArray mergeRows(JSONArray first, JSONArray second, String version) throws JSONException {
+        Map<String, JSONObject> rows = rowsById(first);
+        for (int index = 0; index < second.length(); index++) {
+            JSONObject row = second.getJSONObject(index);
+            String id = nullableString(row, "id");
+            if (id != null && (!rows.containsKey(id) || compareRowVersions(row, rows.get(id), version) >= 0)) {
+                rows.put(id, row);
+            }
+        }
+        return new JSONArray(rows.values());
+    }
+
+    /** Exists only for this call: snapshots never cross an account, project or sync run. */
+    private static final class SyncSession {
+        private final Map<String, Map<String, JSONObject>> remote = new HashMap<>();
+        private final Map<String, Set<String>> attempted = new LinkedHashMap<>();
+
+        void remember(String table, JSONArray rows) throws JSONException { remote.put(table, rowsById(rows)); }
+        Map<String, JSONObject> byId(String table) { return remote.get(table); }
+        JSONArray rows(String table) { return new JSONArray(byId(table).values()); }
+        void touch(String table, String id) {
+            attempted.computeIfAbsent(table, ignored -> new LinkedHashSet<>()).add(id);
+        }
+        int written(String table, String body) throws JSONException {
+            JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+            byId(table).putAll(rowsById(rows));
+            return rows.length();
+        }
     }
 
     private static boolean hasActiveApprovedLink(JSONObject row) {
@@ -437,12 +513,12 @@ public final class NutritionCatalogSyncClient {
         return payload;
     }
 
-    private static HttpURLConnection openConnection(
+    private HttpURLConnection openConnection(
             String endpoint,
             String method,
             SupabaseConfig config
     ) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+        HttpURLConnection connection = connections.open(new URL(endpoint));
         connection.setRequestMethod(method);
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
@@ -456,16 +532,20 @@ public final class NutritionCatalogSyncClient {
 
     private static String readResponseOrThrow(HttpURLConnection connection, int... okCodes)
             throws IOException {
-        int statusCode = connection.getResponseCode();
-        for (int okCode : okCodes) {
-            if (statusCode == okCode) {
-                return readStream(connection.getInputStream());
+        try {
+            int statusCode = connection.getResponseCode();
+            for (int okCode : okCodes) {
+                if (statusCode == okCode) {
+                    return readStream(connection.getInputStream());
+                }
             }
+            throw new IOException(
+                    "Nutrition catalog sync failed (" + statusCode + "): "
+                            + readStream(connection.getErrorStream())
+            );
+        } finally {
+            connection.disconnect();
         }
-        throw new IOException(
-                "Nutrition catalog sync failed (" + statusCode + "): "
-                        + readStream(connection.getErrorStream())
-        );
     }
 
     private static String readStream(InputStream stream) throws IOException {
