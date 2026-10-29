@@ -124,6 +124,14 @@ RLS·ACL, 정확한 identity, 단위, NULL, 멱등성, 승인 철회·공개 해
 | ASCII 임시 경로의 관련 Android 시험 재시도 | 클래스 JAR 파일 잠금으로 중단, 원인 확정 안 됨 |
 | 운영 Nutrition·A25 기능 확인 | 미수행 |
 
+2026-10-29 22:28 KST 재확인에서도 운영 함수 본문과 원본 210g·315kcal,
+PT 대상 규격 130g을 확인했다. 새 테이블·내부 함수는 운영 DB에 아직 없다.
+독립 `npm ci` 의존성으로 SQL 세부 41개 검증을 다시 통과했다.
+Docker Desktop을 시작했으나 `dockerInference` 소켓 초기화 오류로 엔진이 종료되어
+전체 replay는 실행하지 못했다. 이번에 시작한 Docker 프로세스만 종료했으며 데이터 초기화는 하지 않았다.
+Windows 실행기의 `node.exe` 공백 경로 실패는 별도 재현했고, CLI shim만 셸을 사용하도록 수정한 뒤
+같은 Node 실행 점검이 성공했다. 이 수정으로 전체 replay 성공을 주장하지 않는다.
+
 Android 실패를 SQL 회귀 실패나 성공으로 동일시하지 않는다. 이 변경에는 Android/AR 소스 변경이 없으며,
 빌드가 생성한 무관한 자산 변경은 복원했다. 임시 R 드라이브 연결도 해제했다.
 검증 기록은 [`integration/product-amount-validation-2026-10-29.json`](integration/product-amount-validation-2026-10-29.json)에 있다.

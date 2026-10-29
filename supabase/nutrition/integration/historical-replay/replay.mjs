@@ -10,7 +10,7 @@ const replayDir = path.dirname(fileURLToPath(import.meta.url));
 const integrationDir = path.resolve(replayDir, '..');
 const nutritionDir = path.resolve(replayDir, '../..');
 const migrationsDir = path.join(nutritionDir, 'supabase', 'migrations');
-const cli = 'supabase';
+const cli = process.platform === 'win32' ? 'supabase.cmd' : 'supabase';
 const docker = 'docker';
 const remote = [
   '20260808104704', '20260808112304', '20260808112544', '20260809093000',
@@ -47,7 +47,10 @@ function run(command, args, options = {}) {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env || cliEnv,
-      shell: process.platform === 'win32',
+      // Only the Windows CLI shim needs cmd.exe. Passing node.exe through a
+      // shell breaks its normal "C:\\Program Files\\..." executable path.
+      shell: process.platform === 'win32' && command === cli,
+      windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     let stdout = '';

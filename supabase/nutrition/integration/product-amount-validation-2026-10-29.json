@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-29T06:27:11.7772398+00:00",
+  "recordedAt": "2026-10-29T15:27:11.7772398+09:00",
   "repository": "Yeon-sik/Yeonsik-Fitness-App",
   "branch": "feat/nutrition-public-serving-projection",
   "baseCommit": "8c06a28c881893d7cd2d5441b33ec6810fad043e",
@@ -29,7 +29,7 @@
     },
     "dockerFullReplay": {
       "status": "NOT_RUN",
-      "reason": "Docker daemon unavailable"
+      "reason": "Docker Desktop started but backend crashed while initializing dockerInference unix socket; full replay not started; only processes launched by this attempt were stopped"
     },
     "androidAssemble": {
       "status": "PASS",
@@ -49,6 +49,19 @@
     },
     "gitDiffCheck": {
       "status": "PASS"
+    },
+    "windowsReplayNodeSpawn": {
+      "status": "PASS",
+      "before": "shell=true: C:\\Program executable not found",
+      "after": "shell=false for native executables: node v22.19.0 exit 0",
+      "fullReplayProven": false
+    },
+    "sqlRerun": {
+      "status": "PASS",
+      "detailedPassed": 41,
+      "nodeAggregatePassed": 42,
+      "dependencySetup": "isolated npm ci with pinned lockfile",
+      "failed": 0
     }
   },
   "readOnlyProductionPreflight": {
@@ -62,7 +75,9 @@
     "sourceCaloriesKcal": 315,
     "targetCatalogAmount": 130,
     "expectedCalculatedCaloriesKcal": 195,
-    "isLabelVerification": false
+    "isLabelVerification": false,
+    "recheckedAt": "2026-10-29T13:28:08.3000250+00:00",
+    "targetProductRevision": "sha256:7fb27f4db2aa2cecc82705feadad31321ea04644c4ce032059ec5da6b5f389b0"
   },
   "operational": {
     "migrationApplied": false,
@@ -73,5 +88,6 @@
     "remoteDataWrites": false,
     "originalFoodsLinksMealsChanged": false
   },
-  "resumeFirst": "Start Docker daemon, run the full Nutrition migration replay on this branch, then recheck production and obtain approval immediately before remote application."
+  "resumeFirst": "Review the recorded Docker full-replay gap, obtain explicit approval immediately before Nutrition remote application, recheck production drift, then apply only this migration and the trusted 130g read spec. Do not reset Docker data or apply unrelated pending migrations.",
+  "resumedAt": "2026-10-29T13:29:29.5170334+00:00"
 }
