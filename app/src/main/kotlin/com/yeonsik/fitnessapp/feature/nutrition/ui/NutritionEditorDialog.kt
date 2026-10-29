@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.nutrition.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessNutrientSubgroup
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -239,15 +240,32 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
     NutritionFormSection("기본 영양정보", Modifier.fillMaxWidth(), "위 기준량에 들어 있는 값입니다.") {
         Text(NutritionConsistencyPolicy.LABEL_GUIDANCE, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN, FoodEntryField.CARBS, FoodEntryField.FAT),
+        NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN),
             state::field, actions::updateField, enabled = !state.saving, submitted = state.submitted)
-        TextButton({ additional = !additional }, enabled = !state.saving) { Text(if (additional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)") }
-        if (additional || state.submitted) {
+        TextButton({ additional = !additional }, enabled = !state.saving) {
+            Text(if (additional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)")
+        }
+        val showAdditional = additional || state.submitted
+        if (showAdditional) {
             Text("모르는 값은 비워 두세요. 실제 0인 값만 0으로 입력하세요.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            NutritionFieldGrid(listOf(FoodEntryField.SODIUM, FoodEntryField.SUGARS, FoodEntryField.SATURATED_FAT),
-                state::field, actions::updateField, enabled = !state.saving, required = false, submitted = state.submitted)
-            NutritionFieldGrid(listOf(FoodEntryField.TRANS_FAT), state::field, actions::updateField,
+        }
+        NutritionEntryField(FoodEntryField.CARBS, state::field, actions::updateField, Modifier.fillMaxWidth(),
+            enabled = !state.saving, submitted = state.submitted)
+        if (showAdditional) {
+            FitnessNutrientSubgroup("탄수화물", Modifier.fillMaxWidth()) {
+                NutritionEntryField(FoodEntryField.SUGARS, state::field, actions::updateField, Modifier.fillMaxWidth(),
+                    enabled = !state.saving, required = false, submitted = state.submitted)
+            }
+        }
+        NutritionEntryField(FoodEntryField.FAT, state::field, actions::updateField, Modifier.fillMaxWidth(),
+            enabled = !state.saving, submitted = state.submitted)
+        if (showAdditional) {
+            FitnessNutrientSubgroup("지방", Modifier.fillMaxWidth()) {
+                NutritionFieldGrid(listOf(FoodEntryField.SATURATED_FAT, FoodEntryField.TRANS_FAT),
+                    state::field, actions::updateField, enabled = !state.saving, required = false, submitted = state.submitted)
+            }
+            NutritionEntryField(FoodEntryField.SODIUM, state::field, actions::updateField, Modifier.fillMaxWidth(),
                 enabled = !state.saving, required = false, submitted = state.submitted)
         }
     }

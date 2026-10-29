@@ -252,6 +252,21 @@ internal fun NutritionNumberField(
 }
 
 @Composable
+internal fun NutritionEntryField(
+    field: FoodEntryField,
+    value: (FoodEntryField) -> String,
+    onChange: (FoodEntryField, String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    required: Boolean = true,
+    submitted: Boolean = false
+) {
+    val raw = value(field)
+    NutritionNumberField(raw, { onChange(field, it) }, field.label, field.unit, modifier,
+        enabled = enabled, required = required, showError = submitted || raw.isNotBlank())
+}
+
+@Composable
 internal fun NutritionFieldGrid(
     fields: List<FoodEntryField>,
     value: (FoodEntryField) -> String,
@@ -267,9 +282,8 @@ internal fun NutritionFieldGrid(
             fields.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { field ->
-                        val raw = value(field)
-                        NutritionNumberField(raw, { onChange(field, it) }, field.label, field.unit, Modifier.weight(1f),
-                            enabled = enabled, required = required, showError = submitted || raw.isNotBlank())
+                        NutritionEntryField(field, value, onChange, Modifier.weight(1f),
+                            enabled = enabled, required = required, submitted = submitted)
                     }
                     if (columns == 2 && row.size == 1) Spacer(Modifier.weight(1f))
                 }

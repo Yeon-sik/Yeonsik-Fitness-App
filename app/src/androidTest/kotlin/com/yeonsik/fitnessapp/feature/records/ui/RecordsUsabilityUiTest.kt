@@ -10,6 +10,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
@@ -77,6 +79,30 @@ class RecordsUsabilityUiTest {
         assertEquals(listOf("previous" to "", "next" to "", "today" to ""), calls)
         compose.onNodeWithTag("records-today").assertIsNotEnabled()
         compose.onNodeWithText("10월 21일 수요일").assertIsDisplayed()
+    }
+
+    @Test fun monthTitleStaysCenteredBetweenArrowsWithLargeFontsAndBothThemes() {
+        show()
+        for ((scale, isDark) in listOf(1f to true, 1.3f to false, 2f to true, 2f to false)) {
+            compose.runOnIdle { fontScale.value = scale; dark.value = isDark }
+            val previous = compose.onNodeWithContentDescription("이전 달").fetchSemanticsNode().boundsInRoot
+            val next = compose.onNodeWithContentDescription("다음 달").fetchSemanticsNode().boundsInRoot
+            val title = compose.onNodeWithText("2026년 10월")
+            val titleBounds = title.fetchSemanticsNode().boundsInRoot
+            val layouts = mutableListOf<TextLayoutResult>()
+            title.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            val controlsCenter = (previous.left + next.right) / 2f
+            for (line in 0 until layout.lineCount) {
+                val textCenter = titleBounds.left + (layout.getLineLeft(line) + layout.getLineRight(line)) / 2f
+                assertEquals("month title at font scale $scale", controlsCenter, textCenter, 1f)
+                assertTrue(!layout.isLineEllipsized(line))
+            }
+            assertEquals(previous.center.y, next.center.y, 1f)
+            val today = compose.onNodeWithTag("records-today")
+                .assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+            assertTrue(today.top >= maxOf(previous.bottom, next.bottom))
+        }
     }
 
     @Test fun deletionRemainsExplicitAndUsesExistingConfirmationCallback() {

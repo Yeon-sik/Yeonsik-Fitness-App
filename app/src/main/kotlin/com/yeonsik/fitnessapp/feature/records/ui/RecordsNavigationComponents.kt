@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
@@ -34,7 +35,6 @@ internal fun RecordsMonthControls(
     actions: RecordsScreenActions,
     modifier: Modifier = Modifier
 ) {
-    val largeText = LocalDensity.current.fontScale > 1.3f
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = actions::previousMonth,
@@ -44,15 +44,15 @@ internal fun RecordsMonthControls(
             Text(
                 "${month.year}년 ${month.monthValue}월",
                 Modifier.weight(1f).semantics { heading() },
-                fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold
+                fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
             )
             TextButton(onClick = actions::nextMonth,
                 modifier = Modifier.width(48.dp).heightIn(min = 48.dp).semantics { contentDescription = "다음 달" }) {
                 Text("›", fontSize = 24.sp)
             }
-            if (!largeText) RecordsTodayButton(isToday, actions)
         }
-        if (largeText) RecordsTodayButton(isToday, actions, Modifier.align(Alignment.End))
+        RecordsTodayButton(isToday, actions, Modifier.align(Alignment.End))
     }
 }
 

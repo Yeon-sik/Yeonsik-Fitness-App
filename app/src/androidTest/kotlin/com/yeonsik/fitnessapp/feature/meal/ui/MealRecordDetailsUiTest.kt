@@ -1,11 +1,16 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -20,20 +25,27 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 class MealRecordDetailsUiTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun calendarEditSendsRecordIdentityDateAndTimeInOneAction() {
         val initial = LocalDate.now().minusMonths(1).withDayOfMonth(1)
-        val selected = initial.plusDays(1).toString()
+        val selectedDate = initial.plusDays(1)
+        val selected = selectedDate.toString()
+        val selectedLabel = selectedDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+            .withLocale(Locale.getDefault()))
         var saved: Triple<String, String, String>? = null
         compose.setContent { FitnessComposeTheme(false) {
             MealRecordEditDialog(MealRecordEditor("record", initial.toString(), "저장한 식단", "12:30"),
                 false, null, { id, date, time -> saved = Triple(id, date, time) }, {})
         } }
         compose.onNodeWithTag("meal-record-edit-date").performClick()
-        compose.onNode(hasText("2") and hasClickAction()).performClick()
+        compose.onNode(hasClickAction() and hasText(selectedLabel),
+            useUnmergedTree = true).performClick()
         compose.onNodeWithText("선택").performClick()
         compose.onNodeWithText("날짜 선택 · $selected").assertExists()
         compose.onNodeWithTag("meal-record-edit-save").assertIsEnabled().performClick()
@@ -92,43 +104,66 @@ class MealRecordDetailsUiTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
                 FitnessComposeTheme(false) {
-                    Column(Modifier.width(280.dp).verticalScroll(rememberScrollState()).testTag("macro-host")) {
-                        MealMacroMetrics("50", "20", "8", "0", "?")
+                    Column(Modifier.width(280.dp).background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState()).testTag("macro-host")) {
+                        MealMacroMetrics("50", "20", "8", "0", "?", "0.5 이상")
                     }
                 }
             }
         }
         listOf(1f, 2f).forEach { fontScale ->
             compose.runOnIdle { scale = fontScale }
-            compose.onNode(hasText("당류 0 g") and hasAnyAncestor(hasTestTag("meal-macro-탄수화물")), useUnmergedTree = true).assertExists()
+            compose.onNode(hasText("당류 0\u00A0g") and hasAnyAncestor(hasTestTag("meal-macro-탄수화물")), useUnmergedTree = true).assertExists()
             compose.onNode(hasText("포화지방 ?") and hasAnyAncestor(hasTestTag("meal-macro-지방")), useUnmergedTree = true).assertExists()
+            compose.onNode(hasText("트랜스지방 0.5\u00A0g 이상") and hasAnyAncestor(hasTestTag("meal-macro-지방")), useUnmergedTree = true).assertExists()
+            compose.onNode(hasTestTag("meal-secondary-트랜스지방") and hasAnyAncestor(hasTestTag("meal-macro-탄수화물")), useUnmergedTree = true).assertDoesNotExist()
             compose.onNode(hasTestTag("meal-secondary-당류") and hasAnyAncestor(hasTestTag("meal-macro-단백질")), useUnmergedTree = true).assertDoesNotExist()
             val host = compose.onNodeWithTag("macro-host").fetchSemanticsNode().boundsInRoot
             listOf("탄수화물", "단백질", "지방").forEach { label ->
                 val bounds = compose.onNodeWithTag("meal-macro-$label").fetchSemanticsNode().boundsInRoot
                 assertTrue(bounds.left >= host.left - 1f && bounds.right <= host.right + 1f)
             }
+            savePreview("daily-$fontScale", "macro-host")
         }
     }
 
     @Test fun cartChildrenDistinguishKnownZeroPartialAndUnknownAtLargeText() {
         val known = NutritionProfile.builder().from(NutritionProfile.ofMacros(200.0, 20.0, 25.0, 4.0))
-            .value(NutritionProfile.SUGARS_GRAMS, 0.0).build()
+            .value(NutritionProfile.SUGARS_GRAMS, 0.0).value(NutritionProfile.TRANS_FAT_GRAMS, 0.5).build()
         val missing = NutritionProfile.ofMacros(200.0, 20.0, 25.0, 4.0)
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
                 FitnessComposeTheme(true) {
-                    Column(Modifier.width(280.dp).verticalScroll(rememberScrollState())) {
+                    Column(Modifier.width(280.dp).background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState()).testTag("cart-macro-host")) {
                         MealCartNutritionSummary(NutritionTotals.builder().add(known).add(missing).build(), {}, true)
                     }
                 }
             }
         }
-        compose.onNode(hasText("당류 0 g 이상") and hasAnyAncestor(hasTestTag("meal-cart-macro-탄수")), useUnmergedTree = true).assertExists()
+        compose.onNode(hasText("당류 0\u00A0g 이상") and hasAnyAncestor(hasTestTag("meal-cart-macro-탄수")), useUnmergedTree = true).assertExists()
         compose.onNode(hasText("포화지방 미확인") and hasAnyAncestor(hasTestTag("meal-cart-macro-지방")), useUnmergedTree = true).assertExists()
+        compose.onNode(hasText("트랜스지방 0.5\u00A0g 이상") and hasAnyAncestor(hasTestTag("meal-cart-macro-지방")), useUnmergedTree = true).assertExists()
         compose.onNodeWithText("탄수 50 g").assertExists()
         compose.onNodeWithText("지방 8 g").assertExists()
+        savePreview("cart-dark-large", "cart-macro-host")
+        compose.onNodeWithTag("meal-cart-calories").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { getLayout ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            assertTrue(getLayout(layouts))
+            val details = layouts.joinToString { "lines=${it.lineCount}, size=${it.size}, overflow=${it.hasVisualOverflow}" }
+            assertTrue("Calories must fit on one line: $details",
+                layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+        }
+    }
+
+    @Test fun zeroTransFatRemainsKnownWhileOtherMissingChildrenStayUnknown() {
+        compose.setContent { FitnessComposeTheme(false) {
+            Column(Modifier.width(280.dp)) {
+                MealMacroMetrics("50", "20", "8", "?", "?", "0")
+            }
+        } }
+        compose.onNode(hasText("트랜스지방 0\u00A0g") and hasAnyAncestor(hasTestTag("meal-macro-지방")), useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("당류 ?").assertExists()
+        compose.onNodeWithText("포화지방 ?").assertExists()
     }
 
     private fun nutrition() = MealSnapshotRead("empty", "2026-10-01", "food", "{}", emptyList()).nutrition
@@ -146,4 +181,16 @@ class MealRecordDetailsUiTest {
         unit = unit, basisAmount = quantity, basisUnit = unit, prepState = null, groupKey = null,
         groupType = null, provisionType = null, role = null, memberId = null, consumedFraction = fraction,
         sourceType = null, sourceReference = null, sourceVersion = null, foodDataVersion = null, nutrition = nutrition())
+
+    private fun savePreview(name: String, tag: String) {
+        val phase = androidx.test.platform.app.InstrumentationRegistry.getArguments()
+            .getString("nutritionQaPass") ?: return
+        val folder = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .targetContext.getExternalFilesDir("codex-nutrition-hierarchy")!!
+        folder.mkdirs()
+        val bitmap = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        java.io.File(folder, "$phase-$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
 }

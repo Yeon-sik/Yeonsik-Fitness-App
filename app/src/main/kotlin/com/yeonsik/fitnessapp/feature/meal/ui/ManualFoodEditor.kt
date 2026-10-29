@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import com.yeonsik.fitnessapp.core.ui.FitnessNutrientSubgroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -123,26 +124,34 @@ internal fun ManualFoodEditor(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         AppTextField(draft.calories, { onChange(draft.copy(calories = it)) }, Modifier.fillMaxWidth(),
             label = { Text("칼로리 kcal") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-        AppTextField(draft.carbs, { onChange(draft.copy(carbs = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("탄수화물 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-        AppTextField(draft.protein, { onChange(draft.copy(protein = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("단백질 g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-        AppTextField(draft.fat, { onChange(draft.copy(fat = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("지방 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         AppOutlinedButton(onClick = { showOptional = !showOptional }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
             Text(if (showOptional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)")
         }
         if (showOptional) {
             Text("모르는 값은 비워 두세요. 0인 경우에는 0을 입력하세요.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        AppTextField(draft.carbs, { onChange(draft.copy(carbs = it)) }, Modifier.fillMaxWidth(),
+            label = { Text("탄수화물 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+        if (showOptional) {
+            FitnessNutrientSubgroup("탄수화물", Modifier.fillMaxWidth()) {
+                AppTextField(draft.sugars, { onChange(draft.copy(sugars = it)) }, Modifier.fillMaxWidth(),
+                    label = { Text("당류 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            }
+        }
+        AppTextField(draft.protein, { onChange(draft.copy(protein = it)) }, Modifier.fillMaxWidth(),
+            label = { Text("단백질 g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+        AppTextField(draft.fat, { onChange(draft.copy(fat = it)) }, Modifier.fillMaxWidth(),
+            label = { Text("지방 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+        if (showOptional) {
+            FitnessNutrientSubgroup("지방", Modifier.fillMaxWidth()) {
+                AppTextField(draft.saturatedFat, { onChange(draft.copy(saturatedFat = it)) }, Modifier.fillMaxWidth(),
+                    label = { Text("포화지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+                AppTextField(draft.transFat, { onChange(draft.copy(transFat = it)) }, Modifier.fillMaxWidth(),
+                    label = { Text("트랜스지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            }
             AppTextField(draft.sodium, { onChange(draft.copy(sodium = it)) }, Modifier.fillMaxWidth(),
                 label = { Text("나트륨 mg (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-            AppTextField(draft.sugars, { onChange(draft.copy(sugars = it)) }, Modifier.fillMaxWidth(),
-                label = { Text("당류 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-            AppTextField(draft.saturatedFat, { onChange(draft.copy(saturatedFat = it)) }, Modifier.fillMaxWidth(),
-                label = { Text("포화지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
-            AppTextField(draft.transFat, { onChange(draft.copy(transFat = it)) }, Modifier.fillMaxWidth(),
-                label = { Text("트랜스지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
