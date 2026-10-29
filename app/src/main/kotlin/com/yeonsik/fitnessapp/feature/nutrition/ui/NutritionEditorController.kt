@@ -392,6 +392,7 @@ class NutritionEditorController(
 
     override fun selectProduct(product: ProductReadV1) {
         if (state.saving || state.registrationKind != NutritionRegistrationKind.PRODUCT || product !in state.productPicker.results) return
+        brandSearch.dismiss()
         ++version
         val previous = state
         val picker = previous.productPicker
@@ -400,7 +401,7 @@ class NutritionEditorController(
         val supportedUnit = product.contentUnit?.takeIf(NutritionUnit::isSupported)
         if (exact && product.contentAmount?.let { it.isFinite() && it > 0 } == true && supportedUnit != null)
             fields = fields + (FoodEntryField.BASIS to NutritionCalculator.trim(product.contentAmount))
-        update { it.copy(fields = fields,
+        update { it.copy(fields = fields, priceTraceBrand = null,
             basisUnit = if (exact) supportedUnit ?: it.basisUnit else it.basisUnit,
             packageAmount = if (exact && product.contentAmount?.let { amount -> amount.isFinite() && amount > 0 } == true && supportedUnit != null)
                 NutritionCalculator.trim(product.contentAmount) else it.packageAmount,

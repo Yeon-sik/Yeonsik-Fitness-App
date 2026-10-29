@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.exercise;
 import com.yeonsik.fitness.shared.feature.exercise.model.*;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -108,6 +109,38 @@ public final class RuntimeExerciseCatalogTest {
         );
         assertEquals("push_up", recentResults.get(0).family.familyId);
         assertEquals("2026-08-30", recentResults.get(0).lastPerformedAt);
+    }
+
+    @Test
+    public void benchPressVariantSelectionPreservesEachPresetIdentity() {
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(
+                ApplicationProvider.getApplicationContext()
+        );
+        RuntimeExerciseFamily family = catalog.runtimeCatalog().family("bench_press");
+        assertNotNull(family);
+        assertTrue(family.presets.size() > 1);
+
+        Set<String> presetIds = new HashSet<>();
+        Set<String> variantKeys = new HashSet<>();
+        for (RuntimeExercisePreset preset : family.presets) {
+            WorkoutExerciseReplacement selected =
+                    ExerciseMasterAdapter.toWorkoutExerciseReplacement(preset);
+
+            assertNotNull(selected);
+            assertNotNull(selected.getFamilyIdentity());
+            assertNotNull(preset.presetId);
+            assertNotNull(preset.canonicalVariantKey);
+            assertEquals(preset.storageExerciseId, selected.getMasterExerciseId());
+            assertEquals(preset.displayName(), selected.getNameKo());
+            assertEquals("bench_press", selected.getFamilyIdentity().familyId);
+            assertEquals(preset.presetId, selected.getFamilyIdentity().presetId);
+            assertEquals(preset.canonicalVariantKey,
+                    selected.getFamilyIdentity().canonicalVariantKey);
+            assertTrue(presetIds.add(selected.getFamilyIdentity().presetId));
+            assertTrue(variantKeys.add(selected.getFamilyIdentity().canonicalVariantKey));
+        }
+        assertEquals(family.presets.size(), presetIds.size());
+        assertEquals(family.presets.size(), variantKeys.size());
     }
 
     @Test

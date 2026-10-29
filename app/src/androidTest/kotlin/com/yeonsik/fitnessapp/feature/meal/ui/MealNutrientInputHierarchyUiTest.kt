@@ -63,9 +63,8 @@ class MealNutrientInputHierarchyUiTest {
             if (name == "updateTransFat") editor = editor.copy(draft = editor.draft.copy(transFat = args[0] as String))
         }
         compose.setContent { Host(dark = true) {
-            val controls = rememberDiningOutEditorState(editor, PriceTraceUiState.Idle)
             val requester = remember { BringIntoViewRequester() }
-            DiningOutEditor(actions, editor, PriceTraceUiState.Idle, controls, requester)
+            DiningOutEditor(actions, editor, requester)
         } }
         assertIncludedFields()
         field("트랜스지방", "지방").performScrollTo()

@@ -1,6 +1,5 @@
 {
-  "name": "fitness-nutrition-integration",
-  "version": "1.0.0",
+  "name": "fitness-app-nutrition-integration-tests",
   "private": true,
   "type": "module",
   "scripts": {

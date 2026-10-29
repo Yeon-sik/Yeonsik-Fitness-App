@@ -20,7 +20,7 @@ class PriceTraceBrandEditorTest {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var editor: NutritionEditorController
     private fun open(handle: SavedStateHandle = SavedStateHandle()) {
-        main { editor = NutritionEditorController(handle, local, null, executor, brands); editor.open() }
+        main { editor = NutritionEditorController(handle, local, null, executor, brandCatalog = brands); editor.open() }
         await { !editor.uiState.value!!.loading }
     }
     @After fun cleanup() { if (::editor.isInitialized) main { editor.dispose() }; executor.shutdownNow() }
@@ -57,7 +57,7 @@ class PriceTraceBrandEditorTest {
         await { editor.uiState.value!!.brandSearch?.rows?.isNotEmpty() == true }
         main {
             editor.selectBrand(first); editor.dispose()
-            editor = NutritionEditorController(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }), local, null, executor, brands)
+            editor = NutritionEditorController(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }), local, null, executor, brandCatalog = brands)
             editor.open()
         }
         await { !editor.uiState.value!!.loading }
