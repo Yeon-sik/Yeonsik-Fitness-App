@@ -36,3 +36,6 @@ com.yeonsik.fitnessapp.app.navigation.RestTimerEndEffectTest
 
 # Glass controls keep selection and touch behavior on the opaque fallback
 com.yeonsik.fitnessapp.core.ui.FitnessGlassFallbackUiTest
+
+# Loading states: show delay, minimum visibility and identity reset
+com.yeonsik.fitnessapp.core.ui.FitnessLoadingTest

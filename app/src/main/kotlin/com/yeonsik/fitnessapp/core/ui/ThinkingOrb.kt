@@ -2,41 +2,24 @@ package com.yeonsik.fitnessapp.core.ui
 
 import android.animation.ValueAnimator
 import android.graphics.Paint
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -44,14 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -142,76 +120,9 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
 }
 
 @Composable
-internal fun StartupOrbScreen() {
-    val message = "기록을 불러오는 중"
-    Box(
-        Modifier.fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
-            .semantics { stateDescription = message },
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            ThinkingOrb(size = 96.dp)
-            Box(Modifier.height(24.dp))
-            Text(message, style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-internal fun OrbLoadingStatus(messages: List<String>, modifier: Modifier = Modifier) {
-    require(messages.isNotEmpty())
-    var messageIndex by remember(messages) { mutableIntStateOf(0) }
-    LaunchedEffect(messages) {
-        if (messages.size == 1) return@LaunchedEffect
-        while (true) {
-            delay(1_400)
-            messageIndex = (messageIndex + 1) % messages.size
-        }
-    }
-    val message = messages[messageIndex]
-    AppCard(modifier.fillMaxWidth().testTag("orb-loading-card")
-        .semantics { stateDescription = message }) {
-        Row(
-            Modifier.fillMaxWidth().padding(AppSpacing.card),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.card)
-        ) {
-            ThinkingOrb(size = 52.dp)
-            RollingStatusText(message, Modifier.weight(1f))
-        }
-    }
-}
-
-@OptIn(ExperimentalAnimationApi::class)
-@Composable
-internal fun RollingStatusText(message: String, modifier: Modifier = Modifier) {
-    val textStyle = MaterialTheme.typography.bodyMedium
-    val slotHeight = with(LocalDensity.current) { textStyle.lineHeight.toDp() * 2 } + 16.dp
-    val textBox = modifier.height(slotHeight).clipToBounds().testTag("rolling-status-slot")
-    if (!ValueAnimator.areAnimatorsEnabled()) {
-        Box(textBox, contentAlignment = Alignment.CenterStart) {
-            Text(message, style = textStyle, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        return
-    }
-    Box(textBox, contentAlignment = Alignment.CenterStart) {
-        AnimatedContent(
-            targetState = message,
-            transitionSpec = {
-                slideInVertically(
-                    animationSpec = tween(380, easing = FastOutSlowInEasing),
-                    initialOffsetY = { -it }
-                ) togetherWith slideOutVertically(
-                    animationSpec = tween(380, easing = FastOutSlowInEasing),
-                    targetOffsetY = { it }
-                )
-            },
-            label = "rollingLoadingStatus"
-        ) { currentMessage ->
-            Text(currentMessage, style = textStyle, maxLines = 2,
-                overflow = TextOverflow.Ellipsis)
-        }
+internal fun StartupOrbScreen(message: String = "기록을 불러오는 중") {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding(),
+        contentAlignment = Alignment.Center) {
+        FitnessLoadingState(listOf(message), FitnessLoadingVariant.FULL_SCREEN)
     }
 }

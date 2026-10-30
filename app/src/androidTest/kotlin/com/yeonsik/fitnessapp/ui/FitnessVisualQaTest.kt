@@ -376,8 +376,10 @@ class FitnessVisualQaTest {
         listOfNotNull(text?.toString(), contentDescription?.toString(), hintText?.toString())
             .any { it.lineSequence().any { line -> line.trim() == value } }
 
+    // FitnessLoadingState announces through its container's content description, not visible text.
     private fun hasLoadingMessage() = nodes().any { node ->
-        node.text?.toString()?.let { it.contains("불러오는 중") || it.contains("준비하는 중") } == true
+        listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
+            .any { it.contains("불러오는 중") || it.contains("준비하는 중") }
     }
 
     private fun scrollToEdge(action: Int) {

@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,9 +42,10 @@ import com.yeonsik.fitnessapp.core.ui.AppHeader
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingState
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingVariant
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
-import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
@@ -185,24 +185,14 @@ internal fun RecordsScreen(
     }
 }
 
+/** Shown at once: a month change must not leave the calendar region blank for the show delay. */
 @Composable
 private fun RecordsCalendarLoading() {
-    val message = recordsLoadingMessages.first()
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .semantics { stateDescription = message }
-            .testTag("records-calendar-loading-content"),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ThinkingOrb(size = 104.dp)
-        Spacer(Modifier.height(FitnessSpacing.gap))
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
+    FitnessLoadingState(
+        recordsLoadingMessages,
+        FitnessLoadingVariant.SECTION,
+        Modifier.testTag("records-calendar-loading-content")
+    )
 }
 
 @Composable

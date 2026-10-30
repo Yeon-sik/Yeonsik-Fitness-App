@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.FitnessLoadingTiming
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessLoadingTiming
 import com.yeonsik.fitnessapp.feature.home.model.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.Assert.*
@@ -54,7 +56,7 @@ class HomeUsabilityUiTest {
         show()
         compose.onNodeWithTag("home-status-error").assertIsDisplayed()
         compose.onNodeWithText("private diagnostics").assertDoesNotExist()
-        compose.onNodeWithText("오늘 상태를 불러오는 중입니다.").assertDoesNotExist()
+        compose.onNodeWithContentDescription("오늘 상태를 불러오는 중").assertDoesNotExist()
         compose.onNodeWithTag("home-status-retry").assertHeightIsAtLeast(48.dp).performClick()
         compose.onNodeWithTag("home-quick-meal").performScrollTo().performClick()
         compose.onNodeWithTag("home-quick-weight").performScrollTo().performClick()
@@ -63,7 +65,7 @@ class HomeUsabilityUiTest {
         compose.onNodeWithTag("home-status-retry").assertDoesNotExist()
         compose.runOnIdle { home.value = HomeUiState.Error("owner", "stale", "2026-09-30") }
         compose.onNodeWithTag("home-status-retry").assertDoesNotExist()
-        compose.onNodeWithText("오늘 상태를 불러오는 중입니다.").assertExists()
+        compose.onNodeWithContentDescription("오늘 상태를 불러오는 중").assertExists()
     }
 
     @Test fun summaryExcludesFutureAndBeforeTrackingAndDateListOpensTheSamePreview() {
@@ -153,7 +155,8 @@ class HomeUsabilityUiTest {
         compose.setContent {
             FitnessComposeTheme(dark.value) {
                 val density = LocalDensity.current
-                CompositionLocalProvider(LocalDensity provides Density(density.density,
+                CompositionLocalProvider(LocalFitnessLoadingTiming provides FitnessLoadingTiming(0, 0),
+                    LocalDensity provides Density(density.density,
                     if (useSystemScale) density.fontScale else scale.value)) {
                     Column(Modifier.width(360.dp).verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp).testTag("home-fixture")) {

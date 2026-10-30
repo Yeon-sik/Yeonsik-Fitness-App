@@ -24,11 +24,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -206,7 +204,8 @@ internal fun MealScreen(
         it.ownerId == ownerId && (it.date == null || it.date == today)
     }
     val loadingOverview = loadError == null && currentReady == null
-    val hideOverviewMetrics = loadingOverview || loadError != null
+    val showOverviewLoading = rememberDelayedLoadingVisible(loadingOverview, ownerId to today)
+    val hideOverviewMetrics = loadingOverview || showOverviewLoading || loadError != null
     val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
     if (selectedDate != null) {
         val largeText = LocalDensity.current.fontScale >= 1.35f
@@ -260,7 +259,7 @@ internal fun MealScreen(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
-        Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 128.dp)) {
             // Keep the normal, font-scale-aware metric layout as the loading placeholder's size.
             // Hidden values must also be absent from accessibility while a date is loading.
             Column(
@@ -282,20 +281,9 @@ internal fun MealScreen(
                     transFat = totals?.total("trans_fat_grams")?.describedValue() ?: "?"
                 )
             }
-            if (loadingOverview) {
-                Column(
-                    Modifier.matchParentSize().testTag("meal-day-overview-loading")
-                        .semantics {
-                            liveRegion = LiveRegionMode.Polite
-                            progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small, Alignment.CenterVertically)
-                ) {
-                    ThinkingOrb()
-                    Text("불러오는 중", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            if (loadingOverview || showOverviewLoading) {
+                FitnessLoadingState(listOf("식단을 불러오는 중"), FitnessLoadingVariant.SECTION,
+                    Modifier.matchParentSize().testTag("meal-day-overview-loading"), showOverviewLoading)
             } else if (loadError != null) {
                 Text(
                     "식단을 불러오지 못했습니다.",
