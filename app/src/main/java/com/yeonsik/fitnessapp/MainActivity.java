@@ -30,6 +30,7 @@ import androidx.activity.ComponentActivity;
 import androidx.compose.ui.platform.ComposeView;
 import androidx.compose.ui.platform.ViewCompositionStrategy;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
@@ -160,6 +161,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         registerBackCallback();
         restoreNavigationState(savedInstanceState);
 
+        // Draw behind the system bars on every API level; Compose applies the insets itself.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(buildRootView());
         configureWindow();
         // Keep system icon contrast in step with the live Compose theme.
@@ -604,19 +607,24 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             int navigationBarColor
     ) {
         Window window = getWindow();
-        // Android 15+ enforces edge-to-edge for this target SDK. The page/root
-        // surface should show through the bars instead of relying on bar color
-        // APIs that are ignored or transformed by the platform.
+        // Content is drawn edge-to-edge on every API level (Android 15+ enforces it). The
+        // status bar stays transparent because Compose draws its own scrim under it.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            window.setStatusBarColor(statusBarColor);
-            window.setNavigationBarColor(navigationBarColor);
+            window.setStatusBarColor(Color.TRANSPARENT);
+            // From Android 10 the system adds its own scrim for 3-button navigation, so the
+            // bar can be transparent; older versions keep a translucent page-colored bar.
+            int navigationColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ? Color.TRANSPARENT
+                    : (navigationBarColor & 0x00FFFFFF) | 0xE6000000;
+            window.setNavigationBarColor(navigationColor);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                window.setNavigationBarDividerColor(navigationBarColor);
+                window.setNavigationBarDividerColor(Color.TRANSPARENT);
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.setStatusBarContrastEnforced(false);
-            window.setNavigationBarContrastEnforced(false);
+            // Gesture navigation stays clear; 3-button navigation keeps its legibility scrim.
+            window.setNavigationBarContrastEnforced(true);
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -638,7 +646,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (!dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
-        window.getDecorView().setSystemUiVisibility(systemUiVisibility);
+        // Keep the edge-to-edge layout flags set by WindowCompat; only the light flags change.
+        View decor = window.getDecorView();
+        int preserved = decor.getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        decor.setSystemUiVisibility(preserved | systemUiVisibility);
     }
 
     // ── Compose action boundary ────────────────────────────────────────

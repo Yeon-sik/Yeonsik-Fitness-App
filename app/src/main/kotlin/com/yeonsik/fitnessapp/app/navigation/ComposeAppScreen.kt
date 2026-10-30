@@ -18,7 +18,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
@@ -922,14 +936,30 @@ private fun AppRoot(
         val tabBarItemHeight = fitnessGlassTabItemHeight()
         val tabBarSpace = fitnessGlassTabBarSpace(tabBarItemHeight)
         val pageBackground = MaterialTheme.colorScheme.background
+        // Edge-to-edge: content runs under the system bars and each element applies its inset.
+        val layoutDirection = LocalLayoutDirection.current
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        // With the keyboard open, the root imePadding already covers the navigation bar.
+        val navigationBarBottom = WindowInsets.navigationBars.exclude(WindowInsets.ime)
+            .asPaddingValues().calculateBottomPadding()
+        val sideInsets = WindowInsets.displayCutout.union(WindowInsets.navigationBars)
+            .only(WindowInsetsSides.Horizontal).asPaddingValues()
+        val pageStart = FitnessSpacing.page + sideInsets.calculateStartPadding(layoutDirection)
+        val pageEnd = FitnessSpacing.page + sideInsets.calculateEndPadding(layoutDirection)
+        // The floating bottom bar sits above the navigation bar.
+        val bottomBarSpace = tabBarSpace + navigationBarBottom
+        val sessionBarScreen = screen == FitnessScreen.WORKOUT_SESSION || screen == FitnessScreen.CARDIO_SESSION
         val destinationPage: @Composable (FitnessScreen, Boolean) -> Unit = { pageScreen, isActualActive ->
             val recordsBackdrop = rememberLayerBackdrop()
             var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
             val recordsBarHeight = if (recordsBarHeightPx > 0) {
                 with(LocalDensity.current) { recordsBarHeightPx.toDp() }
             } else {
-                tabBarSpace
+                tabBarSpace + statusBarTop
             }
+            // Session top bars extend under the status bar themselves.
+            val pageTopInset = if (pageScreen == FitnessScreen.WORKOUT_SESSION ||
+                pageScreen == FitnessScreen.CARDIO_SESSION) 0.dp else statusBarTop
             val pageDestination = if (pageScreen == FitnessScreen.RECORDS) {
                 recordsHubTab.screen
             } else {
@@ -994,13 +1024,13 @@ private fun AppRoot(
                                     }
                                 )
                                 .padding(
-                                    start = FitnessSpacing.page,
-                                    end = FitnessSpacing.page,
+                                    start = pageStart,
+                                    end = pageEnd,
                                     top = FitnessSpacing.gap +
                                         if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
-                                        else 0.dp,
+                                        else pageTopInset,
                                     bottom = FitnessSpacing.gap +
-                                        if (bottomNavigationVisible) tabBarSpace else 0.dp
+                                        if (bottomNavigationVisible) bottomBarSpace else navigationBarBottom
                                 )
                         ) {
                             if (pageDestination == FitnessScreen.HOME) {
@@ -1053,6 +1083,7 @@ private fun AppRoot(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .onSizeChanged { recordsBarHeightPx = it.height }
+                                .statusBarsPadding()
                         )
                     }
                 }
@@ -1062,7 +1093,6 @@ private fun AppRoot(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .systemBarsPadding()
                 .imePadding()
         ) {
             Column(
@@ -1074,7 +1104,7 @@ private fun AppRoot(
                         } else Modifier
                     )
                     .then(
-                        if (bottomNavigationVisible) Modifier.fitnessGlassScrollEdge(bottom = tabBarSpace)
+                        if (bottomNavigationVisible) Modifier.fitnessGlassScrollEdge(bottom = bottomBarSpace)
                         else Modifier
                     )
             ) {
@@ -1113,9 +1143,10 @@ private fun AppRoot(
                     },
                     dark, tabBarItemHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
-                    Modifier.align(Alignment.BottomCenter)
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
                 )
             }
+            if (!sessionBarScreen) FitnessStatusBarScrim(Modifier.align(Alignment.TopCenter))
         }
         BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
         DevelopmentProfileEditorDialog(profileEditorState, ownerId, unit, editorActions)
@@ -1340,6 +1371,7 @@ private fun RestTimerBar(
         Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .navigationBarsPadding()
             .animateContentSize(tween(180))
             .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)

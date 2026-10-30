@@ -133,6 +133,9 @@ public final class FitnessUiTokens {
     /** Hairline for flat content cards (outlineVariant alpha); high-contrast text uses 1.0. */
     public static final float CARD_HAIRLINE_ALPHA_LIGHT = 0.60f;
     public static final float CARD_HAIRLINE_ALPHA_DARK = 0.50f;
+    /** Edge-to-edge status bar scrim: background alpha at the top, extent below the bar. */
+    public static final float STATUS_BAR_SCRIM_ALPHA = 0.92f;
+    public static final int STATUS_BAR_SCRIM_EXTENT_DP = 12;
 
     // Liquid glass tab bar — one design shared by the bottom navigation and records hub tabs.
     public static final int GLASS_TAB_BAR_MARGIN_HORIZONTAL_DP = 24;

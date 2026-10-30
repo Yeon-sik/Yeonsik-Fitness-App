@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -34,6 +38,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.heading
@@ -76,6 +82,8 @@ internal fun FitnessSessionTopBar(
         modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
+            // Edge-to-edge: the opaque bar extends under the status bar, its content below it.
+            .statusBarsPadding()
             .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -258,4 +266,25 @@ fun FitnessStepButton(
     ) {
         Icon(if (forward) FitnessActionNextIcon else FitnessBackIcon, contentDescription)
     }
+}
+
+/**
+ * Edge-to-edge status bar scrim: the page background fades in under the clock and icons so
+ * scrolled content never collides with them. It draws only and never consumes touches.
+ */
+@Composable
+fun FitnessStatusBarScrim(modifier: Modifier = Modifier) {
+    val background = MaterialTheme.colorScheme.background
+    val height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() +
+        FitnessUiTokens.STATUS_BAR_SCRIM_EXTENT_DP.dp
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(
+                Brush.verticalGradient(
+                    listOf(background.copy(alpha = FitnessUiTokens.STATUS_BAR_SCRIM_ALPHA), Color.Transparent)
+                )
+            )
+    )
 }
