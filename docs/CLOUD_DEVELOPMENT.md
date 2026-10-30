@@ -64,6 +64,15 @@ verify로 실행한다. 캐시는 파일과 도구를 보존하지만 실행 중
 APK 컴파일은 기기에서 UI 테스트를 실행했다는 뜻이 아니다. iOS framework·SwiftUI
 host는 기존 macOS CI job에서 검증하며 Linux cloud에서 성공했다고 주장하지 않는다.
 
+`android-instrumented` job은 일회용 API 34 에뮬레이터에서
+`scripts/cloud/android-core-instrumented-tests.txt`의 핵심 instrumentation을
+실행한다. 범위는 신규 설치·DB 업그레이드, 소유자 격리, Meal 스냅샷, LoadState,
+백업 복원, 운동 전송, 로컬 보존 동기화, Summary v2, 세트 입력·화면 재생성이다.
+에뮬레이터 결과는 실기기나 기존 사용자 DB 보존 검증이 아니며, 목록 밖의
+instrumentation은 계속 APK 컴파일만 확인한다. 로컬에서는 에뮬레이터 하나만 연결하고
+`bash scripts/cloud/instrumented-core.sh`를 실행한다. 이 테스트는 앱 DB를 지우므로
+스크립트가 실기기를 거부한다.
+
 `nutrition-db-replay.yml`은 Docker를 쓰는 폐기 가능한 로컬 DB에 이력을 재생한다.
 운영 DB 배포 workflow가 아니다. Docker를 쓸 수 없는 원격 세션은 replay를 생략했다고
 명시하고 CI 결과를 확인한다. 운영 Nutrition migration과 RPC·RLS 검증은 별도 승인
