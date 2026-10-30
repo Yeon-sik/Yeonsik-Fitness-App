@@ -964,10 +964,10 @@ PR 단위로 커밋했다. 명세와 다르게 구현한 부분과 그 이유만
 | PR-A 토큰과 대비 | `5cdfe352` | 레거시 View `FitnessUi` 팩토리는 브랜드 파랑을 글자로 쓰지 않아 범위에서 뺐다. |
 | PR-B 홈과 뒤로가기 | `24eb8bdd` | 5.4절 3단계(첫 빠른 실행 위 8dp 간격)는 실기기 확인 뒤 결정한다. |
 | PR-C edge-to-edge | `314ee47a` | 없음 |
-| PR-D 공통 글래스·바 | `5eacbeaa` | 유산소 세션 상단 바는 `MapView`를 샘플링할 수 없어 불투명으로 둔다. 식단 하루 요약은 자기 자신을 샘플링하던 글래스를 지우고 홈 카드와 같은 평면 카드(`MealOverviewSurface`)로 바꿨다. |
+| PR-D 공통 글래스·바 | `5eacbeaa`, `1dd03dfe`(테스트) | 유산소 세션 상단 바는 `MapView`를 샘플링할 수 없어 불투명으로 둔다. 식단 하루 요약은 자기 자신을 샘플링하던 글래스를 지우고 홈 카드와 같은 평면 카드(`MealOverviewSurface`)로 바꿨다. |
 | PR-E 다이얼로그·시트 | `a0d8a8e2`, `0332fc3e` | 창 배경 블러 대신 뒤 창 블러(`FLAG_BLUR_BEHIND` + `blurBehindRadius` 24dp)를 쓴다. 다이얼로그 창이 둥근 표면보다 넓어 배경 블러는 사각형으로 보이기 때문이다. 기록 선택일 시트는 페이지 배경색 대신 공용 시트 표면을 쓴다. 전체 화면 `Dialog` 3곳(종목 기록, 운동 이미지, 영양 입력)은 페이지 표면이라 불투명으로 둔다. |
 | PR-F 휴식 종료 알림 | `767a3708`(결함 수정), `85c6fa0e` | ViewModel 단위 테스트는 기존 `WorkoutSessionViewModelTest`가 instrumentation 테스트라 그곳에 추가했다. 세션 완료·빈 세션 폐기·취소와 열린 기록 삭제 때 ViewModel이 타이머와 알람을 함께 정리하고, 계정이 바뀌면 `AppContainer`가 알람을 취소한다. |
-| PR-G 로딩 통일 | `1e57bc4e` | `feat/fitness-glass-completion`의 `64ea924f`를 옮겼다. 기록 달력 로딩은 10/29 main 결정(`3fabe53b`, 월 이동 때 300ms 빈 화면 금지)에 따라 지연 없이 `SECTION`으로 바로 보인다. |
+| PR-G 로딩 통일 | `1e57bc4e`, `6a603e80`(테스트) | `feat/fitness-glass-completion`의 `64ea924f`를 옮겼다. 기록 달력 로딩은 10/29 main 결정(`3fabe53b`, 월 이동 때 300ms 빈 화면 금지)에 따라 지연 없이 `SECTION`으로 바로 보인다. |
 
 공통 결정
 
@@ -975,13 +975,14 @@ PR 단위로 커밋했다. 명세와 다르게 구현한 부분과 그 이유만
 - `backdrop` 알파 라이브러리는 `core/ui/FitnessGlass.kt`만 import한다(`BackdropImportIsolationTest`).
 - 시트의 `LocalView`가 `DialogWindowProvider`를 제공하는지는 실기기에서 확인해야 한다. 제공하지 않으면 시트는 불투명 대체 표면으로 그려진다.
 
-### 14.3 검증 상태 (2026-10-30)
+### 14.3 검증 상태 (2026-10-30, CI run 41088063762, `1dd03dfe`)
 
 | 구분 | 상태 |
 |---|---|
-| JVM 단위 테스트 | 대비·백드롭 격리·휴식 알림 정책 테스트는 로컬 Kotlin 컴파일러로 통과. 전체 `testDebugUnitTest`는 CI `Android and shared gates`가 실행한다. |
-| Android 빌드 | CI가 컴파일을 확인한다. 이 클라우드 환경은 Google Maven 접근이 막혀 로컬 빌드를 할 수 없다. |
-| Instrumentation | CI 에뮬레이터(API 34) 핵심 목록. PR-C까지 결과는 이 작업 전과 같은 7개 클래스 실패(테스트 쪽 결함)뿐이다. |
+| JVM 단위 테스트 | 통과. CI `Android and shared gates`의 `testDebugUnitTest`(새 대비·백드롭 격리·휴식 알림 정책 테스트 포함). |
+| Android 빌드·lint | 통과. 같은 job의 `assembleDebug`, `assembleDebugAndroidTest`, `lintDebug`. 이 클라우드 환경은 Google Maven 접근이 막혀 로컬 빌드는 하지 못했다. |
+| iOS 공유 코드·Swift 호스트 | 통과. CI `iOS framework and Swift host gates` |
+| Instrumentation | CI 에뮬레이터(API 34) 핵심 목록. 새 `RestTimerEndEffectTest` 3/3, `FitnessGlassFallbackUiTest` 4/4, `FitnessLoadingTest` 3/3, `WorkoutSessionViewModelTest` 12/12 통과. 실패는 이 작업 전부터 있던 7개 클래스(Room v50 기준선·마이그레이션 fixture, 필수 영양소 fixture)뿐이다. |
 | 실기기 | 미실시. 창 블러, 시트 창 획득, 9.6절 알림 시나리오 1~8, 5.4절 3단계가 남아 있다. |
 | 운영 RPC·RLS | 해당 없음 |
 
