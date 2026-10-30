@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +42,7 @@ import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppHeader
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
 import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
@@ -460,7 +460,7 @@ private fun RecordsDetailHeading(title: String, count: Int) {
 @Composable
 private fun RecordsMealSummaryDialog(meal: MealReadSummary, onDismiss: () -> Unit) {
     val nutritionRecorded = meal.nutritionStatus != "unknown"
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag("records-meal-dialog"),
         title = { Text("${meal.mealLabel} 정보") },

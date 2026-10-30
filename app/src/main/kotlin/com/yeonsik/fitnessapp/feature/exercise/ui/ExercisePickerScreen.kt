@@ -20,10 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -58,10 +56,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseFamilyIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
+import com.yeonsik.fitnessapp.core.ui.FitnessModalBottomSheet
 import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusMessage
@@ -387,7 +387,7 @@ private fun FilterPopupRow(
     }
 
     if (isOpen) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { isOpen = false },
             title = { Text(title) },
             text = {
@@ -551,7 +551,7 @@ private fun ExercisePickerVariantSheet(
         }
     }
 
-    ModalBottomSheet(
+    FitnessModalBottomSheet(
         onDismissRequest = { actions.selectFamily(familyId) },
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("exercise-variant-handle")) }

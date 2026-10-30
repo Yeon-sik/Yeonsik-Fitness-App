@@ -89,7 +89,7 @@ private fun MealFoodPortionDialog(food: NutritionFood, enabled: Boolean,
         PortionInputMode.GRAMS -> (recipeGramsPerServing(food) ?: 100.0) / 4.0
         PortionInputMode.BASIS -> food.basisAmount / 4.0
     }
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(food.displayName()) },
         text = {

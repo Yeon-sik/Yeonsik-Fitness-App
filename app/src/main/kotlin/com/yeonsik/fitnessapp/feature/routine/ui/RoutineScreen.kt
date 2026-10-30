@@ -128,12 +128,12 @@ private fun RoutineManagementMenu(routineId: String, name: String, actions: Rout
                 onClick = { expanded = false; deleting = true })
         }
     }
-    if (rename) AlertDialog(onDismissRequest = { rename = false }, title = { Text("루틴 이름 변경") },
+    if (rename) FitnessAlertDialog(onDismissRequest = { rename = false }, title = { Text("루틴 이름 변경") },
         text = { FitnessTextField(draft, { draft = it }, label = { Text("루틴 이름") }) },
         confirmButton = { TextButton(onClick = { actions.rename(routineId, draft.trim()); rename = false },
             enabled = draft.isNotBlank()) { Text("이름 저장") } },
         dismissButton = { TextButton(onClick = { rename = false }) { Text("취소") } })
-    if (deleting) AlertDialog(onDismissRequest = { deleting = false }, title = { Text("루틴을 삭제할까요?") },
+    if (deleting) FitnessAlertDialog(onDismissRequest = { deleting = false }, title = { Text("루틴을 삭제할까요?") },
         text = { Text("$name 루틴을 삭제합니다. 이미 저장된 운동 기록은 유지됩니다.") },
         confirmButton = { TextButton(onClick = { deleting = false; actions.delete(routineId); actions.back() }) {
             Text("루틴 삭제", color = MaterialTheme.colorScheme.error)

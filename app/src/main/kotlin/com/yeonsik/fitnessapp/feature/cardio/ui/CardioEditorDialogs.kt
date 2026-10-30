@@ -3,7 +3,6 @@ package com.yeonsik.fitnessapp.feature.cardio.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,6 +12,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 
 interface CardioHeartRateEditorActions {
     fun updateDistanceInput(value: String)
@@ -35,7 +35,7 @@ fun CardioHeartRateEditorDialog(
     } else {
         "평균 심박수 수정"
     }
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text(title) },
         text = {
@@ -100,7 +100,7 @@ fun CardioCancelConfirmationDialog(
     val ready = state as? CardioCancelConfirmationUiState.Ready
     if (ready == null || ready.ownerId != ownerId) return
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("유산소 기록 취소") },
         text = { Text(ready.summary) },

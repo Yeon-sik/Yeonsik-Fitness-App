@@ -262,7 +262,7 @@ internal fun NutritionPublicationDialog(
     val confirmationMenu = menu
     if (confirmation && confirmationFood != null && confirmationDetail != null &&
         confirmationLocation != null && confirmationMenu != null) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { confirmation = false },
             title = { Text("공개 연결 확인") },
             text = {

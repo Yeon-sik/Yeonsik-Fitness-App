@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
 import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessTextField
@@ -41,7 +41,7 @@ internal fun ManualWorkoutExerciseDialog(
     var recordType by rememberSaveable { mutableStateOf("") }
     val part = BodyPart.fromId(partId)
     val equipment = EquipmentType.fromId(equipmentId)
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("운동 직접 추가") },
         text = {

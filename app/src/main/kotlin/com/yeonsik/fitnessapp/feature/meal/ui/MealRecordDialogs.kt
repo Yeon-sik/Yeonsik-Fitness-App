@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import com.yeonsik.fitnessapp.data.MealEntryPolicy
 import com.yeonsik.fitnessapp.data.NutritionCalculator
 import com.yeonsik.fitnessapp.data.NutritionUnit
@@ -42,7 +43,7 @@ internal fun MealRecordEditDialog(
     var showDatePicker by rememberSaveable(editor.recordId) { mutableStateOf(false) }
     val dateError = mealRecordDateError(date)
     if (!showDatePicker) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { if (!saving) onDismiss() },
             title = { Text("식단 수정") },
             text = {
@@ -108,7 +109,7 @@ internal fun MealSnapshotDetailDialog(
     onEditDateTime: (() -> Unit)?
 ) {
     if (state == MealDetailState.Idle) return
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("메뉴 자세히 보기") },
         text = {

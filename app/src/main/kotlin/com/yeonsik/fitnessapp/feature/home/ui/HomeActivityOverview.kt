@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityKind
@@ -65,7 +65,7 @@ internal fun HomeActivityOverview(
         }
     }
     if (datesOpen && enabled) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { datesOpen = false },
             title = { Text("날짜 선택") },
             text = {

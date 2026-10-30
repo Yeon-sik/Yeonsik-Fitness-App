@@ -124,7 +124,7 @@ fun DevelopmentProfileEditorDialog(
         mutableStateOf(editor.weightKg?.let { MassFormatter.formatInput(it, unit) } ?: "")
     }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("바디 정보 수정") },
         text = {
@@ -215,7 +215,7 @@ fun DevelopmentGoalEditorDialog(
     var objectiveExpanded by remember { mutableStateOf(false) }
     var focusExpanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("발전 목표 수정") },
         text = {

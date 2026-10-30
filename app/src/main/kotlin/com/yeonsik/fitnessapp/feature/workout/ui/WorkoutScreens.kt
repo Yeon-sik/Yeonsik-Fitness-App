@@ -384,7 +384,7 @@ internal fun WorkoutDetailScreen(
         destructive = true
     ) { Text("종목 삭제") }
     if (confirmDelete) {
-        AlertDialog(
+        FitnessAlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("종목을 삭제할까요?") },
             text = { Text("이 종목의 세트 기록도 현재 세션에서 함께 삭제됩니다.") },
@@ -604,7 +604,7 @@ private fun WorkoutInputHelpDialog(recordType: String, basis: WorkoutInputBasis,
     val loadColor = LocalFitnessColors.current.success
     val performanceColor = if (FitnessRecordContract.supportsRir(recordType)) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.onSurface
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("세트 기록 안내", style = titleStyle.copy(
             fontSize = titleStyle.fontSize * 1.2f, lineHeight = titleStyle.lineHeight * 1.2f)) },

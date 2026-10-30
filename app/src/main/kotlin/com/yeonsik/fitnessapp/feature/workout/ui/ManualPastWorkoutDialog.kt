@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
+import com.yeonsik.fitnessapp.core.ui.FitnessAlertDialog
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
@@ -67,7 +67,7 @@ fun ManualPastWorkoutDialog(
     var routineExpanded by remember { mutableStateOf(false) }
     val selectedRoutine = routines.firstOrNull { it.id == selectedRoutineId }
 
-    AlertDialog(
+    FitnessAlertDialog(
         onDismissRequest = actions::dismiss,
         title = { Text("지난 운동 수동 등록") },
         text = {

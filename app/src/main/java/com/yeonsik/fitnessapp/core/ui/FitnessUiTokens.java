@@ -197,6 +197,7 @@ public final class FitnessUiTokens {
     public static final int GLASS_SHEET_WINDOW_BLUR_DP = 24;
     public static final float GLASS_STROKE_ALPHA_LIGHT = 0.55f;
     public static final float GLASS_STROKE_ALPHA_DARK = 0.18f;
+    public static final int GLASS_DIALOG_RADIUS_DP = 28;
 
     // Thinking Orb: one blue family with a soft center glow instead of grey role colors.
     public static final int COLOR_ORB_0 = 0xFF38BDF8;

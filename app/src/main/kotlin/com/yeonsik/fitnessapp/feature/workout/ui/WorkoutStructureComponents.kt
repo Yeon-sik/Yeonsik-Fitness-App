@@ -63,7 +63,7 @@ internal fun WorkoutExerciseGroupDialog(detail: WorkoutExerciseDetail, actions: 
             else error = "운동 연결을 저장하지 못했습니다. 다시 시도하세요."
         }
     }
-    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("운동 연결 설정") },
+    FitnessAlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("운동 연결 설정") },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 WorkoutExerciseGroupType.entries.forEach { type ->

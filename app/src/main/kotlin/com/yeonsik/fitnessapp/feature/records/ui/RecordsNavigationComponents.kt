@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
+import com.yeonsik.fitnessapp.core.ui.FitnessModalBottomSheet
 import com.yeonsik.fitnessapp.core.ui.FitnessStepButton
 import java.time.LocalDate
 import java.time.YearMonth
@@ -127,10 +128,9 @@ internal fun RecordsDetailSheet(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    ModalBottomSheet(
+    FitnessModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.testTag("records-day-sheet").semantics { paneTitle = "선택일 기록" }
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
