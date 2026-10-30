@@ -83,8 +83,9 @@ class FitnessGlassFallbackUiTest {
             }
         }
         compose.onNodeWithText("건너뛰기").performClick()
-        // The capsule's horizontal padding is rim: a tap there must not reach the page.
-        compose.onNodeWithTag("rest-timer-capsule").performTouchInput {
+        // The capsule's horizontal padding is rim: a tap there must not reach the page. The
+        // clickable page merges the capsule's semantics, so find it in the unmerged tree.
+        compose.onNodeWithTag("rest-timer-capsule", useUnmergedTree = true).performTouchInput {
             click(Offset(width - 4f, height / 2f))
         }
         compose.runOnIdle {
