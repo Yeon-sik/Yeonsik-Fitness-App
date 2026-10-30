@@ -929,3 +929,28 @@ WCAG 2.x 상대 휘도 공식으로 계산했다.
 | `#FF8A80` | `#12394D` | 5.35 | 통과 |
 | `#FF8A80` | `#10324A` | 5.83 | 통과 |
 | `#FF8A80` | `#214A63` | 4.14 | 미달 (`COLOR_D_HERO_END`를 쓰지 않는 이유) |
+
+---
+
+## 14. 구현 기록
+
+### 14.1 공용 글래스 탭바 (2026-10-30)
+
+- 하단 탭바와 기록 허브 탭을 `core/ui/FitnessGlassTabBar.kt`의 `FitnessGlassTabBar` 하나로 합쳤다. 재질, 높이, 여백, 선택 표시 이동, 눌림 피드백, 글자 스타일이 같다.
+  - 기록 허브 탭에도 아이콘을 둔다: 기록은 하단 기록 탭 아이콘, 발전은 `FitnessTrendIcon`, 통계는 `FitnessStatisticsIcon`.
+  - `ComposeAppScreen.kt`의 `navigationGlassSurface`, `bottomNavigationGlassSurface`, `bottomNavigationGlassSelection`, `glassTabFeedback`는 이 파일로 옮겼다. 4.3절 CURRENT 표의 위치는 더 이상 맞지 않는다.
+- 4.3절 토큰 중 탭바가 쓰는 값을 `FitnessUiTokens`에 정의했다. 4.3절의 "값 변경 없이"와 달리 아래 값은 iOS 27 기준 보완으로 의도적으로 바꿨다.
+
+  | 항목 | 이전 | 현재 | 이유 |
+  |---|---|---|---|
+  | `GLASS_BAR_BLUR_DP` | 8 | 12 | 복잡한 콘텐츠를 더 확산 |
+  | `GLASS_BAR_SURFACE_ALPHA_LIGHT` / `_DARK` | 0.30 / 0.34 | 0.40 / 0.50 | 브랜드 파랑 채움 위에서도 비선택 라벨 4.5:1 |
+  | `GLASS_BAR_HIGHLIGHT_ALPHA` | 0.65 | 0.80 | 더 밝은 가장자리 하이라이트 |
+  | 비선택 탭 글자·아이콘 | `onSurfaceVariant` | `onSurface` | 위와 같음. iOS 탭바와 같은 역할색 |
+
+- 새로 추가한 것
+  - 가장자리 1dp(라이트 검정 8%, 다크 흰색 16%)와 6dp 그림자: 빈 배경 위에서도 바 윤곽 유지
+  - 스크롤 엣지 효과 `fitnessGlassScrollEdge`: 바 아래로 지나가는 콘텐츠를 페이지 배경으로 흐리게 한다(화면 끝 0.80 → 바 안쪽 끝 0.60 → 카드 간격 12dp 뒤 0). backdrop 레이어 안에 그려 글래스도 흐려진 콘텐츠를 비춘다.
+  - 루트 `Column`과 기록 페이지의 backdrop 레이어에 페이지 배경을 포함해, 글래스가 화면과 같은 내용을 샘플링한다.
+  - 대비 회귀 테스트 `FitnessGlassTabBarContrastTest`
+- 범위 밖으로 남긴 것: 6장 edge-to-edge, 7장의 휴식 타이머·세션 상단 바, 홈 `HomeGlassPanel`
