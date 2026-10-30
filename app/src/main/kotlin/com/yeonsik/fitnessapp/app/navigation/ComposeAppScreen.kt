@@ -231,6 +231,10 @@ private fun AppRoot(
     }
     val restState by viewModels.getWorkoutSession().restTimerState
         .observeAsState(WorkoutRestTimerState.Inactive)
+    RestTimerEndEffect(restState, ownerId, onRestEnded = {
+        viewModels.getWorkoutSession().stopRestTimer()
+        host.toast("휴식 종료. 다음 세트를 시작하세요.")
+    })
     val mealState by viewModels.getMeal().uiState.observeAsState(MealUiState.Idle)
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
@@ -1171,7 +1175,7 @@ private fun AppRoot(
                 )
             }
             RestTimerBar(
-                host, viewModels, screen, restState, ownerId,
+                viewModels, screen, restState, ownerId,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -1377,7 +1381,6 @@ private fun CardioSessionTopBar(
 
 @Composable
 private fun RestTimerBar(
-    host: AppUiActions,
     viewModels: AppViewModels,
     screen: FitnessScreen,
     state: WorkoutRestTimerState,
@@ -1392,15 +1395,12 @@ private fun RestTimerBar(
     var now by remember(active?.endsAtMillis) {
         mutableStateOf(System.currentTimeMillis())
     }
+    // Display clock only: RestTimerEndEffect ends the timer at the app level.
     LaunchedEffect(active?.endsAtMillis, visible) {
         if (!visible || active == null) return@LaunchedEffect
         while (isActive) {
             now = System.currentTimeMillis()
-            if (now >= active.endsAtMillis) {
-                viewModels.getWorkoutSession().stopRestTimer()
-                host.toast("휴식 종료. 다음 세트를 시작하세요.")
-                break
-            }
+            if (now >= active.endsAtMillis) break
             delay(250)
         }
     }

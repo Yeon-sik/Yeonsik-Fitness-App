@@ -32,6 +32,7 @@ com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisherIncremental
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSetRecordingUiTest
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModelTest
 com.yeonsik.fitnessapp.ui.RecordingNavigationRecreationTest
+com.yeonsik.fitnessapp.app.navigation.RestTimerEndEffectTest
 
 # Glass controls keep selection and touch behavior on the opaque fallback
 com.yeonsik.fitnessapp.core.ui.FitnessGlassFallbackUiTest
