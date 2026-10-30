@@ -24,7 +24,7 @@ com.yeonsik.fitnessapp.data.LocalDataBackupServiceTest
 com.yeonsik.fitnessapp.data.WorkoutTransferCodecTest
 com.yeonsik.fitnessapp.data.WorkoutTransferRepositoryTest
 com.yeonsik.fitnessapp.data.WorkoutTransferRoomImportTest
-com.yeonsik.fitnessapp.data.SupabaseSyncManagerLocalPreservationTest
+com.yeonsik.fitnessapp.sync.SupabaseSyncManagerLocalPreservationTest
 com.yeonsik.fitnessapp.data.FitnessRepositorySummaryProjectionV2Test
 com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisherIncrementalTest
 
