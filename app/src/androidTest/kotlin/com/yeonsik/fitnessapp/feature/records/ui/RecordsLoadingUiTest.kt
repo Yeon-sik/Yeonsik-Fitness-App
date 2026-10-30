@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.ImmediateLoadingTheme
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
