@@ -288,6 +288,8 @@ dependencies {
     debugImplementation "androidx.compose.ui:ui-tooling"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7"
     implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7"
+    // Rest end alarms post a notification only while the app process is in the background.
+    implementation "androidx.lifecycle:lifecycle-process:2.8.7"
     implementation "com.google.android.gms:play-services-location:21.4.0"
     implementation "androidx.room:room-runtime:2.8.4"
     implementation "androidx.room:room-ktx:2.8.4"

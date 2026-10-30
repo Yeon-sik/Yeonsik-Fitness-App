@@ -27,6 +27,10 @@ public interface AppUiActions {
     /** Platform-only permission bridge after CardioSessionViewModel has approved a start. */
     void requestCardioStart(CardioActivityType activityType);
 
+    /** Asks once, on the first rest, for the permission the rest end notification needs. */
+    default void requestRestTimerNotificationPermissionIfNeeded() {
+    }
+
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
 
     void openFleekDataImport();

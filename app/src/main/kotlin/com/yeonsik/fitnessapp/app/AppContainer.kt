@@ -58,7 +58,9 @@ import com.yeonsik.fitness.shared.feature.workout.application.InitializeWorkoutE
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository
+import com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi
+import com.yeonsik.fitnessapp.feature.workout.application.AndroidRestTimerAlarmScheduler
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
@@ -87,6 +89,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
     private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     val massUnitPreferences = MassUnitPreferences(appContext)
+    val restTimerAlarmScheduler: RestTimerAlarmScheduler = AndroidRestTimerAlarmScheduler(appContext)
     val themeModePreferences = ThemeModePreferences(appContext)
 
     val configStore = SupabaseConfigStore(appContext)
@@ -277,6 +280,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     )
 
     fun applyAuthenticatedSharedConfig(config: SupabaseConfig) {
+        cancelRestAlarmIfOwnerChanges(config)
         supabaseConfig = config
         val ownerId = config.effectiveUserId()
         accountOwnershipService.claimLocalRows(ownerId)
@@ -293,6 +297,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     }
 
     fun applySharedSessionConfig(config: SupabaseConfig) {
+        cancelRestAlarmIfOwnerChanges(config)
         supabaseConfig = config
         val ownerId = config.effectiveUserId()
         accountOwnershipService.setOwnerId(ownerId)
@@ -306,6 +311,11 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         recoveryRepository.setUserId(ownerId)
         supplementRepository.setUserId(ownerId)
         mealRecordRepository.setUserId(ownerId)
+    }
+
+    /** Sign-out or an account switch must not announce the previous owner's rest. */
+    private fun cancelRestAlarmIfOwnerChanges(config: SupabaseConfig) {
+        if (config.effectiveUserId() != supabaseConfig.effectiveUserId()) restTimerAlarmScheduler.cancel()
     }
 
     fun applyNutritionSessionConfig(config: SupabaseConfig) {

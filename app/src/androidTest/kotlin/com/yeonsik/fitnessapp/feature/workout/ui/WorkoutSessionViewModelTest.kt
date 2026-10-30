@@ -12,6 +12,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -279,14 +280,77 @@ class WorkoutSessionViewModelTest {
     private fun viewModel(
         repository: WorkoutRepositoryApi,
         executor: ExecutorService,
-        handle: SavedStateHandle = SavedStateHandle()
+        handle: SavedStateHandle = SavedStateHandle(),
+        restTimerAlarms: RestTimerAlarmScheduler = RestTimerAlarmScheduler.NONE
     ) = WorkoutSessionViewModel(
         handle,
         repository,
         CompleteWorkout(repository),
         executor = executor,
-        shutdownExecutorOnCleared = false
+        shutdownExecutorOnCleared = false,
+        restTimerAlarms = restTimerAlarms
     )
+
+    @Test fun restTimerSchedulesItsEndAndSkipOrZeroRestCancels() {
+        val executor = Executors.newSingleThreadExecutor()
+        val alarms = RecordingRestTimerAlarms()
+        val viewModel = viewModel(
+            BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0)), executor, restTimerAlarms = alarms
+        )
+        try {
+            onMain {
+                viewModel.startRestTimer(scope.ownerId, 60)
+                val endsAt = (viewModel.restTimerState.value as WorkoutRestTimerState.Active).endsAtMillis
+                assertEquals(listOf("schedule:$endsAt"), alarms.calls)
+                viewModel.stopRestTimer()
+                assertEquals("cancel", alarms.calls.last())
+                alarms.calls.clear()
+                viewModel.startRestTimer(scope.ownerId, 0)
+                assertEquals(listOf("cancel"), alarms.calls)
+            }
+        } finally { executor.shutdownNow() }
+    }
+
+    @Test fun endingTheSessionCancelsTheRestAlarm() {
+        val alarms = RecordingRestTimerAlarms()
+        val cancelled = Executors.newSingleThreadExecutor()
+        val cancelModel = viewModel(
+            BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0), "in_progress"),
+            cancelled, restTimerAlarms = alarms
+        )
+        val finished = Executors.newSingleThreadExecutor()
+        val finishModel = viewModel(
+            BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0), "in_progress"),
+            finished, restTimerAlarms = alarms
+        )
+        try {
+            onMain {
+                cancelModel.startRestTimer(scope.ownerId, 60)
+                cancelModel.cancel(scope, "cancelled-record")
+            }
+            cancelled.shutdown()
+            assertTrue(cancelled.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(WorkoutSessionTerminalOutcome.CANCELLED, cancelModel.terminalEvents.value?.outcome)
+            assertEquals(WorkoutRestTimerState.Inactive, cancelModel.restTimerState.value)
+            assertEquals("cancel", alarms.calls.last())
+
+            alarms.calls.clear()
+            onMain {
+                finishModel.startRestTimer(scope.ownerId, 60)
+                finishModel.finish(scope, "empty-record")
+            }
+            finished.shutdown()
+            assertTrue(finished.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(WorkoutSessionTerminalOutcome.DISCARDED_EMPTY, finishModel.terminalEvents.value?.outcome)
+            assertEquals(WorkoutRestTimerState.Inactive, finishModel.restTimerState.value)
+            assertEquals("cancel", alarms.calls.last())
+        } finally {
+            cancelled.shutdownNow()
+            finished.shutdownNow()
+        }
+    }
 
     @Test fun exerciseRestDurationIsUsedAndZeroDoesNotStartATimer() {
         val executor = Executors.newSingleThreadExecutor()
@@ -304,6 +368,12 @@ class WorkoutSessionViewModelTest {
                 viewModel.stopRestTimer()
             }
         } finally { executor.shutdownNow() }
+    }
+
+    private class RecordingRestTimerAlarms : RestTimerAlarmScheduler {
+        val calls: MutableList<String> = Collections.synchronizedList(mutableListOf())
+        override fun schedule(endsAtMillis: Long) { calls += "schedule:$endsAtMillis" }
+        override fun cancel() { calls += "cancel" }
     }
 
     private fun onMain(action: () -> Unit) {

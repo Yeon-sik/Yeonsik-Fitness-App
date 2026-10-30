@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.application.CompleteWorkout
+import com.yeonsik.fitnessapp.feature.workout.api.RestTimerAlarmScheduler
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
@@ -127,7 +128,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private val completeWorkout: CompleteWorkout,
     private val sessionApplicationService: WorkoutSessionApplicationService? = null,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
-    private val shutdownExecutorOnCleared: Boolean = true
+    private val shutdownExecutorOnCleared: Boolean = true,
+    private val restTimerAlarms: RestTimerAlarmScheduler = RestTimerAlarmScheduler.NONE
 ) : ViewModel() {
     private val mutableState = MutableLiveData<WorkoutSessionUiState>(WorkoutSessionUiState.Idle)
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
@@ -616,13 +618,16 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             endsAtMillis,
             seconds
         )
+        restTimerAlarms.schedule(endsAtMillis)
     }
 
+    /** Skipping, a 0s rest and the end of the session all stop the timer and its alarm. */
     fun stopRestTimer() {
         savedStateHandle.remove<String>(KEY_REST_OWNER_ID)
         savedStateHandle.remove<Long>(KEY_REST_ENDS_AT)
         savedStateHandle.remove<Int>(KEY_REST_TOTAL_SECONDS)
         mutableRestTimerState.value = WorkoutRestTimerState.Inactive
+        restTimerAlarms.cancel()
     }
 
     private fun restoreRestTimerState(): WorkoutRestTimerState {
@@ -671,6 +676,11 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                     routineStartInFlight.set(false)
                     mutableRoutineStarting.value = false
                 }
+                // Deleting the open session ends it, even when a newer action superseded this one.
+                if (result.outcome == WorkoutSessionActionOutcome.DELETED &&
+                    result.recordId != null && result.recordId == activeRecordId()) {
+                    stopRestTimer()
+                }
                 if (request != actionVersion) return@post
                 mutableActionState.value =
                     WorkoutSessionActionEvent(
@@ -711,7 +721,9 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
         if (!isCurrent(request, event)) return
         mainHandler.post {
-            if (isCurrent(request, event)) mutableTerminalEvents.value = event
+            if (!isCurrent(request, event)) return@post
+            if (event.outcome in SESSION_ENDING_OUTCOMES) stopRestTimer()
+            mutableTerminalEvents.value = event
         }
     }
 
@@ -762,6 +774,11 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         const val KEY_REST_OWNER_ID = "workout_rest.owner_id"
         const val KEY_REST_ENDS_AT = "workout_rest.ends_at"
         const val KEY_REST_TOTAL_SECONDS = "workout_rest.total_seconds"
+        val SESSION_ENDING_OUTCOMES = setOf(
+            WorkoutSessionTerminalOutcome.COMPLETED,
+            WorkoutSessionTerminalOutcome.CANCELLED,
+            WorkoutSessionTerminalOutcome.DISCARDED_EMPTY
+        )
         const val KEY_DELETE_OWNER_ID = "workout_delete.owner_id"
         const val KEY_DELETE_RECORD_ID = "workout_delete.record_id"
         const val KEY_DELETE_CANCEL_WORKOUT = "workout_delete.cancel_workout"

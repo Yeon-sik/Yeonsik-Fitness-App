@@ -65,6 +65,7 @@ class AppViewModelFactory(
                     container.workoutSessionApplicationService,
                     container.getWorkoutWriteExecutor(),
                     false,
+                    container.restTimerAlarmScheduler,
                 )
             modelClass.isAssignableFrom(WorkoutExerciseDetailViewModel::class.java) ->
                 WorkoutExerciseDetailViewModel(

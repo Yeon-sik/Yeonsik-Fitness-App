@@ -59,6 +59,8 @@ import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
+import com.yeonsik.fitnessapp.feature.workout.application.RestTimerNotificationPolicy;
+import com.yeonsik.fitnessapp.feature.workout.application.RestTimerNotifications;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -75,6 +77,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
     private static final int REQUEST_CARDIO_LOCATION = 4102;
     private static final int REQUEST_CARDIO_NOTIFICATIONS = 4103;
+    private static final int REQUEST_REST_TIMER_NOTIFICATIONS = 4104;
     private static final int REQUEST_LOCAL_BACKUP_EXPORT = 4111;
     private static final int REQUEST_LOCAL_BACKUP_RESTORE = 4112;
     private static final int REQUEST_RECORDS_CSV_EXPORT = 4113;
@@ -150,6 +153,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         appContainer = new AppContainer(this);
+        RestTimerNotifications.ensureChannel(this);
         String startupOwnerId = currentOwnerId();
         ViewModelProvider provider = new ViewModelProvider(
                 this,
@@ -357,6 +361,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         // These actions are protected system broadcasts; listen only while the UI is visible.
         ContextCompat.registerReceiver(this, dateChangeReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
         dateChangeReceiverRegistered = true;
+        // Back in the foreground the rest notification is stale; the app shows the rest itself.
+        RestTimerNotifications.cancel(this);
     }
 
     @Override
@@ -412,6 +418,24 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (requestCode == REQUEST_CARDIO_NOTIFICATIONS) {
             continuePendingCardioActionAfterNotificationPermission();
         }
+        // REQUEST_REST_TIMER_NOTIFICATIONS needs no follow-up: a denial keeps the in-app toast only.
+    }
+
+    @Override
+    public void requestRestTimerNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        boolean granted = RestTimerNotifications.permissionGranted(this);
+        if (!RestTimerNotificationPolicy.INSTANCE.shouldRequestPermission(
+                Build.VERSION.SDK_INT, granted, RestTimerNotifications.permissionRequested(this))) {
+            return;
+        }
+        RestTimerNotifications.markPermissionRequested(this);
+        requestPermissions(
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_REST_TIMER_NOTIFICATIONS
+        );
     }
 
     @Override
