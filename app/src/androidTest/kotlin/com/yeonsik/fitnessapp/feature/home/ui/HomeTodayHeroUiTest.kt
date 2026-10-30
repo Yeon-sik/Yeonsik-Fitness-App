@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yeonsik.fitnessapp.core.ui.DarkHeroColors
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.LightHeroColors
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
@@ -82,15 +84,16 @@ class HomeTodayHeroUiTest {
                 compose.onNodeWithText("어제보다 $delta kg", useUnmergedTree = true).assertIsDisplayed()
                 val detail = textLayout("home-hero-detail-body")
                 assertFalse(detail.hasVisualOverflow)
+                val heroColors = if (dark) DarkHeroColors else LightHeroColors
                 val expected = when (weight) {
-                    80.5 -> HomeHeroWeightIncreaseColor
-                    79.5 -> HomeHeroWeightDecreaseColor
+                    80.5 -> heroColors.increase
+                    79.5 -> heroColors.decrease
                     else -> textLayout("home-hero-detail-workout").layoutInput.style.color
                 }
                 assertEquals(expected, detail.layoutInput.style.color)
                 if (weight != 80.0) {
                     assertTrue("Weight change must remain legible on Hero", contrast(expected,
-                        Color(FitnessUiTokens.COLOR_BRAND_BLUE)) >= 4.5f)
+                        heroSurface(dark)) >= 4.5f)
                     captureHero("${if (dark) "dark" else "light"}-completed-${if (weight > 80.0) "gain" else "loss"}")
                 }
             }
@@ -308,7 +311,7 @@ class HomeTodayHeroUiTest {
             val pixels = compose.onNodeWithTag("home-today-hero").captureToImage().toPixelMap()
             // Sample inside the surface, clear of its border, title and divider.
             val surface = pixels[pixels.width / 2, (pixels.height * 0.025f).toInt().coerceAtLeast(2)]
-            assertColorNear(Color(FitnessUiTokens.COLOR_BRAND_BLUE), surface)
+            assertColorNear(heroSurface(dark), surface)
             val recorded = pixelColor("home-hero-segment-workout")
             val unrecorded = pixelColor("home-hero-segment-meal")
             assertTrue("Recorded segment must not blend into Hero ($dark)", contrast(recorded, surface) >= 1.5f)
@@ -336,6 +339,11 @@ class HomeTodayHeroUiTest {
             }
         }
     }
+
+    /** The hero is a tonal surface; the dark gradient starts at its top token. */
+    private fun heroSurface(dark: Boolean) = Color(
+        if (dark) FitnessUiTokens.COLOR_D_HERO_SURFACE_TOP else FitnessUiTokens.COLOR_HERO_SURFACE
+    )
 
     private fun contrast(first: Color, second: Color): Float {
         val firstLuminance = first.luminance()

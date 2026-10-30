@@ -39,6 +39,23 @@ class FitnessColorContrastTest {
         assertText("dark primary on subtle", COLOR_BRAND_BLUE, COLOR_D_SUBTLE)
     }
 
+    @Test
+    fun heroTextIsReadableOnItsTonalSurface() {
+        val light = mapOf(
+            "title/value" to FitnessUiTokens.COLOR_TEXT, "muted" to FitnessUiTokens.COLOR_MUTED,
+            "increase" to FitnessUiTokens.COLOR_POSITIVE, "decrease" to FitnessUiTokens.COLOR_NEGATIVE
+        )
+        for ((role, color) in light) assertText("light hero $role", color, FitnessUiTokens.COLOR_HERO_SURFACE)
+        val dark = mapOf(
+            "title/value" to FitnessUiTokens.COLOR_D_BLUE_INK, "muted" to FitnessUiTokens.COLOR_D_HERO_MUTED,
+            "increase" to FitnessUiTokens.COLOR_D_POSITIVE, "decrease" to FitnessUiTokens.COLOR_D_NEGATIVE
+        )
+        // The dark surface is a gradient; both ends must pass.
+        for (surface in listOf(FitnessUiTokens.COLOR_D_HERO_SURFACE_TOP, FitnessUiTokens.COLOR_D_HERO_SURFACE_BOTTOM)) {
+            for ((role, color) in dark) assertText("dark hero $role", color, surface)
+        }
+    }
+
     private fun assertText(name: String, foreground: Int, background: Int) {
         val ratio = WcagContrast.ratio(foreground, background)
         assertTrue("$name contrast $ratio must be at least 4.5:1", ratio >= 4.5)

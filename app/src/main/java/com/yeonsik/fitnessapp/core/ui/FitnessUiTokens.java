@@ -68,6 +68,11 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_HERO_END = 0xFF214A63;
     public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
     public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
+    // Home hero: a tonal surface in each theme, with brand blue limited to one chip.
+    public static final int COLOR_HERO_SURFACE = 0xFFF0F9FF;
+    public static final int COLOR_HERO_BORDER = 0xFFBAE6FD;
+    public static final int COLOR_D_HERO_SURFACE_TOP = 0xFF12394D;
+    public static final int COLOR_D_HERO_SURFACE_BOTTOM = 0xFF10324A;
     public static final int COLOR_D_POSITIVE = 0xFF69D39E;
     public static final int COLOR_D_NEGATIVE = 0xFFFF8A80;
     public static final int COLOR_D_WARNING = 0xFFFFCA68;
@@ -125,6 +130,9 @@ public final class FitnessUiTokens {
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
     public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
     public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
+    /** Hairline for flat content cards (outlineVariant alpha); high-contrast text uses 1.0. */
+    public static final float CARD_HAIRLINE_ALPHA_LIGHT = 0.60f;
+    public static final float CARD_HAIRLINE_ALPHA_DARK = 0.50f;
 
     // Liquid glass tab bar — one design shared by the bottom navigation and records hub tabs.
     public static final int GLASS_TAB_BAR_MARGIN_HORIZONTAL_DP = 24;

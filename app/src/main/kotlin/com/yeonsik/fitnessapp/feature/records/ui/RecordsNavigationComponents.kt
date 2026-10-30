@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
+import com.yeonsik.fitnessapp.core.ui.FitnessStepButton
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -37,20 +38,16 @@ internal fun RecordsMonthControls(
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = actions::previousMonth,
-                modifier = Modifier.width(48.dp).heightIn(min = 48.dp).semantics { contentDescription = "이전 달" }) {
-                Text("‹", fontSize = 24.sp)
-            }
+            FitnessStepButton(forward = false, onClick = actions::previousMonth,
+                modifier = Modifier.semantics { contentDescription = "이전 달" })
             Text(
                 "${month.year}년 ${month.monthValue}월",
                 Modifier.weight(1f).semantics { heading() },
                 fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
-            TextButton(onClick = actions::nextMonth,
-                modifier = Modifier.width(48.dp).heightIn(min = 48.dp).semantics { contentDescription = "다음 달" }) {
-                Text("›", fontSize = 24.sp)
-            }
+            FitnessStepButton(forward = true, onClick = actions::nextMonth,
+                modifier = Modifier.semantics { contentDescription = "다음 달" })
         }
         RecordsTodayButton(isToday, actions, Modifier.align(Alignment.End))
     }

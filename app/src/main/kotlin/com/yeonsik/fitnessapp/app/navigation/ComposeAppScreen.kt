@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp.app.navigation
 
 import android.os.Build
 import android.os.SystemClock
-import android.view.accessibility.AccessibilityManager
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -915,10 +914,7 @@ private fun AppRoot(
             return@FitnessComposeTheme
         }
         val backdrop = rememberLayerBackdrop()
-        val context = LocalContext.current
-        val highContrastEnabled = Build.VERSION.SDK_INT >= 36 &&
-            context.getSystemService(AccessibilityManager::class.java)
-                ?.isHighContrastTextEnabled == true
+        val highContrastEnabled = rememberHighContrastTextEnabled()
         val bottomNavigationVisible = isBottomNavigationVisible(screen)
         val useBackdropGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             bottomNavigationVisible && !highContrastEnabled

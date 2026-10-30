@@ -23,7 +23,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -452,28 +451,22 @@ fun FitnessMonthHeader(
             .heightIn(min = FitnessSpacing.touch),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
+        FitnessStepButton(
+            forward = false,
             onClick = onPrevious,
-            modifier = Modifier
-                .heightIn(min = FitnessSpacing.touch)
-                .semantics { contentDescription = "이전 달" }
-        ) {
-            Text("‹", style = MaterialTheme.typography.titleLarge)
-        }
+            modifier = Modifier.semantics { contentDescription = "이전 달" }
+        )
         Text(
             text = formatFitnessMonth(month, locale),
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center
         )
-        TextButton(
+        FitnessStepButton(
+            forward = true,
             onClick = onNext,
-            modifier = Modifier
-                .heightIn(min = FitnessSpacing.touch)
-                .semantics { contentDescription = "다음 달" }
-        ) {
-            Text("›", style = MaterialTheme.typography.titleLarge)
-        }
+            modifier = Modifier.semantics { contentDescription = "다음 달" }
+        )
     }
 }
 

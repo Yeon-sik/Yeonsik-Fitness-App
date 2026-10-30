@@ -223,13 +223,12 @@ internal fun MealScreen(
             Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
+            FitnessStepButton(
+                forward = false,
                 onClick = { actions.selectDate(selectedDate.minusDays(1).toString()) },
-                modifier = Modifier
-                    .heightIn(min = FitnessSpacing.touch)
-                    .semantics { contentDescription = "이전 날짜" },
+                modifier = Modifier.semantics { contentDescription = "이전 날짜" },
                 enabled = editor?.saving != true
-            ) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+            )
             if (!largeText) {
                 Text(
                     today,
@@ -241,13 +240,12 @@ internal fun MealScreen(
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            TextButton(
+            FitnessStepButton(
+                forward = true,
                 onClick = { actions.selectDate(selectedDate.plusDays(1).toString()) },
-                modifier = Modifier
-                    .heightIn(min = FitnessSpacing.touch)
-                    .semantics { contentDescription = "다음 날짜" },
+                modifier = Modifier.semantics { contentDescription = "다음 날짜" },
                 enabled = selectedDate.isBefore(LocalDate.now()) && editor?.saving != true
-            ) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            )
             TextButton(
                 onClick = { actions.selectDate(LocalDate.now().toString()) },
                 enabled = !selectedDate.isEqual(LocalDate.now()) && editor?.saving != true,

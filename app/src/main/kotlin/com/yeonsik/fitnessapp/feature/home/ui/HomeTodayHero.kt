@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +29,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -39,13 +40,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
-import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessHeroColors
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
 private const val HERO_STATUS_MOTION_MILLIS = 220
-// Hero keeps a blue surface in both themes; these tones stay legible on that surface.
-internal val HomeHeroWeightIncreaseColor = Color(0xFF0B4020)
-internal val HomeHeroWeightDecreaseColor = Color(0xFF7F1D1D)
 
 @Composable
 internal fun HomeHeroContent(
@@ -63,10 +61,19 @@ internal fun HomeHeroContent(
         ) {
             Text("오늘", style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.testTag("home-hero-title"))
-            Text("${status.completedDomainCount}/3 달성",
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalFitnessColors.current.onAction,
-                modifier = Modifier.testTag("home-hero-completion-count"))
+            // The hero's only brand-blue area: a capsule chip for the completion count.
+            val heroColors = LocalFitnessHeroColors.current
+            Box(
+                Modifier.heightIn(min = 28.dp)
+                    .background(heroColors.chipContainer, CircleShape)
+                    .padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("${status.completedDomainCount}/3 달성",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = heroColors.chipContent,
+                    modifier = Modifier.testTag("home-hero-completion-count"))
+            }
         }
         Row(
             Modifier.fillMaxWidth(),
@@ -97,7 +104,7 @@ private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
                     animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-progress-${domain.key}"
                 )
                 val marker = FitnessRecordMarkerColors.byKey.getValue(domain.key)
-                val track = LocalFitnessColors.current.onAction.copy(alpha = 0.18f)
+                val track = LocalFitnessHeroColors.current.track
                 Box(Modifier.weight(1f).height(4.dp).testTag("home-hero-segment-${domain.key}")
                     .semantics {
                         contentDescription = "${domain.label} 진행률"
@@ -123,7 +130,7 @@ private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
                     Text(
                         if (stackCriteria) label.replace(" ", "\n") else label,
                         style = MaterialTheme.typography.bodySmall,
-                        color = LocalFitnessColors.current.onAction,
+                        color = LocalFitnessHeroColors.current.muted,
                         modifier = Modifier.fillMaxWidth().testTag("home-hero-criterion-${domain.key}"),
                         textAlign = TextAlign.Center
                     )
@@ -140,7 +147,7 @@ private fun HeroCompletionMarker(domain: HomeHeroDomainStatus) {
         animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-marker-${domain.key}"
     )
     val marker = FitnessRecordMarkerColors.byKey.getValue(domain.key)
-    val outline = LocalFitnessColors.current.onAction.copy(alpha = 0.55f)
+    val outline = LocalFitnessHeroColors.current.markerOutline
     Box(Modifier.size(10.dp).testTag("home-hero-marker-${domain.key}")
         .semantics {
             contentDescription = "${domain.label} 기록 표시"
@@ -160,7 +167,8 @@ private fun HeroCompletionMarker(domain: HomeHeroDomainStatus) {
 
 @Composable
 private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = Modifier) {
-    val muted = LocalFitnessColors.current.onAction
+    val heroColors = LocalFitnessHeroColors.current
+    val muted = heroColors.muted
     val typography = MaterialTheme.typography
     val valueHeight = with(LocalDensity.current) {
         typography.titleLarge.lineHeight.toDp() + typography.bodySmall.lineHeight.toDp()
@@ -185,13 +193,14 @@ private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = 
             val value = displayed.mealCount?.let { "${it}끼" } ?: displayed.value
             val detail = displayed.detail.takeIf { displayed.mealCount == null }
             val detailColor = when (displayed.detailTone) {
-                HomeHeroDetailTone.INCREASE -> HomeHeroWeightIncreaseColor
-                HomeHeroDetailTone.DECREASE -> HomeHeroWeightDecreaseColor
+                HomeHeroDetailTone.INCREASE -> heroColors.increase
+                HomeHeroDetailTone.DECREASE -> heroColors.decrease
                 HomeHeroDetailTone.DEFAULT -> muted
             }
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
                 Text(value, style = typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+                    color = heroColors.value,
                     modifier = Modifier.fillMaxWidth().testTag("home-hero-value-${domain.key}"),
                     textAlign = TextAlign.Center)
                 if (displayed.mealCount != null) {

@@ -58,7 +58,7 @@ class HomeDestinationUiTest {
         compose.onNodeWithText("운동 시작").assertDoesNotExist()
         compose.onNodeWithText("기록 보기").assertDoesNotExist()
         compose.onNodeWithText("운동 이어가기").assertDoesNotExist()
-        compose.onNodeWithText("빠른 이동").assertExists()
+        compose.onNodeWithText("빠른 이동").assertDoesNotExist()
 
         val workout = compose.onNodeWithTag("home-quick-workout").fetchSemanticsNode().boundsInRoot
         val strength = compose.onNodeWithTag("home-quick-strength").fetchSemanticsNode().boundsInRoot

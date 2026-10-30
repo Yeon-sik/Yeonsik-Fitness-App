@@ -55,7 +55,7 @@ class RoutineExerciseHistoryUiTest {
         compose.onNodeWithTag("routine-exercise-history").assertIsDisplayed()
         compose.onNodeWithText("이 종목의 완료된 운동 기록이 없습니다.").assertIsDisplayed()
         compose.onNodeWithText("세트 추가").assertDoesNotExist()
-        compose.onNode(hasText("‹ 뒤로") and hasAnyAncestor(hasTestTag("routine-exercise-history"))).performClick()
+        compose.onNode(hasContentDescription("뒤로") and hasAnyAncestor(hasTestTag("routine-exercise-history"))).performClick()
         compose.onNodeWithTag("routine-exercise-history").assertDoesNotExist()
         compose.onNodeWithTag("routine-exercise-routine-item").assertExists()
     }

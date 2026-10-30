@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,6 +22,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,8 +52,8 @@ fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? =
     Column(Modifier.fillMaxWidth().padding(bottom = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         if (back != null) {
-            TextButton(onClick = back, contentPadding = PaddingValues(horizontal = 0.dp),
-                modifier = Modifier.heightIn(min = FitnessSpacing.touch)) { Text("‹ 뒤로") }
+            // Its own row above the title; the offset aligns the glyph with the page margin.
+            FitnessBackButton(back, Modifier.offset(x = (-12).dp))
         }
         Text(title, titleModifier.semantics { heading() }, style = titleStyle)
         if (!subtitle.isNullOrBlank()) {
@@ -75,9 +79,7 @@ internal fun FitnessSessionTopBar(
             .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(onClick = onBack) {
-            Text("←", style = MaterialTheme.typography.headlineSmall)
-        }
+        FitnessBackButton(onBack)
         Text(
             title,
             modifier = Modifier.weight(1f),
@@ -105,15 +107,25 @@ fun FitnessSection(title: String, content: @Composable () -> Unit) {
 
 @Composable
 fun FitnessCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null,
+                outlined: Boolean = false,
                 content: @Composable ColumnScope.() -> Unit) {
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    // A flat card separates from the page with a hairline only; glass is for floating controls.
+    val border = if (outlined) {
+        val alpha = when {
+            rememberHighContrastTextEnabled() -> 1f
+            LocalFitnessDarkTheme.current -> FitnessUiTokens.CARD_HAIRLINE_ALPHA_DARK
+            else -> FitnessUiTokens.CARD_HAIRLINE_ALPHA_LIGHT
+        }
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = alpha))
+    } else null
     if (onClick == null) {
         Card(modifier, shape = FitnessShape.card, colors = colors,
-            elevation = elevation, content = content)
+            elevation = elevation, border = border, content = content)
     } else {
         Card(onClick, modifier, shape = FitnessShape.card, colors = colors,
-            elevation = elevation, content = content)
+            elevation = elevation, border = border, content = content)
     }
 }
 
@@ -207,5 +219,43 @@ fun FitnessDataRow(title: String, detail: String, modifier: Modifier = Modifier)
             if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+/** The one back control: an icon with a 48dp target and no label, read as "뒤로, 버튼". */
+@Composable
+fun FitnessBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "뒤로"
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier,
+        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+    ) {
+        Icon(FitnessBackIcon, contentDescription)
+    }
+}
+
+/**
+ * Previous/next stepper for months, dates and periods. Callers that already label the button
+ * through [modifier] semantics pass no [contentDescription]. Disabled buttons dim to 0.38.
+ */
+@Composable
+fun FitnessStepButton(
+    forward: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    contentDescription: String? = null
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+    ) {
+        Icon(if (forward) FitnessActionNextIcon else FitnessBackIcon, contentDescription)
     }
 }

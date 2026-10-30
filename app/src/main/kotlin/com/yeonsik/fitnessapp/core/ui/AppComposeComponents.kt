@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,7 +21,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.VisualTransformation
@@ -41,7 +41,7 @@ internal fun AppHeader(title: String, subtitle: String? = null, back: (() -> Uni
         Modifier.fillMaxWidth().padding(bottom = AppSpacing.small),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
     ) {
-        if (back != null) TextButton(onClick = back) { Text("뒤로") }
+        if (back != null) FitnessBackButton(back, Modifier.offset(x = (-12).dp))
         Text(title, style = MaterialTheme.typography.headlineLarge)
         if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)

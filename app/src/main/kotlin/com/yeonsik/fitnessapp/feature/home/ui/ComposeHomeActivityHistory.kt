@@ -66,6 +66,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessStepButton
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState
@@ -188,13 +189,13 @@ private fun ActivityWindowNavigation(
 ) {
     var expanded by rememberSaveable(window.today, window.firstRecordedDate) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(
+        FitnessStepButton(
+            forward = false,
             onClick = onPrevious,
             enabled = enabled && window.canGoPrevious,
-            modifier = Modifier.width(48.dp).heightIn(min = 48.dp).testTag("home-activity-previous")
+            modifier = Modifier.testTag("home-activity-previous")
                 .semantics { contentDescription = "이전 기간" }
-        ) { Text("‹", style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled && window.canGoPrevious) 1f else 0.38f)) }
+        )
         Box(Modifier.weight(1f)) {
             TextButton(
                 onClick = { expanded = true },
@@ -223,13 +224,13 @@ private fun ActivityWindowNavigation(
                 }
             }
         }
-        TextButton(
+        FitnessStepButton(
+            forward = true,
             onClick = onNext,
             enabled = enabled && window.canGoNext,
-            modifier = Modifier.width(48.dp).heightIn(min = 48.dp).testTag("home-activity-next")
+            modifier = Modifier.testTag("home-activity-next")
                 .semantics { contentDescription = "다음 기간" }
-        ) { Text("›", style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled && window.canGoNext) 1f else 0.38f)) }
+        )
     }
 }
 
