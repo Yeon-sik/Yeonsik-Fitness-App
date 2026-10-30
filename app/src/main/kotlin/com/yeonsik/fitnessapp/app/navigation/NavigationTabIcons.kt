@@ -1,8 +1,5 @@
 package com.yeonsik.fitnessapp.app.navigation
 
-import androidx.compose.material3.Icon
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -10,23 +7,19 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import com.yeonsik.fitnessapp.core.ui.FitnessStatisticsIcon
+import com.yeonsik.fitnessapp.core.ui.FitnessTrendIcon
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
-/** Decorative tab symbols; the adjacent label supplies each tab's accessible name. */
-@Composable
-internal fun BottomNavigationIcon(
-    screen: FitnessScreen,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    val icon = when (screen) {
-        FitnessScreen.HOME -> HomeIcon
-        FitnessScreen.WORKOUT -> WorkoutIcon
-        FitnessScreen.RECORDS -> RecordsIcon
-        FitnessScreen.SETTINGS -> SettingsIcon
-        else -> return
-    }
-    Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = modifier)
+/** Decorative symbols for the glass tab bars; each tab's label supplies its accessible name. */
+internal fun navigationTabIcon(screen: FitnessScreen): ImageVector? = when (screen) {
+    FitnessScreen.HOME -> HomeIcon
+    FitnessScreen.WORKOUT -> WorkoutIcon
+    FitnessScreen.RECORDS -> RecordsIcon
+    FitnessScreen.SETTINGS -> SettingsIcon
+    FitnessScreen.DEVELOPMENT -> FitnessTrendIcon
+    FitnessScreen.STATISTICS -> FitnessStatisticsIcon
+    else -> null
 }
 
 private val HomeIcon = ImageVector.Builder(

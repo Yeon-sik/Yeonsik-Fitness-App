@@ -41,6 +41,13 @@ internal val FitnessTrendIcon = progressIcon("FitnessTrend") {
     moveTo(16.5f, 7f); horizontalLineTo(21f); verticalLineTo(11.5f)
 }
 
+internal val FitnessStatisticsIcon = progressIcon("FitnessStatistics") {
+    moveTo(4f, 4f); verticalLineTo(20f); horizontalLineTo(21f)
+    moveTo(8.5f, 16.5f); verticalLineTo(12.5f)
+    moveTo(13f, 16.5f); verticalLineTo(8f)
+    moveTo(17.5f, 16.5f); verticalLineTo(10.5f)
+}
+
 internal val FitnessCalendarIcon = progressIcon("FitnessCalendar") {
     moveTo(6f, 4.5f); horizontalLineTo(18f)
     curveTo(19.4f, 4.5f, 20f, 5.1f, 20f, 6.5f)

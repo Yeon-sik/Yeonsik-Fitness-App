@@ -120,6 +120,52 @@ public final class FitnessUiTokens {
     public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
     public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
 
+    // Liquid glass tab bar — one design shared by the bottom navigation and records hub tabs.
+    public static final int GLASS_TAB_BAR_MARGIN_HORIZONTAL_DP = 24;
+    public static final int GLASS_TAB_BAR_MARGIN_VERTICAL_DP = 8;
+    public static final int GLASS_TAB_BAR_MAX_WIDTH_DP = 400;
+    public static final int GLASS_TAB_BAR_INSET_DP = 4;
+    public static final int GLASS_TAB_ICON_DP = 24;
+    /** Icon, icon-label gap and vertical padding; the label line height is added at runtime. */
+    public static final int GLASS_TAB_ICON_BLOCK_DP = 36;
+    public static final int GLASS_TAB_ITEM_MIN_HEIGHT_DP = 56;
+    public static final int GLASS_TAB_INDICATOR_MILLIS = 220;
+    // Bar level. Blur and surface alpha follow iOS 27's denser frost so unselected labels keep
+    // 4.5:1 over brand-blue fills in both themes.
+    public static final float GLASS_BAR_BLUR_DP = 12f;
+    public static final float GLASS_BAR_LENS_HEIGHT_DP = 10f;
+    public static final float GLASS_BAR_LENS_AMOUNT_DP = 16f;
+    public static final float GLASS_BAR_HIGHLIGHT_ALPHA = 0.8f;
+    public static final float GLASS_BAR_SURFACE_ALPHA_LIGHT = 0.40f;
+    public static final float GLASS_BAR_SURFACE_ALPHA_DARK = 0.50f;
+    public static final float GLASS_BAR_SHEEN_TOP_ALPHA_LIGHT = 0.28f;
+    public static final float GLASS_BAR_SHEEN_TOP_ALPHA_DARK = 0.10f;
+    public static final float GLASS_BAR_SHEEN_BOTTOM_ALPHA = 0.10f;
+    /** Rim that separates the bar from a plain page: black on light, white on dark. */
+    public static final float GLASS_BAR_EDGE_ALPHA_LIGHT = 0.08f;
+    public static final float GLASS_BAR_EDGE_ALPHA_DARK = 0.16f;
+    public static final float GLASS_BAR_EDGE_WIDTH_DP = 1f;
+    public static final float GLASS_BAR_SHADOW_ELEVATION_DP = 6f;
+    // Selection level
+    public static final float GLASS_SELECTION_BLUR_DP = 3f;
+    public static final float GLASS_SELECTION_LENS_HEIGHT_DP = 4f;
+    public static final float GLASS_SELECTION_LENS_AMOUNT_DP = 7f;
+    public static final float GLASS_SELECTION_HIGHLIGHT_ALPHA = 0.55f;
+    public static final float GLASS_SELECTION_TINT_ALPHA = 0.72f;
+    // Press feedback
+    public static final float GLASS_PRESS_ALPHA_LIGHT = 0.10f;
+    public static final float GLASS_PRESS_ALPHA_DARK = 0.08f;
+    public static final float GLASS_FOCUS_ALPHA_LIGHT = 0.09f;
+    public static final float GLASS_FOCUS_ALPHA_DARK = 0.07f;
+    public static final float GLASS_HOVER_ALPHA = 0.05f;
+    public static final int GLASS_PRESS_TINT_LIGHT = 0xFF28313A;
+    public static final int GLASS_PRESS_IN_MILLIS = 80;
+    public static final int GLASS_PRESS_OUT_MILLIS = 160;
+    public static final int GLASS_BADGE_STROKE_DARK = 0xFF343C43;
+    /** Scroll edge effect: page background alpha at the screen edge and at the bar's inner edge. */
+    public static final float GLASS_SCROLL_EDGE_ALPHA = 0.80f;
+    public static final float GLASS_SCROLL_EDGE_BAR_ALPHA = 0.60f;
+
     public static int pageBackground(boolean dark) {
         return dark ? COLOR_D_BACKGROUND : COLOR_BACKGROUND;
     }

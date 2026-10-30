@@ -4,22 +4,12 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,16 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -58,31 +41,16 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.Backdrop
 import com.kashif_e.backdrop.backdrops.layerBackdrop
 import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.colorControls
-import com.kashif_e.backdrop.effects.lens
-import com.kashif_e.backdrop.effects.vibrancy
-import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitnessapp.core.ui.*
@@ -954,18 +922,17 @@ private fun AppRoot(
         val bottomNavigationVisible = isBottomNavigationVisible(screen)
         val useBackdropGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             bottomNavigationVisible && !highContrastEnabled
-        val bottomNavigationHeight = with(LocalDensity.current) {
-            // The icon and scaled label must both fit inside the capsule.
-            36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
-        }.coerceAtLeast(56.dp)
-        val bottomNavigationSpace = bottomNavigationHeight + 24.dp
+        // The bottom navigation and the records hub tabs are the same glass tab bar.
+        val tabBarItemHeight = fitnessGlassTabItemHeight()
+        val tabBarSpace = fitnessGlassTabBarSpace(tabBarItemHeight)
+        val pageBackground = MaterialTheme.colorScheme.background
         val destinationPage: @Composable (FitnessScreen, Boolean) -> Unit = { pageScreen, isActualActive ->
             val recordsBackdrop = rememberLayerBackdrop()
             var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
             val recordsBarHeight = if (recordsBarHeightPx > 0) {
                 with(LocalDensity.current) { recordsBarHeightPx.toDp() }
             } else {
-                FitnessSpacing.touch + (FitnessSpacing.small + FitnessSpacing.micro) * 2
+                tabBarSpace
             }
             val pageDestination = if (pageScreen == FitnessScreen.RECORDS) {
                 recordsHubTab.screen
@@ -1014,8 +981,12 @@ private fun AppRoot(
                             Modifier
                                 .fillMaxSize()
                                 .then(
-                                    if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
-                                        Modifier.layerBackdrop(recordsBackdrop)
+                                    if (pageScreen == FitnessScreen.RECORDS) {
+                                        // The layer carries the page background so the glass
+                                        // samples exactly what is on screen, edge fade included.
+                                        (if (useBackdropGlass) {
+                                            Modifier.layerBackdrop(recordsBackdrop).background(pageBackground)
+                                        } else Modifier).fitnessGlassScrollEdge(top = recordsBarHeight)
                                     } else Modifier
                                 )
                                 .then(
@@ -1033,7 +1004,7 @@ private fun AppRoot(
                                         if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
                                         else 0.dp,
                                     bottom = FitnessSpacing.gap +
-                                        if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
+                                        if (bottomNavigationVisible) tabBarSpace else 0.dp
                                 )
                         ) {
                             if (pageDestination == FitnessScreen.HOME) {
@@ -1082,6 +1053,7 @@ private fun AppRoot(
                             useBackdropGlass = useBackdropGlass,
                             highContrastEnabled = highContrastEnabled,
                             dark = dark,
+                            itemHeight = tabBarItemHeight,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .onSizeChanged { recordsBarHeightPx = it.height }
@@ -1100,7 +1072,15 @@ private fun AppRoot(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .then(if (useBackdropGlass) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .then(
+                        if (useBackdropGlass) {
+                            Modifier.layerBackdrop(backdrop).background(pageBackground)
+                        } else Modifier
+                    )
+                    .then(
+                        if (bottomNavigationVisible) Modifier.fitnessGlassScrollEdge(bottom = tabBarSpace)
+                        else Modifier
+                    )
             ) {
                 if (screen == FitnessScreen.CARDIO_SESSION) {
                     CardioSessionTopBar(navigation, viewModels, ownerId, cardioState)
@@ -1135,7 +1115,7 @@ private fun AppRoot(
                         swipeSelection = null
                         navigation.selectTopLevelFromTab(it)
                     },
-                    dark, bottomNavigationHeight,
+                    dark, tabBarItemHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
                     Modifier.align(Alignment.BottomCenter)
                 )
@@ -1391,128 +1371,6 @@ private fun RestTimerBar(
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 @Composable
-private fun Modifier.navigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean
-): Modifier {
-    val colors = MaterialTheme.colorScheme
-    return if (useBackdropGlass) {
-        clip(CircleShape).drawBackdrop(
-            backdrop = backdrop,
-            shape = { CircleShape },
-            effects = {
-                colorControls(saturation = 1.04f)
-                blur(FitnessUiTokens.NAV_GLASS_BLUR_RADIUS_DP.dp.toPx())
-            },
-            highlight = { Highlight.Plain },
-            onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.72f)) }
-        )
-    } else {
-        clip(CircleShape)
-            .background(colors.surfaceContainerHigh)
-            .border(
-                1.dp,
-                if (highContrastEnabled) colors.onSurface else colors.outlineVariant,
-                CircleShape
-            )
-    }
-}
-
-@Composable
-private fun Modifier.glassSelection(): Modifier =
-    clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
-
-@Composable
-private fun Modifier.bottomNavigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean
-): Modifier {
-    if (!useBackdropGlass) {
-        return navigationGlassSurface(backdrop, false, highContrastEnabled)
-    }
-    val colors = MaterialTheme.colorScheme
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val sheen = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(alpha = if (dark) 0.10f else 0.28f),
-            Color.Transparent,
-            colors.surface.copy(alpha = 0.10f)
-        )
-    )
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            if (fullEffects) vibrancy()
-            blur(8.dp.toPx())
-            if (fullEffects) {
-                lens(10.dp.toPx(), 16.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = 0.65f) },
-        onDrawSurface = {
-            drawRect(colors.surface.copy(alpha = if (dark) 0.34f else 0.30f))
-            drawRect(sheen)
-        }
-    )
-}
-
-@Composable
-private fun Modifier.bottomNavigationGlassSelection(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean
-): Modifier {
-    if (!useBackdropGlass) return glassSelection()
-    val tint = MaterialTheme.colorScheme.primaryContainer
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            blur(3.dp.toPx())
-            if (fullEffects) {
-                lens(4.dp.toPx(), 7.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = 0.55f) },
-        onDrawSurface = { drawRect(tint.copy(alpha = 0.72f)) }
-    )
-}
-
-@Composable
-private fun Modifier.glassTabFeedback(
-    dark: Boolean,
-    interactionSource: MutableInteractionSource
-): Modifier {
-    val pressed by interactionSource.collectIsPressedAsState()
-    val focused by interactionSource.collectIsFocusedAsState()
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val opacity by animateFloatAsState(
-        targetValue = when {
-            pressed -> if (dark) 0.08f else 0.10f
-            focused -> if (dark) 0.07f else 0.09f
-            hovered -> 0.05f
-            else -> 0f
-        },
-        animationSpec = tween(durationMillis = if (pressed) 80 else 160)
-    )
-    val tint = if (dark) Color.White else Color(0xFF28313A)
-    // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
-    return drawWithCache {
-        val radius = size.minDimension / 2f
-        onDrawBehind {
-            drawRoundRect(
-                color = tint.copy(alpha = opacity),
-                cornerRadius = CornerRadius(radius, radius)
-            )
-        }
-    }
-}
-
-@Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
     onSelected: (RecordsHubTab) -> Unit,
@@ -1520,47 +1378,21 @@ private fun RecordsHubTabs(
     useBackdropGlass: Boolean,
     highContrastEnabled: Boolean,
     dark: Boolean,
+    itemHeight: Dp,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier
-            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
-            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            .padding(FitnessSpacing.micro)
-            .selectableGroup()
-    ) {
-        RecordsHubTab.entries.forEach { tab ->
-            val isSelected = tab == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = FitnessSpacing.touch)
-                    .clip(CircleShape)
-                    .then(
-                        if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
-                        else Modifier
-                    )
-                    .selectable(
-                        selected = isSelected,
-                        role = Role.Tab,
-                        onClick = { onSelected(tab) }
-                    )
-                    .padding(vertical = FitnessSpacing.micro),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    tab.label,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                )
-            }
-        }
-    }
+    val tabs = RecordsHubTab.entries
+    FitnessGlassTabBar(
+        tabs = tabs.map { FitnessGlassTab(it.label, navigationTabIcon(it.screen)) },
+        selectedIndex = tabs.indexOf(selected),
+        onTabSelected = { onSelected(tabs[it]) },
+        backdrop = backdrop,
+        glassEnabled = useBackdropGlass,
+        highContrastEnabled = highContrastEnabled,
+        dark = dark,
+        modifier = modifier,
+        itemHeight = itemHeight
+    )
 }
 
 @Composable
@@ -1583,101 +1415,28 @@ private fun BottomNavigation(
     )
     val active = navigationRoot(screen)
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
-    val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)
-    val selectedContent = MaterialTheme.colorScheme.onPrimaryContainer
-    val unselectedContent = MaterialTheme.colorScheme.onSurfaceVariant
-    val progressTint = LocalFitnessColors.current.action
     // Give the longer Korean label more room at large accessibility font sizes.
     val workoutTabWeight = if (LocalDensity.current.fontScale > 1.5f) 1.6f else 1f
-    val tabWeights = items.map { if (it.screen == FitnessScreen.WORKOUT) workoutTabWeight else 1f }
-
-    Box(
-        modifier
-            .padding(horizontal = 24.dp, vertical = 8.dp)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
-            // Consume taps on the glass rim rather than activating content underneath it.
-            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            .padding(4.dp)
-    ) {
-        BoxWithConstraints(
-            Modifier
-                .fillMaxWidth()
-                .height(itemHeight)
-        ) {
-            val widthPerWeight = maxWidth / tabWeights.sum()
-            val indicatorWidth by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights[selectedIndex],
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                label = "bottom-navigation-indicator-width"
+    FitnessGlassTabBar(
+        tabs = items.map { item ->
+            val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
+            FitnessGlassTab(
+                label = item.label,
+                icon = navigationTabIcon(item.screen),
+                weight = if (item.screen == FitnessScreen.WORKOUT) workoutTabWeight else 1f,
+                showsBadge = hasActiveWorkout,
+                stateDescription = if (hasActiveWorkout) "운동 진행 중" else null
             )
-            val indicatorOffset by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights.take(selectedIndex).sum(),
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                label = "bottom-navigation-indicator"
-            )
-            Box(
-                Modifier
-                    .offset(x = indicatorOffset)
-                    .width(indicatorWidth)
-                    .fillMaxHeight()
-                    .bottomNavigationGlassSelection(backdrop, useBackdropGlass)
-            )
-            Row(Modifier.fillMaxSize().selectableGroup()) {
-                items.forEachIndexed { index, item ->
-                    val interactionSource = remember(item.screen) { MutableInteractionSource() }
-                    val selected = item.screen == active
-                    val contentColor = if (selected) selectedContent else unselectedContent
-                    val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
-                    Column(
-                        Modifier
-                            .weight(tabWeights[index])
-                            .fillMaxHeight()
-                            .glassTabFeedback(dark, interactionSource)
-                            .selectable(
-                                selected = selected,
-                                interactionSource = interactionSource,
-                                indication = null,
-                                role = Role.Tab,
-                                onClick = { onTabSelected(item.screen) }
-                            )
-                            .semantics {
-                                if (hasActiveWorkout) stateDescription = "운동 진행 중"
-                            },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
-                    ) {
-                        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                            BottomNavigationIcon(item.screen, contentColor, Modifier.fillMaxSize())
-                            if (hasActiveWorkout) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 3.dp, y = (-1).dp)
-                                        .size(6.dp)
-                                        .background(progressTint, CircleShape)
-                                        .border(
-                                            1.dp,
-                                            if (dark) Color(0xFF343C43) else Color.White,
-                                            CircleShape
-                                        )
-                                )
-                            }
-                        }
-                        Text(
-                            item.label,
-                            color = contentColor,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
+        },
+        selectedIndex = items.indexOfFirst { it.screen == active },
+        onTabSelected = { onTabSelected(items[it].screen) },
+        backdrop = backdrop,
+        glassEnabled = useBackdropGlass,
+        highContrastEnabled = highContrastEnabled,
+        dark = dark,
+        modifier = modifier,
+        itemHeight = itemHeight
+    )
 }
 
 private fun navigationRoot(screen: FitnessScreen): FitnessScreen = when (screen) {
