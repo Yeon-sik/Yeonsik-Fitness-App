@@ -85,8 +85,52 @@ if command -v python3 >/dev/null; then
   # Print full failure text: the Gradle console keeps only the first lines of each trace.
   python3 - "$core_results" <<'PY'
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ElementTree
+
+
+def room_columns(block):
+    columns, current = {}, None
+    for line in block.splitlines():
+        line = line.strip()
+        if line.startswith("Column {"):
+            current = {}
+        elif current is not None and line.startswith("}"):
+            name = current.pop("name", None)
+            if name:
+                columns[name] = current
+            current = None
+        elif current is not None:
+            match = re.match(r"(\w+)\s*=\s*'(.*)',?$", line)
+            if match:
+                current[match.group(1)] = match.group(2)
+    return columns
+
+
+def room_diff(text):
+    """Reduces Room's Expected/Found TableInfo dump to the columns and indices that differ."""
+    if "Expected:" not in text or "Found:" not in text:
+        return None
+    expected, found = text.split("Expected:", 1)[1].split("Found:", 1)
+    want, have = room_columns(expected), room_columns(found)
+    lines = []
+    for name in sorted(set(want) | set(have)):
+        if name not in have:
+            lines.append(f"  missing column {name}: {want[name]}")
+        elif name not in want:
+            lines.append(f"  unexpected column {name}: {have[name]}")
+        elif want[name] != have[name]:
+            changes = [f"{key} expected {want[name].get(key)} found {have[name].get(key)}"
+                       for key in sorted(set(want[name]) | set(have[name]))
+                       if want[name].get(key) != have[name].get(key)]
+            lines.append(f"  {name}: " + "; ".join(changes))
+    index = r"Index\s*\{\s*name\s*=\s*'([^']+)'"
+    want_index, have_index = set(re.findall(index, expected)), set(re.findall(index, found))
+    lines += [f"  missing index {name}" for name in sorted(want_index - have_index)]
+    lines += [f"  unexpected index {name}" for name in sorted(have_index - want_index)]
+    return lines or ["  (no column or index difference; compare foreign keys in the XML report)"]
+
 
 root = pathlib.Path(sys.argv[1])
 rows = []
@@ -101,7 +145,12 @@ for class_dir in sorted(path for path in root.iterdir() if path.is_dir()):
                 skipped += 1
             for problem in list(case.findall("failure")) + list(case.findall("error")):
                 failures += 1
-                text = (problem.text or problem.get("message") or "").strip().splitlines()
+                full = (problem.text or problem.get("message") or "").strip()
+                text = full.splitlines()
+                diff = room_diff(full)
+                if diff is not None:
+                    stack = [line for line in text if line.strip().startswith("at ")][:8]
+                    text = text[:1] + ["Room schema difference:"] + diff + stack
                 details.append((case.get("name"), text[:40]))
     rows.append((class_dir.name, tests, failures, skipped))
     for name, text in details:
