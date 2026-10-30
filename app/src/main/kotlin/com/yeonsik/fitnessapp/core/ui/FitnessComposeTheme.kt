@@ -60,8 +60,10 @@ private fun colors(dark: Boolean) = run {
     val semantic = if (dark) DarkSemantic else LightSemantic
     val base = if (dark) darkColorScheme() else lightColorScheme()
     base.copy(
-        primary = semantic.action,
-        onPrimary = semantic.onAction,
+        // Light surfaces need a deeper blue for text, icons and outlines; fills keep the
+        // brand blue through LocalFitnessColors.action.
+        primary = if (dark) semantic.action else Color(FitnessUiTokens.COLOR_BRAND_BLUE_TEXT),
+        onPrimary = if (dark) semantic.onAction else Color(FitnessUiTokens.COLOR_ON_BRAND_BLUE_TEXT),
         primaryContainer = blueContainer, onPrimaryContainer = blueInk, inversePrimary = semantic.action,
         secondary = muted, onSecondary = surface, secondaryContainer = subtle, onSecondaryContainer = ink,
         tertiary = muted, onTertiary = surface, tertiaryContainer = subtle, onTertiaryContainer = ink,

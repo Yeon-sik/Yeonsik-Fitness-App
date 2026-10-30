@@ -31,6 +31,9 @@ public final class FitnessUiTokens {
     public static final int COLOR_PASTEL_BLUE = COLOR_BRAND_BLUE;
     public static final int COLOR_BLUE_CONTAINER = 0xFFE0F2FE;
     public static final int COLOR_BLUE_INK = 0xFF173B55;
+    /** Text, icon and outline blue for light surfaces (WCAG AA on #FFFFFF·#F5F5F7·#EEEFF2·#E0F2FE). */
+    public static final int COLOR_BRAND_BLUE_TEXT = 0xFF0369A1;
+    public static final int COLOR_ON_BRAND_BLUE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_PRIMARY = COLOR_BRAND_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
@@ -113,7 +116,10 @@ public final class FitnessUiTokens {
     public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
-    public static final int NAV_GLASS_BLUR_RADIUS_DP = 7;
+    public static final int GLASS_PLAIN_BLUR_DP = 7;
+    /** @deprecated Use {@link #GLASS_PLAIN_BLUR_DP}; kept until the common glass component lands. */
+    @Deprecated
+    public static final int NAV_GLASS_BLUR_RADIUS_DP = GLASS_PLAIN_BLUR_DP;
     public static final int NAV_ITEM_GAP_DP = 4;
     public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
@@ -165,6 +171,27 @@ public final class FitnessUiTokens {
     /** Scroll edge effect: page background alpha at the screen edge and at the bar's inner edge. */
     public static final float GLASS_SCROLL_EDGE_ALPHA = 0.80f;
     public static final float GLASS_SCROLL_EDGE_BAR_ALPHA = 0.60f;
+    // Plain level: a quiet frost without lens or vibrancy.
+    public static final float GLASS_PLAIN_SATURATION = 1.04f;
+    public static final float GLASS_PLAIN_SURFACE_ALPHA = 0.72f;
+    // Sheets and dialogs live in their own window, so they use platform window blur.
+    public static final float GLASS_SHEET_SURFACE_ALPHA_LIGHT = 0.78f;
+    public static final float GLASS_SHEET_SURFACE_ALPHA_DARK = 0.72f;
+    public static final int GLASS_SHEET_WINDOW_BLUR_DP = 24;
+    public static final float GLASS_STROKE_ALPHA_LIGHT = 0.55f;
+    public static final float GLASS_STROKE_ALPHA_DARK = 0.18f;
+
+    // Thinking Orb: one blue family with a soft center glow instead of grey role colors.
+    public static final int COLOR_ORB_0 = 0xFF38BDF8;
+    public static final int COLOR_ORB_1 = 0xFF06B6D4;
+    public static final int COLOR_ORB_2 = 0xFF6366F1;
+    public static final int COLOR_ORB_3 = 0xFF0EA5E9;
+    public static final int COLOR_D_ORB_0 = 0xFF38BDF8;
+    public static final int COLOR_D_ORB_1 = 0xFF22D3EE;
+    public static final int COLOR_D_ORB_2 = 0xFFA5B4FC;
+    public static final int COLOR_D_ORB_3 = 0xFFE0F2FE;
+    public static final float ORB_GLOW_ALPHA_LIGHT = 0.16f;
+    public static final float ORB_GLOW_ALPHA_DARK = 0.26f;
 
     public static int pageBackground(boolean dark) {
         return dark ? COLOR_D_BACKGROUND : COLOR_BACKGROUND;

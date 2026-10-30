@@ -49,6 +49,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessBodyMetricIcon
 import com.yeonsik.fitnessapp.core.ui.FitnessMealIcon
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceContent
 import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
@@ -169,12 +170,11 @@ internal fun HomeTodayHero(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.colorScheme
     Surface(
         modifier = modifier.fillMaxWidth().testTag("home-today-hero"),
         shape = FitnessShape.hero,
-        color = colors.primary,
-        contentColor = colors.onPrimary
+        color = LocalFitnessColors.current.action,
+        contentColor = LocalFitnessColors.current.onAction
     ) {
         HomeHeroContent(status)
     }

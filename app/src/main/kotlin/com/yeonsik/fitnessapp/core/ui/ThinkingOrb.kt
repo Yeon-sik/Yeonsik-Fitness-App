@@ -14,12 +14,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,10 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
@@ -77,12 +80,19 @@ private val orbParticles = List(88) { index ->
 
 @Composable
 internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
-    val scheme = MaterialTheme.colorScheme
-    val colors = remember(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant) {
-        arrayOf(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant)
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    // A blue family per theme; Paint objects are reused instead of converting 88 colors per frame.
+    val paints = remember(dark) {
+        val palette = if (dark) {
+            intArrayOf(FitnessUiTokens.COLOR_D_ORB_0, FitnessUiTokens.COLOR_D_ORB_1,
+                FitnessUiTokens.COLOR_D_ORB_2, FitnessUiTokens.COLOR_D_ORB_3)
+        } else {
+            intArrayOf(FitnessUiTokens.COLOR_ORB_0, FitnessUiTokens.COLOR_ORB_1,
+                FitnessUiTokens.COLOR_ORB_2, FitnessUiTokens.COLOR_ORB_3)
+        }
+        palette.map { color -> Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color } }
     }
-    // Keep the particle design, but avoid 88 Compose Color/DrawScope conversions per frame.
-    val paints = remember(colors) { colors.map { color -> Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() } } }
+    val glowAlpha = if (dark) FitnessUiTokens.ORB_GLOW_ALPHA_DARK else FitnessUiTokens.ORB_GLOW_ALPHA_LIGHT
     val animate = ValueAnimator.areAnimatorsEnabled()
     val rotationState = if (animate) {
         val transition = rememberInfiniteTransition(label = "thinkingOrb")
@@ -94,30 +104,41 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
         )
     } else null
 
-    Canvas(modifier.size(size).testTag("thinking-orb")) {
-        val rotation = rotationState?.value ?: 0f
+    Spacer(modifier.size(size).testTag("thinking-orb").drawWithCache {
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
-        val radius = this.size.minDimension * 0.38f *
-            (1f + 0.035f * sin(rotation))
-        val dotRadius = this.size.minDimension * 0.018f
-        drawIntoCanvas { canvas ->
-          for (particle in orbParticles) {
-            val circleRadius = particle.circleRadius
-            val angle = particle.angle + rotation
-            val depth = sin(angle) * circleRadius
-            val pulse = 0.86f + 0.14f * sin(rotation * 2f + particle.phase)
-            val opacity = (0.3f + (depth + 1f) * 0.28f) * pulse
-            val paint = paints[particle.colorIndex]
-            paint.alpha = (opacity.coerceIn(0f, 1f) * 255).toInt()
-            canvas.nativeCanvas.drawCircle(
-                center.x + cos(angle) * circleRadius * radius,
-                center.y + particle.latitude * radius,
-                dotRadius * particle.scale * (0.8f + (depth + 1f) * 0.22f) * pulse,
-                paint
-            )
-          }
+        val glowRadius = this.size.minDimension * 0.5f
+        val glow = Brush.radialGradient(
+            listOf(Color(FitnessUiTokens.COLOR_BRAND_BLUE), Color.Transparent),
+            center = center,
+            radius = glowRadius
+        )
+        onDrawBehind {
+            val rotation = rotationState?.value ?: 0f
+            // The glow breathes with the rotation; with animations off it stays static.
+            val pulse = if (rotationState == null) 1f else 0.85f + 0.15f * sin(rotation)
+            drawCircle(glow, radius = glowRadius, center = center, alpha = glowAlpha * pulse)
+            val radius = this.size.minDimension * 0.38f *
+                (1f + 0.035f * sin(rotation))
+            val dotRadius = this.size.minDimension * 0.018f
+            drawIntoCanvas { canvas ->
+                for (particle in orbParticles) {
+                    val circleRadius = particle.circleRadius
+                    val angle = particle.angle + rotation
+                    val depth = sin(angle) * circleRadius
+                    val particlePulse = 0.86f + 0.14f * sin(rotation * 2f + particle.phase)
+                    val opacity = (0.3f + (depth + 1f) * 0.28f) * particlePulse
+                    val paint = paints[particle.colorIndex]
+                    paint.alpha = (opacity.coerceIn(0f, 1f) * 255).toInt()
+                    canvas.nativeCanvas.drawCircle(
+                        center.x + cos(angle) * circleRadius * radius,
+                        center.y + particle.latitude * radius,
+                        dotRadius * particle.scale * (0.8f + (depth + 1f) * 0.22f) * particlePulse,
+                        paint
+                    )
+                }
+            }
         }
-    }
+    })
 }
 
 @Composable
