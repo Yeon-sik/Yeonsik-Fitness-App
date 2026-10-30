@@ -953,4 +953,39 @@ WCAG 2.x 상대 휘도 공식으로 계산했다.
   - 스크롤 엣지 효과 `fitnessGlassScrollEdge`: 바 아래로 지나가는 콘텐츠를 페이지 배경으로 흐리게 한다(화면 끝 0.80 → 바 안쪽 끝 0.60 → 카드 간격 12dp 뒤 0). backdrop 레이어 안에 그려 글래스도 흐려진 콘텐츠를 비춘다.
   - 루트 `Column`과 기록 페이지의 backdrop 레이어에 페이지 배경을 포함해, 글래스가 화면과 같은 내용을 샘플링한다.
   - 대비 회귀 테스트 `FitnessGlassTabBarContrastTest`
-- 범위 밖으로 남긴 것: 6장 edge-to-edge, 7장의 휴식 타이머·세션 상단 바, 홈 `HomeGlassPanel`
+- 범위 밖으로 남긴 것: 6장 edge-to-edge, 7장의 휴식 타이머·세션 상단 바, 홈 `HomeGlassPanel`. 모두 14.2 이후 단계에서 구현했다.
+
+### 14.2 PR-A~G 구현 (2026-10-30, 브랜치 `claude/ios27-liquid-glass-style-check-e5ysk2`)
+
+PR 단위로 커밋했다. 명세와 다르게 구현한 부분과 그 이유만 적는다.
+
+| 단계 | 커밋 | 명세와 다른 점 |
+|---|---|---|
+| PR-A 토큰과 대비 | `5cdfe352` | 레거시 View `FitnessUi` 팩토리는 브랜드 파랑을 글자로 쓰지 않아 범위에서 뺐다. |
+| PR-B 홈과 뒤로가기 | `24eb8bdd` | 5.4절 3단계(첫 빠른 실행 위 8dp 간격)는 실기기 확인 뒤 결정한다. |
+| PR-C edge-to-edge | `314ee47a` | 없음 |
+| PR-D 공통 글래스·바 | `5eacbeaa` | 유산소 세션 상단 바는 `MapView`를 샘플링할 수 없어 불투명으로 둔다. 식단 하루 요약은 자기 자신을 샘플링하던 글래스를 지우고 홈 카드와 같은 평면 카드(`MealOverviewSurface`)로 바꿨다. |
+| PR-E 다이얼로그·시트 | `a0d8a8e2`, `0332fc3e` | 창 배경 블러 대신 뒤 창 블러(`FLAG_BLUR_BEHIND` + `blurBehindRadius` 24dp)를 쓴다. 다이얼로그 창이 둥근 표면보다 넓어 배경 블러는 사각형으로 보이기 때문이다. 기록 선택일 시트는 페이지 배경색 대신 공용 시트 표면을 쓴다. 전체 화면 `Dialog` 3곳(종목 기록, 운동 이미지, 영양 입력)은 페이지 표면이라 불투명으로 둔다. |
+| PR-F 휴식 종료 알림 | `767a3708`(결함 수정), `85c6fa0e` | ViewModel 단위 테스트는 기존 `WorkoutSessionViewModelTest`가 instrumentation 테스트라 그곳에 추가했다. 세션 완료·빈 세션 폐기·취소와 열린 기록 삭제 때 ViewModel이 타이머와 알람을 함께 정리하고, 계정이 바뀌면 `AppContainer`가 알람을 취소한다. |
+| PR-G 로딩 통일 | `1e57bc4e` | `feat/fitness-glass-completion`의 `64ea924f`를 옮겼다. 기록 달력 로딩은 10/29 main 결정(`3fabe53b`, 월 이동 때 300ms 빈 화면 금지)에 따라 지연 없이 `SECTION`으로 바로 보인다. |
+
+공통 결정
+
+- 14.1의 글래스 값 변경(블러 12dp, 표면 알파 0.40/0.50, 하이라이트 0.80, 비선택 탭 `onSurface`)을 PR-D 공용 모듈에 그대로 썼다.
+- `backdrop` 알파 라이브러리는 `core/ui/FitnessGlass.kt`만 import한다(`BackdropImportIsolationTest`).
+- 시트의 `LocalView`가 `DialogWindowProvider`를 제공하는지는 실기기에서 확인해야 한다. 제공하지 않으면 시트는 불투명 대체 표면으로 그려진다.
+
+### 14.3 검증 상태 (2026-10-30)
+
+| 구분 | 상태 |
+|---|---|
+| JVM 단위 테스트 | 대비·백드롭 격리·휴식 알림 정책 테스트는 로컬 Kotlin 컴파일러로 통과. 전체 `testDebugUnitTest`는 CI `Android and shared gates`가 실행한다. |
+| Android 빌드 | CI가 컴파일을 확인한다. 이 클라우드 환경은 Google Maven 접근이 막혀 로컬 빌드를 할 수 없다. |
+| Instrumentation | CI 에뮬레이터(API 34) 핵심 목록. PR-C까지 결과는 이 작업 전과 같은 7개 클래스 실패(테스트 쪽 결함)뿐이다. |
+| 실기기 | 미실시. 창 블러, 시트 창 획득, 9.6절 알림 시나리오 1~8, 5.4절 3단계가 남아 있다. |
+| 운영 RPC·RLS | 해당 없음 |
+
+### 14.4 병행 브랜치
+
+`origin/feat/fitness-glass-completion`(10/26~27)에도 같은 PR-A~G를 따로 구현한 커밋이 있다(`139be22b`~`64ea924f`). main에는 병합되지 않았다. 두 브랜치는 같은 파일을 다르게 바꾸므로 함께 병합하면 충돌한다. 하나를 골라 병합한다.
+
