@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.core.ui
 
+import android.os.Build
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -148,7 +149,11 @@ fun FitnessComposeTheme(dark: Boolean, content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalFitnessColors provides if (dark) DarkSemantic else LightSemantic,
         LocalFitnessHeroColors provides if (dark) DarkHeroColors else LightHeroColors,
-        LocalFitnessDarkTheme provides dark
+        LocalFitnessDarkTheme provides dark,
+        // Glass needs RenderEffect (API 31+) and yields to high-contrast text.
+        LocalFitnessGlassEnabled provides (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !rememberHighContrastTextEnabled()
+        )
     ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors, typography = FitnessTypography,

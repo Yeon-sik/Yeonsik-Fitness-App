@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.core.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -38,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
@@ -76,17 +79,30 @@ internal fun FitnessSessionTopBar(
     onBack: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    floating: Boolean = false,
+    backdrop: FitnessBackdrop? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    Row(
+    val container = if (floating) {
+        // A glass capsule over the page; [backdrop] must record the page content beneath it.
+        val shape = RoundedCornerShape(FitnessUiTokens.SESSION_BAR_RADIUS_DP.dp)
+        modifier
+            .statusBarsPadding()
+            .padding(start = FitnessSpacing.gap, end = FitnessSpacing.gap, top = FitnessSpacing.small)
+            .fillMaxWidth()
+            .fitnessGlassSurface(shape, FitnessGlassLevel.BAR, backdrop)
+            // Taps on the glass rim never reach the content underneath.
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .padding(horizontal = FitnessSpacing.micro)
+    } else {
+        // Edge-to-edge: the opaque bar extends under the status bar, its content below it.
         modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            // Edge-to-edge: the opaque bar extends under the status bar, its content below it.
             .statusBarsPadding()
-            .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+            .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small)
+    }
+    Row(container, verticalAlignment = Alignment.CenterVertically) {
         FitnessBackButton(onBack)
         Text(
             title,

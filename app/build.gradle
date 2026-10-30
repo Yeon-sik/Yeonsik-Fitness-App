@@ -281,6 +281,8 @@ dependencies {
     implementation "androidx.compose.runtime:runtime-livedata"
     implementation "androidx.compose.foundation:foundation"
     implementation "androidx.compose.material3:material3"
+    // Liquid glass. Alpha library: keep an exact version, import only from core/ui/FitnessGlass.kt,
+    // and upgrade only in a dedicated PR with light/dark screenshots of every glass surface.
     implementation "io.github.kashif-mehmood-km:backdrop:0.0.1-alpha02"
     implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.7"
     debugImplementation "androidx.compose.ui:ui-tooling"

@@ -1,17 +1,12 @@
 package com.yeonsik.fitnessapp.core.ui
 
-import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,13 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -56,12 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kashif_e.backdrop.Backdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.lens
-import com.kashif_e.backdrop.effects.vibrancy
-import com.kashif_e.backdrop.highlight.Highlight
 
 /** One tab of [FitnessGlassTabBar]. [weight] gives a long label more room. */
 @Immutable
@@ -88,20 +70,18 @@ fun fitnessGlassTabBarSpace(itemHeight: Dp): Dp = itemHeight +
  * so material, geometry, selection motion and press feedback stay identical.
  *
  * [backdrop] must record the content under the bar in a sibling layer: glass cannot sample the
- * layer that contains it.
+ * layer that contains it. Root-level bars use the page backdrop from the composition.
  */
 @Composable
 fun FitnessGlassTabBar(
     tabs: List<FitnessGlassTab>,
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
-    backdrop: Backdrop,
-    glassEnabled: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean,
     modifier: Modifier = Modifier,
-    itemHeight: Dp = fitnessGlassTabItemHeight()
+    itemHeight: Dp = fitnessGlassTabItemHeight(),
+    backdrop: FitnessBackdrop? = LocalFitnessPageBackdrop.current
 ) {
+    val dark = LocalFitnessDarkTheme.current
     val selectedContent = MaterialTheme.colorScheme.onPrimaryContainer
     // Unselected tabs use the primary ink, as iOS does, so they stay legible over bright content.
     val unselectedContent = MaterialTheme.colorScheme.onSurface
@@ -118,7 +98,7 @@ fun FitnessGlassTabBar(
             )
             .widthIn(max = FitnessUiTokens.GLASS_TAB_BAR_MAX_WIDTH_DP.dp)
             .fillMaxWidth()
-            .glassTabBarSurface(backdrop, glassEnabled, highContrastEnabled, dark)
+            .fitnessGlassSurface(CircleShape, FitnessGlassLevel.BAR, backdrop)
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(FitnessUiTokens.GLASS_TAB_BAR_INSET_DP.dp)
@@ -144,7 +124,7 @@ fun FitnessGlassTabBar(
                     .offset(x = indicatorOffset)
                     .width(indicatorWidth)
                     .fillMaxHeight()
-                    .glassTabSelection(backdrop, glassEnabled)
+                    .fitnessGlassSurface(CircleShape, FitnessGlassLevel.SELECTION, backdrop)
             )
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 tabs.forEachIndexed { index, tab ->
@@ -155,7 +135,7 @@ fun FitnessGlassTabBar(
                         Modifier
                             .weight(tab.weight)
                             .fillMaxHeight()
-                            .glassTabFeedback(dark, interactionSource)
+                            .fitnessGlassPressFeedback(interactionSource)
                             .selectable(
                                 selected = selected,
                                 interactionSource = interactionSource,
@@ -192,144 +172,6 @@ fun FitnessGlassTabBar(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Scroll edge effect: fades page content into the background where it passes under a glass tab
- * bar. [top] and [bottom] are the space each bar occupies; the fade then runs one card gap
- * further, which is where page content starts at rest. Apply it inside the backdrop layer so
- * the bar samples the softened content as well.
- */
-@Composable
-fun Modifier.fitnessGlassScrollEdge(top: Dp = 0.dp, bottom: Dp = 0.dp): Modifier {
-    val background = MaterialTheme.colorScheme.background
-    return drawWithCache {
-        val edge = background.copy(alpha = FitnessUiTokens.GLASS_SCROLL_EDGE_ALPHA)
-        val bar = background.copy(alpha = FitnessUiTokens.GLASS_SCROLL_EDGE_BAR_ALPHA)
-        val tail = FitnessSpacing.gap.toPx()
-        val topHeight = top.toPx() + tail
-        val bottomHeight = bottom.toPx() + tail
-        val bottomStart = size.height - bottomHeight
-        val topBrush = if (top > 0.dp) Brush.verticalGradient(
-            0f to edge, top.toPx() / topHeight to bar, 1f to Color.Transparent,
-            startY = 0f, endY = topHeight
-        ) else null
-        val bottomBrush = if (bottom > 0.dp) Brush.verticalGradient(
-            0f to Color.Transparent, tail / bottomHeight to bar, 1f to edge,
-            startY = bottomStart, endY = size.height
-        ) else null
-        onDrawWithContent {
-            drawContent()
-            topBrush?.let { drawRect(it, size = Size(size.width, topHeight)) }
-            bottomBrush?.let { drawRect(it, topLeft = Offset(0f, bottomStart), size = Size(size.width, bottomHeight)) }
-        }
-    }
-}
-
-@Composable
-private fun Modifier.glassTabBarSurface(
-    backdrop: Backdrop,
-    glassEnabled: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean
-): Modifier {
-    val colors = MaterialTheme.colorScheme
-    val lifted = shadow(FitnessUiTokens.GLASS_BAR_SHADOW_ELEVATION_DP.dp, CircleShape).clip(CircleShape)
-    if (!glassEnabled) {
-        return lifted
-            .background(colors.surfaceContainerHigh)
-            .border(1.dp, if (highContrastEnabled) colors.onSurface else colors.outlineVariant, CircleShape)
-    }
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val sheen = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(
-                alpha = if (dark) FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_DARK
-                else FitnessUiTokens.GLASS_BAR_SHEEN_TOP_ALPHA_LIGHT
-            ),
-            Color.Transparent,
-            colors.surface.copy(alpha = FitnessUiTokens.GLASS_BAR_SHEEN_BOTTOM_ALPHA)
-        )
-    )
-    // The rim keeps the bar distinct over a plain page, like the darkened glass edge on iOS 27.
-    val edge = if (dark) Color.White.copy(alpha = FitnessUiTokens.GLASS_BAR_EDGE_ALPHA_DARK)
-    else Color.Black.copy(alpha = FitnessUiTokens.GLASS_BAR_EDGE_ALPHA_LIGHT)
-    return lifted.drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            if (fullEffects) vibrancy()
-            blur(FitnessUiTokens.GLASS_BAR_BLUR_DP.dp.toPx())
-            if (fullEffects) {
-                lens(FitnessUiTokens.GLASS_BAR_LENS_HEIGHT_DP.dp.toPx(), FitnessUiTokens.GLASS_BAR_LENS_AMOUNT_DP.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_BAR_HIGHLIGHT_ALPHA) },
-        onDrawSurface = {
-            drawRect(
-                colors.surface.copy(
-                    alpha = if (dark) FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_DARK
-                    else FitnessUiTokens.GLASS_BAR_SURFACE_ALPHA_LIGHT
-                )
-            )
-            drawRect(sheen)
-        }
-    ).border(FitnessUiTokens.GLASS_BAR_EDGE_WIDTH_DP.dp, edge, CircleShape)
-}
-
-@Composable
-private fun Modifier.glassTabSelection(backdrop: Backdrop, glassEnabled: Boolean): Modifier {
-    val tint = MaterialTheme.colorScheme.primaryContainer
-    if (!glassEnabled) return clip(CircleShape).background(tint)
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            blur(FitnessUiTokens.GLASS_SELECTION_BLUR_DP.dp.toPx())
-            if (fullEffects) {
-                lens(
-                    FitnessUiTokens.GLASS_SELECTION_LENS_HEIGHT_DP.dp.toPx(),
-                    FitnessUiTokens.GLASS_SELECTION_LENS_AMOUNT_DP.dp.toPx()
-                )
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = FitnessUiTokens.GLASS_SELECTION_HIGHLIGHT_ALPHA) },
-        onDrawSurface = { drawRect(tint.copy(alpha = FitnessUiTokens.GLASS_SELECTION_TINT_ALPHA)) }
-    )
-}
-
-@Composable
-private fun Modifier.glassTabFeedback(
-    dark: Boolean,
-    interactionSource: MutableInteractionSource
-): Modifier {
-    val pressed by interactionSource.collectIsPressedAsState()
-    val focused by interactionSource.collectIsFocusedAsState()
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val opacity by animateFloatAsState(
-        targetValue = when {
-            pressed -> if (dark) FitnessUiTokens.GLASS_PRESS_ALPHA_DARK else FitnessUiTokens.GLASS_PRESS_ALPHA_LIGHT
-            focused -> if (dark) FitnessUiTokens.GLASS_FOCUS_ALPHA_DARK else FitnessUiTokens.GLASS_FOCUS_ALPHA_LIGHT
-            hovered -> FitnessUiTokens.GLASS_HOVER_ALPHA
-            else -> 0f
-        },
-        animationSpec = tween(
-            durationMillis = if (pressed) FitnessUiTokens.GLASS_PRESS_IN_MILLIS else FitnessUiTokens.GLASS_PRESS_OUT_MILLIS
-        ),
-        label = "glass-tab-feedback"
-    )
-    val tint = if (dark) Color.White else Color(FitnessUiTokens.GLASS_PRESS_TINT_LIGHT)
-    // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
-    return drawWithCache {
-        val radius = size.minDimension / 2f
-        onDrawBehind {
-            drawRoundRect(
-                color = tint.copy(alpha = opacity),
-                cornerRadius = CornerRadius(radius, radius)
-            )
         }
     }
 }

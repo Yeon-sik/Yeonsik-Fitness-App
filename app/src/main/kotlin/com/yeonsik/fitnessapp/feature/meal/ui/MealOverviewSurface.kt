@@ -1,11 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
-import android.os.Build
-import android.view.accessibility.AccessibilityManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -15,74 +10,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.colorControls
-import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
-import com.yeonsik.fitnessapp.core.ui.FitnessShape
+import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
-/** Local, self-contained sampling source for the Meal overview's restrained frosted surfaces. */
+/**
+ * The Meal day overview is content, so it stays a flat card with a hairline: glass is for
+ * floating controls only, and a card sampling its own gradient only cost RenderEffect work.
+ */
 @Composable
-internal fun MealOverviewGlassSurface(
+internal fun MealOverviewSurface(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val colors = MaterialTheme.colorScheme
-    val context = LocalContext.current
-    val highContrast = Build.VERSION.SDK_INT >= 36 &&
-        context.getSystemService(AccessibilityManager::class.java)
-            ?.isHighContrastTextEnabled == true
-    val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
-    if (useGlass) {
-        val backdrop = rememberLayerBackdrop()
-        Box(modifier.fillMaxWidth().clip(FitnessShape.card)) {
-            Box(
-                Modifier.matchParentSize()
-                    .layerBackdrop(backdrop)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(colors.primaryContainer, colors.surfaceContainerHigh)
-                        )
-                    )
-            )
-            Column(
-                Modifier.drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { FitnessShape.card },
-                    effects = {
-                        colorControls(saturation = 1.03f)
-                        blur(7.dp.toPx())
-                    },
-                    highlight = { Highlight.Plain },
-                    onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.82f)) }
-                ).fillMaxWidth().padding(AppSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                content = content
-            )
-        }
-    } else {
+    FitnessCard(modifier.fillMaxWidth(), outlined = true) {
         Column(
-            modifier.fillMaxWidth().clip(FitnessShape.card)
-                .background(colors.surfaceContainerHigh)
-                .border(
-                    1.dp,
-                    if (highContrast) colors.onSurface else colors.outlineVariant,
-                    FitnessShape.card
-                )
-                .padding(AppSpacing.card),
+            Modifier.fillMaxWidth().padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
             content = content
         )

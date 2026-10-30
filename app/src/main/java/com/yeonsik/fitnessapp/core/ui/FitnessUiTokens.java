@@ -122,9 +122,6 @@ public final class FitnessUiTokens {
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
     public static final int GLASS_PLAIN_BLUR_DP = 7;
-    /** @deprecated Use {@link #GLASS_PLAIN_BLUR_DP}; kept until the common glass component lands. */
-    @Deprecated
-    public static final int NAV_GLASS_BLUR_RADIUS_DP = GLASS_PLAIN_BLUR_DP;
     public static final int NAV_ITEM_GAP_DP = 4;
     public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
@@ -147,6 +144,15 @@ public final class FitnessUiTokens {
     public static final int GLASS_TAB_ICON_BLOCK_DP = 36;
     public static final int GLASS_TAB_ITEM_MIN_HEIGHT_DP = 56;
     public static final int GLASS_TAB_INDICATOR_MILLIS = 220;
+    // Floating session bar and rest timer capsule.
+    public static final int SESSION_BAR_RADIUS_DP = 28;
+    public static final int REST_TIMER_MAX_WIDTH_DP = 400;
+    public static final int REST_TIMER_MARGIN_HORIZONTAL_DP = 16;
+    public static final int REST_TIMER_MARGIN_BOTTOM_DP = 12;
+    public static final int REST_TIMER_MIN_HEIGHT_DP = 56;
+    public static final int REST_TIMER_EXPANDED_RADIUS_DP = 28;
+    public static final int REST_TIMER_PROGRESS_HEIGHT_DP = 3;
+    public static final int REST_TIMER_SHAPE_MILLIS = 180;
     // Bar level. Blur and surface alpha follow iOS 27's denser frost so unselected labels keep
     // 4.5:1 over brand-blue fills in both themes.
     public static final float GLASS_BAR_BLUR_DP = 12f;
