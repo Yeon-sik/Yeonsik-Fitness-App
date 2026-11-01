@@ -581,10 +581,16 @@ public final class MealRecordRepositoryTest {
                     100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
             NutritionFood missing = catalog.saveFood("미확인 식품", NutritionFood.KIND_INGREDIENT,
                     100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED,
-                    NutritionProfile.ofMacros(200d, 20d, 25d, 4d), "test", null, "v1");
+                    requiredProfile(), "test", null, "v1");
+            // Registration requires a full profile. Model an older incomplete catalog row
+            // explicitly so the snapshot assertions still exercise unknown nutrients.
+            FitnessDatabaseConnection.fromRoom(room).execSQL(
+                    "UPDATE nutrition_foods SET sodium_mg=NULL,sugars_grams=NULL," +
+                            "saturated_fat_grams=NULL WHERE id=?", new Object[]{missing.id});
+            missing = catalog.findFoodById(missing.id);
             NutritionFood zero = catalog.saveFood("0 확인 식품", NutritionFood.KIND_INGREDIENT,
                     100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED,
-                    NutritionProfile.builder().from(NutritionProfile.ofMacros(200d, 20d, 25d, 4d))
+                    NutritionProfile.builder().from(requiredProfile())
                             .value(NutritionProfile.SUGARS_GRAMS, 0d).value(NutritionProfile.SATURATED_FAT_GRAMS, 0d).build(),
                     "test", null, "v1");
             MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);

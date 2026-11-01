@@ -304,7 +304,11 @@ public final class WorkoutRoomReadCorrectnessTest {
                 storage, owner, "2026-09-07", "deleted set", canonical,
                 LoadState.EXTERNAL_LOAD, 302d, null, 5
         );
-        assertTrue(storage.deleteSet(owner, deletedSet.recordId, deletedSet.setId));
+        // Model a historical deleted set. The current editor deliberately protects its
+        // first set; this test verifies reads of existing tombstones, not that UI policy.
+        com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection.fromRoom(room).execSQL(
+                "UPDATE workout_sets SET deleted_at=?,updated_at=? WHERE id=?",
+                new Object[]{"2026-09-07T10:00:00Z", "2026-09-07T10:00:00Z", deletedSet.setId});
 
         createWorkout(
                 storage, otherOwner, "2026-09-06", "other owner", canonical,
@@ -350,7 +354,7 @@ public final class WorkoutRoomReadCorrectnessTest {
     ) {
         String recordId = storage.createSession(
                 scope, date, title, "strength", "", date + "T08:00:00+09:00",
-                completed ? date + "T09:00:00+09:00" : ""
+                ""
         );
         WorkoutExerciseReplacement replacement = new WorkoutExerciseReplacement(
                 identity.presetId,
@@ -365,11 +369,23 @@ public final class WorkoutRoomReadCorrectnessTest {
         );
         assertTrue(storage.addExercise(scope, recordId, replacement));
         String exerciseId = storage.exercises(scope, recordId).get(0).getId();
-        assertTrue(storage.addSet(
-                scope, recordId, exerciseId, 1,
-                input(weightKg, reps, loadState, addedWeightKg)
-        ));
+        // Reuse the protected first draft when addExercise copies previous sets.
+        var drafts = storage.sets(scope, exerciseId);
+        if (drafts.isEmpty()) {
+            assertTrue(storage.addSet(scope, recordId, exerciseId, 1,
+                    input(weightKg, reps, loadState, addedWeightKg)));
+        } else {
+            for (int index = drafts.size() - 1; index > 0; index--) {
+                assertTrue(storage.deleteSet(scope, recordId, drafts.get(index).getId()));
+            }
+            assertTrue(storage.updateSet(scope, recordId, drafts.get(0).getId(),
+                    input(weightKg, reps, loadState, addedWeightKg)));
+        }
+        assertEquals(1, storage.sets(scope, exerciseId).size());
         String setId = storage.sets(scope, exerciseId).get(0).getId();
+        if (completed) {
+            assertTrue(storage.complete(scope, recordId));
+        }
         return new Fixture(recordId, exerciseId, setId);
     }
 

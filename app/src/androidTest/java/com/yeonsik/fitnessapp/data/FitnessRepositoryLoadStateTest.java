@@ -758,6 +758,11 @@ public final class FitnessRepositoryLoadStateTest {
         }
 
         @Override
+        public Context getApplicationContext() {
+            return this;
+        }
+
+        @Override
         public File getDatabasePath(String name) {
             return super.getDatabasePath(DATABASE_PREFIX + name);
         }

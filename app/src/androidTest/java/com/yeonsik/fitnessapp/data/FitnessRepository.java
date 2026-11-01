@@ -64,16 +64,21 @@ public final class FitnessRepository {
     }
 
     public FitnessRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), context, userId);
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), context, userId, roomDatabase);
     }
 
     public FitnessRepository(FitnessDatabaseConnection database, Context context, String userId) {
+        this(database, context, userId, FitnessRoomDatabaseProvider.get(context));
+    }
+
+    private FitnessRepository(FitnessDatabaseConnection database, Context context, String userId,
+                              FitnessRoomDatabase bodyDatabase) {
         this.database = database;
         this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
         this.compositionTemplateRepository = new CompositionTemplateRepository(database, this.userId);
         this.bodyMetricsRepository = new BodyMetricsRepository(
-                FitnessRoomDatabaseProvider.get(context),
+                bodyDatabase,
                 this.userId
         );
     }

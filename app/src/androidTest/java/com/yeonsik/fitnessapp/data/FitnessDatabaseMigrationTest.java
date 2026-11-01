@@ -13,8 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
-import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
+import com.yeonsik.fitnessapp.core.account.AccountOwnershipService;
 import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
@@ -69,10 +68,11 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(upgraded, "workout_sets", "load_state"));
             assertTrue(hasColumn(upgraded, "workout_sets", "input_load_value"));
             assertTrue(hasColumn(upgraded, "workout_sets", "input_load_unit"));
-            assertEquals("80.0", scalar(
+            assertTrue(indexExists(upgraded, "meal_records_dining_out_identity_idx"));
+            assertEquals(80d, Double.parseDouble(scalar(
                     upgraded,
                     "SELECT weight_kg FROM workout_sets WHERE id = 'set-1'"
-            ));
+            )), 0.001d);
             assertNull(scalarNullable(
                     upgraded,
                     "SELECT input_load_value FROM workout_sets WHERE id = 'set-1'"
@@ -242,10 +242,10 @@ public final class FitnessDatabaseMigrationTest {
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
             assertTrue(hasColumn(upgraded, "workout_sets", "input_load_value"));
             assertTrue(hasColumn(upgraded, "workout_sets", "input_load_unit"));
-            assertEquals("80.0", scalar(
+            assertEquals(80d, Double.parseDouble(scalar(
                     upgraded,
                     "SELECT weight_kg FROM workout_sets WHERE id = 'v49-set'"
-            ));
+            )), 0.001d);
             assertNull(scalarNullable(
                     upgraded,
                     "SELECT input_load_value FROM workout_sets WHERE id = 'v49-set'"
@@ -418,19 +418,10 @@ public final class FitnessDatabaseMigrationTest {
                     "'2026-08-10T00:00:02Z', '2026-08-10T00:00:02Z')",
                     new Object[]{AUTH_USER_ID});
 
-            FitnessRepository repository = new FitnessRepository(helper, "local-user");
-            repository.normalizeLocalUserId(AUTH_USER_ID);
-            NutritionCatalogRepository catalogRepository = new NutritionCatalogRepository(
-                    room,
-                    isolatedContext,
-                    "local-user"
-            );
-            catalogRepository.normalizeLocalUserId(AUTH_USER_ID);
-            DevelopmentRepository developmentRepository = new DevelopmentRepository(
-                    FitnessRoomDatabaseProvider.get(helper.applicationContext()),
-                    "local-user"
-            );
-            developmentRepository.normalizeLocalUserId(AUTH_USER_ID);
+            // Fitness ownership and the Nutrition catalog have separate claim paths.
+            new AccountOwnershipService(room, "local-user").claimLocalRows(AUTH_USER_ID);
+            new NutritionCatalogRepository(room, isolatedContext, "local-user")
+                    .normalizeLocalUserId(AUTH_USER_ID);
 
             assertEquals("2400", scalar(database,
                     "SELECT calories_kcal FROM nutrition_goals WHERE user_id = '" +
@@ -562,7 +553,22 @@ public final class FitnessDatabaseMigrationTest {
         db.execSQL("DROP INDEX IF EXISTS nutrition_foods_owner_category_idx");
         db.execSQL("DROP INDEX IF EXISTS nutrition_foods_visibility_name_idx");
         db.execSQL("DROP TABLE IF EXISTS nutrition_foods_incomplete");
-        db.execSQL("CREATE TABLE nutrition_foods_incomplete AS SELECT " +
+        // CREATE TABLE AS SELECT discards PK, NOT NULL and defaults, producing a shape
+        // that never represented the preview schema. Omit only the hierarchy columns.
+        db.execSQL("CREATE TABLE nutrition_foods_incomplete (" +
+                "id TEXT PRIMARY KEY, owner_id TEXT, name TEXT NOT NULL, brand TEXT, " +
+                "kind TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'other', " +
+                "basis_amount REAL NOT NULL, basis_unit TEXT NOT NULL, " +
+                "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
+                "cooking_method TEXT NOT NULL DEFAULT 'unspecified', " +
+                "calories_kcal REAL, protein_grams REAL, carbs_grams REAL, fat_grams REAL, " +
+                "sodium_mg REAL, saturated_fat_grams REAL, sugars_grams REAL, fiber_grams REAL, " +
+                "added_sugars_grams REAL, trans_fat_grams REAL, cholesterol_mg REAL, " +
+                "source_type TEXT NOT NULL, source_reference TEXT, source_version TEXT, " +
+                "data_version INTEGER NOT NULL DEFAULT 1, revision INTEGER NOT NULL DEFAULT 1, " +
+                "visibility TEXT NOT NULL DEFAULT 'private', created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, deleted_at TEXT)");
+        db.execSQL("INSERT INTO nutrition_foods_incomplete SELECT " +
                 "id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
                 "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
                 "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
@@ -574,98 +580,9 @@ public final class FitnessDatabaseMigrationTest {
     }
 
     public static void createVersionEightSchema(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE workout_records (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)");
-        db.execSQL("INSERT INTO workout_records (id, user_id) VALUES ('record-1', 'local-user')");
-
-        // These tables existed in the v8 application schema. Keep the fixture minimal while
-        // retaining the columns required by later historical migrations.
-        db.execSQL("CREATE TABLE workout_exercises (" +
-                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, record_id TEXT NOT NULL, " +
-                "order_index INTEGER NOT NULL, exercise_id TEXT NOT NULL, " +
-                "exercise_name_snapshot TEXT NOT NULL, ui_part TEXT NOT NULL, " +
-                "primary_sub_part_snapshot TEXT, equipment_snapshot TEXT, " +
-                "record_type TEXT NOT NULL, memo TEXT, created_at TEXT NOT NULL, " +
-                "updated_at TEXT NOT NULL, deleted_at TEXT, device_id TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE workout_sets (" +
-                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, workout_exercise_id TEXT NOT NULL, " +
-                "set_index INTEGER NOT NULL, target_reps INTEGER, actual_reps INTEGER, " +
-                "weight_kg REAL, duration_seconds INTEGER, distance_meters REAL, " +
-                "rest_seconds INTEGER, is_completed INTEGER NOT NULL, rpe INTEGER, memo TEXT, " +
-                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
-                "device_id TEXT NOT NULL)");
-        db.execSQL("INSERT INTO workout_sets (" +
-                "id, user_id, workout_exercise_id, set_index, target_reps, actual_reps, " +
-                "weight_kg, is_completed, created_at, updated_at, device_id) VALUES (" +
-                "'set-1', 'local-user', 'exercise-1', 1, 5, 5, 80, 1, " +
-                "'2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z', 'device-1')");
-        db.execSQL("CREATE TABLE routines (" +
-                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, " +
-                "is_default INTEGER NOT NULL, device_id TEXT NOT NULL, " +
-                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
-        db.execSQL("CREATE TABLE routine_exercises (" +
-                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, routine_id TEXT NOT NULL, " +
-                "exercise_id TEXT NOT NULL, name_ko TEXT NOT NULL, ui_part TEXT NOT NULL, " +
-                "primary_sub_part TEXT NOT NULL, equipment TEXT NOT NULL, " +
-                "record_type TEXT NOT NULL, order_index INTEGER NOT NULL, " +
-                "device_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, " +
-                "deleted_at TEXT)");
-
-        db.execSQL("CREATE TABLE cardio_sessions (" +
-                "record_id TEXT PRIMARY KEY, activity_type TEXT NOT NULL, status TEXT NOT NULL, " +
-                "started_at_epoch_ms INTEGER NOT NULL, last_resumed_at_epoch_ms INTEGER, " +
-                "active_duration_ms INTEGER NOT NULL DEFAULT 0, " +
-                "distance_meters REAL NOT NULL DEFAULT 0, " +
-                "accepted_point_count INTEGER NOT NULL DEFAULT 0, last_latitude REAL, " +
-                "last_longitude REAL, last_location_time_ms INTEGER, last_accuracy_meters REAL, " +
-                "gps_status TEXT NOT NULL DEFAULT 'searching', updated_at_epoch_ms INTEGER NOT NULL)");
-        db.execSQL("INSERT INTO cardio_sessions (record_id, activity_type, status, " +
-                "started_at_epoch_ms, updated_at_epoch_ms) " +
-                "VALUES ('record-1', 'running', 'paused', 1, 1)");
-        db.execSQL("CREATE INDEX cardio_sessions_status_started_idx " +
-                "ON cardio_sessions(status, started_at_epoch_ms)");
-
-        db.execSQL("CREATE TABLE cardio_route_points (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, record_id TEXT NOT NULL, " +
-                "captured_at_epoch_ms INTEGER NOT NULL, latitude REAL NOT NULL, " +
-                "longitude REAL NOT NULL, accuracy_meters REAL NOT NULL, speed_mps REAL, " +
-                "segment_distance_meters REAL NOT NULL DEFAULT 0)");
-        db.execSQL("INSERT INTO cardio_route_points (record_id, captured_at_epoch_ms, latitude, " +
-                "longitude, accuracy_meters) VALUES ('record-1', 1, 37.0, 127.0, 5.0)");
-
-        db.execSQL("CREATE TABLE meal_menu_presets (" +
-                "id TEXT PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE, calories INTEGER, " +
-                "protein_grams REAL, carbs_grams REAL, fat_grams REAL, " +
-                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
-        db.execSQL("INSERT INTO meal_menu_presets (id, name, created_at, updated_at) " +
-                "VALUES ('preset-1', 'Chicken', '2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z')");
-        db.execSQL("CREATE INDEX meal_menu_presets_updated_idx " +
-                "ON meal_menu_presets(updated_at DESC)");
-
-        db.execSQL("CREATE TABLE nutrition_foods (" +
-                "id TEXT PRIMARY KEY, owner_id TEXT, name TEXT NOT NULL, kind TEXT NOT NULL, " +
-                "basis_amount REAL NOT NULL, basis_unit TEXT NOT NULL, " +
-                "calories_kcal REAL NOT NULL DEFAULT 0, " +
-                "protein_grams REAL NOT NULL DEFAULT 0, carbs_grams REAL NOT NULL DEFAULT 0, " +
-                "fat_grams REAL NOT NULL DEFAULT 0, source_type TEXT NOT NULL, " +
-                "source_reference TEXT, visibility TEXT NOT NULL DEFAULT 'private', " +
-                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
-        db.execSQL("INSERT INTO nutrition_foods (" +
-                "id, owner_id, name, kind, basis_amount, basis_unit, calories_kcal, " +
-                "protein_grams, carbs_grams, fat_grams, source_type, source_reference, " +
-                "created_at, updated_at) VALUES (" +
-                "'legacy-option-1', 'local-user', '감자튀김', 'external_menu', 1, 'serving', " +
-                "320, 4, 42, 15, 'manual_option', " +
-                "'{\"restaurant_name\":\"맥도날드\",\"menu_name\":\"고추크림치즈버거 세트\",\"restaurant_id\":\"restaurant-1\",\"restaurant_menu_id\":\"menu-1\"}', " +
-                "'2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z')");
-
-        db.execSQL("CREATE TABLE meal_record_items (" +
-                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, meal_record_id TEXT NOT NULL, " +
-                "food_id TEXT, food_name_snapshot TEXT NOT NULL, quantity REAL NOT NULL, " +
-                "unit TEXT NOT NULL, calories REAL NOT NULL DEFAULT 0, " +
-                "protein_grams REAL NOT NULL DEFAULT 0, carbs_grams REAL NOT NULL DEFAULT 0, " +
-                "fat_grams REAL NOT NULL DEFAULT 0, order_index INTEGER NOT NULL, " +
-                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
-                "device_id TEXT NOT NULL)");
+        FitnessRoomTestDatabase.createVersionEightFixture(db);
+        db.execSQL("INSERT INTO devices (id, user_id, name, last_seen_at) VALUES " +
+                "('device-1', 'local-user', 'Legacy test device', '2026-08-08T00:00:00Z')");
     }
 
     private static boolean hasColumn(SQLiteDatabase db, String table, String column) {
@@ -743,6 +660,11 @@ public final class FitnessDatabaseMigrationTest {
         private IsolatedDatabaseContext(Context base, String databasePrefix) {
             super(base);
             this.databasePrefix = databasePrefix;
+        }
+
+        @Override
+        public Context getApplicationContext() {
+            return this;
         }
 
         @Override
