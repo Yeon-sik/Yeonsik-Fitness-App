@@ -1,0 +1,3 @@
+{
+  "com.yeonsik.fitnessapp.data.WorkoutTransferRoomImportTest#importsProvidedExternalFixtureWithoutPublishingPersonalRecords": "Requires a private, build-only workoutTransferFixtureAsset. Public synthetic transfer fixtures still run in this class."
+}

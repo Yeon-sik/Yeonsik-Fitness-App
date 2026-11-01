@@ -11,6 +11,7 @@ if [[ -f .cloud-env.sh ]]; then
   # shellcheck disable=SC1091
   source .cloud-env.sh
 fi
+command -v python3 >/dev/null || { echo "python3 is required to validate test results." >&2; exit 1; }
 list=scripts/cloud/android-core-instrumented-tests.txt
 classes=()
 while IFS= read -r line; do
@@ -38,11 +39,19 @@ if [[ -n ${ANDROID_HOME:-} && -x $ANDROID_HOME/platform-tools/adb ]]; then
   adb=$ANDROID_HOME/platform-tools/adb
 fi
 mapfile -t devices < <("$adb" devices | awk 'NR > 1 && $2 == "device" { print $1 }')
-if (( ${#devices[@]} != 1 )); then
-  echo "Attach exactly one emulator; found ${#devices[@]} device(s)." >&2
-  exit 1
+if [[ -n ${ANDROID_SERIAL:-} ]]; then
+  serial=$ANDROID_SERIAL
+  if ! printf '%s\n' "${devices[@]}" | grep -Fxq -- "$serial"; then
+    echo "Requested ANDROID_SERIAL is not an online device: $serial" >&2
+    exit 1
+  fi
+else
+  if (( ${#devices[@]} != 1 )); then
+    echo "Attach exactly one emulator or select it with ANDROID_SERIAL; found ${#devices[@]} device(s)." >&2
+    exit 1
+  fi
+  serial=${devices[0]}
 fi
-serial=${devices[0]}
 prop() { "$adb" -s "$serial" shell getprop "$1" | tr -d '\r'; }
 if [[ $(prop ro.kernel.qemu) != 1 && $(prop ro.boot.qemu) != 1 ]] &&
   [[ ! $(prop ro.hardware) =~ ^(ranchu|goldfish)$ ]]; then
@@ -81,87 +90,8 @@ for class in "${classes[@]}"; do
   fi
 done
 
-if command -v python3 >/dev/null; then
-  # Print full failure text: the Gradle console keeps only the first lines of each trace.
-  python3 - "$core_results" <<'PY'
-import pathlib
-import re
-import sys
-import xml.etree.ElementTree as ElementTree
-
-
-def room_columns(block):
-    columns, current = {}, None
-    for line in block.splitlines():
-        line = line.strip()
-        if line.startswith("Column {"):
-            current = {}
-        elif current is not None and line.startswith("}"):
-            name = current.pop("name", None)
-            if name:
-                columns[name] = current
-            current = None
-        elif current is not None:
-            match = re.match(r"(\w+)\s*=\s*'(.*)',?$", line)
-            if match:
-                current[match.group(1)] = match.group(2)
-    return columns
-
-
-def room_diff(text):
-    """Reduces Room's Expected/Found TableInfo dump to the columns and indices that differ."""
-    if "Expected:" not in text or "Found:" not in text:
-        return None
-    expected, found = text.split("Expected:", 1)[1].split("Found:", 1)
-    want, have = room_columns(expected), room_columns(found)
-    lines = []
-    for name in sorted(set(want) | set(have)):
-        if name not in have:
-            lines.append(f"  missing column {name}: {want[name]}")
-        elif name not in want:
-            lines.append(f"  unexpected column {name}: {have[name]}")
-        elif want[name] != have[name]:
-            changes = [f"{key} expected {want[name].get(key)} found {have[name].get(key)}"
-                       for key in sorted(set(want[name]) | set(have[name]))
-                       if want[name].get(key) != have[name].get(key)]
-            lines.append(f"  {name}: " + "; ".join(changes))
-    index = r"Index\s*\{\s*name\s*=\s*'([^']+)'"
-    want_index, have_index = set(re.findall(index, expected)), set(re.findall(index, found))
-    lines += [f"  missing index {name}" for name in sorted(want_index - have_index)]
-    lines += [f"  unexpected index {name}" for name in sorted(have_index - want_index)]
-    return lines or ["  (no column or index difference; compare foreign keys in the XML report)"]
-
-
-root = pathlib.Path(sys.argv[1])
-rows = []
-for class_dir in sorted(path for path in root.iterdir() if path.is_dir()):
-    tests = failures = skipped = 0
-    details = []
-    for report in sorted(class_dir.rglob("TEST-*.xml")):
-        suite = ElementTree.parse(report).getroot()
-        for case in suite.iter("testcase"):
-            tests += 1
-            if case.find("skipped") is not None:
-                skipped += 1
-            for problem in list(case.findall("failure")) + list(case.findall("error")):
-                failures += 1
-                full = (problem.text or problem.get("message") or "").strip()
-                text = full.splitlines()
-                diff = room_diff(full)
-                if diff is not None:
-                    stack = [line for line in text if line.strip().startswith("at ")][:8]
-                    text = text[:1] + ["Room schema difference:"] + diff + stack
-                details.append((case.get("name"), text[:40]))
-    rows.append((class_dir.name, tests, failures, skipped))
-    for name, text in details:
-        print(f"\n--- FAILED {class_dir.name}#{name}")
-        print("\n".join(text))
-print("\nCore instrumentation summary (tests / failed / skipped):")
-for name, tests, failures, skipped in rows:
-    marker = "FAIL" if failures else ("NONE" if tests == 0 else "ok")
-    print(f"{marker:4} {tests:3} {failures:3} {skipped:3}  {name}")
-PY
-fi
+# A successful Gradle task alone does not prove that its class actually ran.
+python3 scripts/cloud/verify-instrumented-results.py "$core_results" "${classes[@]}"
 
 if (( ${#failed[@]} > 0 )); then
   printf 'Core instrumentation failed in %d class(es):\n' "${#failed[@]}" >&2

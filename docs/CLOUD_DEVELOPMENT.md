@@ -71,7 +71,12 @@ host는 기존 macOS CI job에서 검증하며 Linux cloud에서 성공했다고
 에뮬레이터 결과는 실기기나 기존 사용자 DB 보존 검증이 아니며, 목록 밖의
 instrumentation은 계속 APK 컴파일만 확인한다. 로컬에서는 에뮬레이터 하나만 연결하고
 `bash scripts/cloud/instrumented-core.sh`를 실행한다. 이 테스트는 앱 DB를 지우므로
-스크립트가 실기기를 거부한다.
+스크립트가 실기기를 거부한다. 다른 기기가 연결돼 있으면 `ANDROID_SERIAL`로
+테스트할 에뮬레이터를 명시한다. 선택한 기기도 에뮬레이터인지 다시 검사한다.
+각 클래스의 JUnit XML, 클래스명, 실제 실행 건수와 실패를 검사하며 결과 누락·실행 0건·
+전체 skip·미승인 skip은 실패한다. 기존 private transfer fixture 테스트의 조건부 skip
+한 건은 `scripts/cloud/android-core-instrumented-skips.json`에 사유와 함께 고정한다.
+이 skip은 공개 합성 transfer fixture 테스트의 실행을 대체하지 않는다.
 
 `nutrition-db-replay.yml`은 Docker를 쓰는 폐기 가능한 로컬 DB에 이력을 재생한다.
 운영 DB 배포 workflow가 아니다. Docker를 쓸 수 없는 원격 세션은 replay를 생략했다고
