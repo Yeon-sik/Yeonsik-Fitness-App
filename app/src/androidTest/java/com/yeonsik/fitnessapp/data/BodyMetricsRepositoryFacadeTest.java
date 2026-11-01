@@ -8,6 +8,10 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -31,9 +35,9 @@ public final class BodyMetricsRepositoryFacadeTest {
                 ApplicationProvider.getApplicationContext()
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
-        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            FitnessRepository repository = new FitnessRepository(helper, FIRST_USER_ID);
+            FitnessRepository repository = new FitnessRepository(room, context, FIRST_USER_ID);
 
             String firstId = repository.addBodyMetric("2026-09-01", 70d, "before breakfast");
             String sameDateId = repository.addBodyMetric("2026-09-01", 70.25d, "after breakfast");
@@ -61,17 +65,17 @@ public final class BodyMetricsRepositoryFacadeTest {
             repository.deleteBodyMetric(firstId);
             assertNull(repository.bodyMetricEntryById(firstId));
             assertEquals(1, countRows(
-                    helper.getWritableDatabase(),
+                    FitnessDatabaseConnection.fromRoom(room),
                     "SELECT COUNT(*) FROM weight_records WHERE id = ? AND deleted_at IS NOT NULL",
                     firstId
             ));
         } finally {
-            helper.close();
+            room.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
 
-    private static int countRows(SQLiteDatabase database, String sql, String argument) {
+    private static int countRows(FitnessDatabaseConnection database, String sql, String argument) {
         try (android.database.Cursor cursor = database.rawQuery(sql, new String[]{argument})) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 0;
         }
@@ -80,6 +84,11 @@ public final class BodyMetricsRepositoryFacadeTest {
     private static final class IsolatedDatabaseContext extends ContextWrapper {
         private IsolatedDatabaseContext(Context base) {
             super(base);
+        }
+
+        @Override
+        public Context getApplicationContext() {
+            return this;
         }
 
         @Override

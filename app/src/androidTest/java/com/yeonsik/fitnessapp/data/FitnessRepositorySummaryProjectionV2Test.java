@@ -224,6 +224,11 @@ public final class FitnessRepositorySummaryProjectionV2Test {
         }
 
         @Override
+        public Context getApplicationContext() {
+            return this;
+        }
+
+        @Override
         public File getDatabasePath(String name) {
             return super.getDatabasePath(DATABASE_PREFIX + name);
         }

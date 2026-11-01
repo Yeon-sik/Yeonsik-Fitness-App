@@ -29,6 +29,8 @@ import static org.junit.Assert.assertTrue;
 @RunWith(AndroidJUnit4.class)
 public final class FitnessStageZeroBaselineTest {
     private static final String DATABASE_PREFIX = "stage_zero_baseline_";
+    // dining_out_menu_add_on_links exists only on historical upgrades, covered by
+    // FitnessRoomHandoffMigrationTest; a fresh v50 helper must not require it.
     private static final Set<String> EXPECTED_TABLES = new LinkedHashSet<>(Arrays.asList(
             "body_profiles",
             "cardio_route_points",
@@ -38,7 +40,6 @@ public final class FitnessStageZeroBaselineTest {
             "composition_templates",
             "development_goals",
             "devices",
-            "dining_out_menu_add_on_links",
             "dining_out_menu_component_links",
             "exercise_picker_preferences",
             "meal_menu_presets",
@@ -106,7 +107,7 @@ public final class FitnessStageZeroBaselineTest {
 
             assertIndex(database, "workout_records_user_scope_date_idx");
             assertIndex(database, "workout_sets_load_state_idx");
-            assertIndex(database, "meal_records_dining_out_identity_idx");
+            assertIndex(database, "meal_records_user_kind_date_idx");
             assertIndex(database, "meal_record_item_components_parent_order_idx");
             assertIndex(database, "nutrition_foods_owner_product_hierarchy_idx");
             assertIndex(database, "product_nutrition_links_one_approved_idx");

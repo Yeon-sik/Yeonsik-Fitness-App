@@ -18,10 +18,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -227,7 +223,7 @@ public final class FitnessRoomHandoffMigrationTest {
                     0,
                     null
             );
-            createVersionEightFixture(legacy);
+            com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase.createVersionEightFixture(legacy);
             String originalWeight;
             try (Cursor cursor = legacy.rawQuery("SELECT weight_kg FROM workout_sets WHERE id = 'set-1'", null)) {
                 assertTrue(cursor.moveToFirst());
@@ -277,23 +273,6 @@ public final class FitnessRoomHandoffMigrationTest {
     }
 
     /** Uses the complete shipped v8 schema so Room validates a real historical database. */
-    private static void createVersionEightFixture(SQLiteDatabase database) {
-        StringBuilder sql = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                InstrumentationRegistry.getInstrumentation().getContext().getAssets()
-                        .open("database/fitness-v8.sql"), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!line.trim().startsWith("--")) sql.append(line).append('\n');
-            }
-        } catch (IOException error) {
-            throw new AssertionError("Cannot read the shipped v8 schema fixture", error);
-        }
-        for (String statement : sql.toString().split(";")) {
-            if (!statement.trim().isEmpty()) database.execSQL(statement);
-        }
-    }
-
     private static void assertAllPrimaryKeysAreNotNull(SupportSQLiteDatabase database) {
         try (Cursor tables = database.query(
                 "SELECT name FROM sqlite_master WHERE type = 'table' " +
