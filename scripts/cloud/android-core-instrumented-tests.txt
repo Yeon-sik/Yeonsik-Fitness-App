@@ -1,0 +1,34 @@
+# Core instrumentation suite for the release-readiness gate.
+# One fully qualified androidTest class per line. Sections follow the required checks in
+# docs/FitnessApp_정돈_리팩터링_규칙.md 14.3 and 14.4.
+# These tests delete and recreate the app database: run them on an emulator only.
+
+# New install, historical upgrade and Room handoff
+com.yeonsik.fitnessapp.data.FitnessStageZeroBaselineTest
+com.yeonsik.fitnessapp.data.FitnessDatabaseMigrationTest
+com.yeonsik.fitnessapp.core.database.FitnessRoomHandoffMigrationTest
+com.yeonsik.fitnessapp.core.database.CardioEnvironmentMigrationTest
+com.yeonsik.fitnessapp.core.database.DiningProposalMigrationTest
+com.yeonsik.fitnessapp.core.database.ManualExerciseLinkMigrationTest
+com.yeonsik.fitnessapp.core.database.PriceTraceBrandMigrationTest
+com.yeonsik.fitnessapp.core.database.WorkoutSetupNoteMigrationTest
+
+# Owner isolation, Meal snapshots, LoadState, units and workout identity
+com.yeonsik.fitnessapp.data.BodyMetricsRepositoryFacadeTest
+com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepositoryTest
+com.yeonsik.fitnessapp.data.FitnessRepositoryLoadStateTest
+com.yeonsik.fitnessapp.data.WorkoutRoomReadCorrectnessTest
+
+# Backup restore, transfer v1/v2, local-preserving sync and Summary v2 tombstones
+com.yeonsik.fitnessapp.data.LocalDataBackupServiceTest
+com.yeonsik.fitnessapp.data.WorkoutTransferCodecTest
+com.yeonsik.fitnessapp.data.WorkoutTransferRepositoryTest
+com.yeonsik.fitnessapp.data.WorkoutTransferRoomImportTest
+com.yeonsik.fitnessapp.data.SupabaseSyncManagerLocalPreservationTest
+com.yeonsik.fitnessapp.data.FitnessRepositorySummaryProjectionV2Test
+com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisherIncrementalTest
+
+# Set input drafts, workout completion/cancel, account scope and recreation
+com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSetRecordingUiTest
+com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModelTest
+com.yeonsik.fitnessapp.ui.RecordingNavigationRecreationTest
