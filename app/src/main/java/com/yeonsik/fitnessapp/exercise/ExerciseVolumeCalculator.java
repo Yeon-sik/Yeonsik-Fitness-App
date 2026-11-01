@@ -28,8 +28,13 @@ public final class ExerciseVolumeCalculator {
             int implementMultiplier
     ) {
         String normalizedType = FitnessRecordContract.normalizeRecordType(recordType);
+        // Replacing a pull-up preset keeps each set's explicit resistance state.
+        // An assisted preset must not erase the volume of a preserved added-weight set.
+        boolean preservedAddedWeight = FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(normalizedType)
+                && loadState == LoadState.ADDED_WEIGHT;
         if (!FitnessRecordContract.WEIGHT_REPS.equals(normalizedType)
-                && !FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalizedType)) {
+                && !FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalizedType)
+                && !preservedAddedWeight) {
             return 0d;
         }
 

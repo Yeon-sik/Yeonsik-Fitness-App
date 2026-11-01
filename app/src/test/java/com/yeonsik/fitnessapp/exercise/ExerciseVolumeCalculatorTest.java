@@ -10,6 +10,19 @@ import static org.junit.Assert.assertEquals;
 
 public final class ExerciseVolumeCalculatorTest {
     @Test
+    public void preservesAddedWeightVolumeWhenSwitchingToAnAssistedPreset() {
+        assertEquals(30d, ExerciseVolumeCalculator.calculate(
+                FitnessRecordContract.ASSISTED_WEIGHT_REPS, LoadState.ADDED_WEIGHT,
+                0d, 5d, 6, "bilateral", 1), 0.001d);
+        assertEquals(0d, ExerciseVolumeCalculator.calculate(
+                FitnessRecordContract.ASSISTED_WEIGHT_REPS, LoadState.ASSISTED,
+                80d, 5d, 6, "bilateral", 1), 0.001d);
+        assertEquals(0d, ExerciseVolumeCalculator.calculate(
+                FitnessRecordContract.TIME, LoadState.ADDED_WEIGHT,
+                0d, 5d, 6, "bilateral", 1), 0.001d);
+    }
+
+    @Test
     public void usesOneMultiplierForBilateralSingleImplementExercises() {
         assertEquals(
                 160d,
