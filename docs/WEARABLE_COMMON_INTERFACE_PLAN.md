@@ -1,12 +1,27 @@
-# Fitness App — Wearable Common Interface Plan v0.1
+# Fitness App — Wearable Common Interface Plan v0.2
 
 - **Status:** PROPOSED — 구현 전 설계, PR0 관측 결과 대기
-- **작성일:** 2026-11-04 (Asia/Seoul)
+- **작성일:** 2026-11-04 (Asia/Seoul) · **v0.2 갱신:** 2026-11-04 착수 가능성 검토 반영
 - **Repository:** Yeon-sik/Yeonsik-Fitness-App
-- **Baseline:** `main@1df259296ce9c21e022edcd0e2d0154c6ff2d343`
-- **문서 대상 브랜치:** `docs/wearable-common-interface-v1`
+- **Baseline:** `main@1df259296ce9c21e022edcd0e2d0154c6ff2d343` (v0.2 검토 시 `origin/main` HEAD와 동일함을 재확인)
+- **문서 대상 브랜치:** `docs/wearable-common-interface-v1` (v0.1) · v0.2 검토 반영: `claude/fitness-wearable-docs-review-xqntnb`
 - **작업 유형:** Architecture decision + 단계별 실행 계획. 이 문서 커밋은 구현 완료를 뜻하지 않는다.
 - **Source of Truth:** `AGENTS.md`, `docs/FitnessApp_정돈_리팩터링_규칙.md`, 현재 실제 코드. 해당 규칙 문서의 오래된 CURRENT 서술보다 이 문서의 기준 SHA에서 직접 확인한 구현 사실을 우선한다.
+
+## v0.1 → v0.2 변경 요약
+
+v0.2는 "바로 구현해도 되는가" 검토 결과를 반영한다. 검토 범위는 baseline SHA 소스의 **정적 검토**와 Health Connect 공식 가이드 확인이며, 빌드·단위 테스트·instrumentation·실기기는 실행하지 않았다(검토 세션에 Android SDK가 없고 `dl.google.com`이 네트워크 정책으로 차단됨).
+
+| 영역 | v0.1 | v0.2 |
+| --- | --- | --- |
+| 착수 판정 | 명시 없음 | §12.1: PR1~PR4 착수 불가, PR0만 §10.1 결정 후 착수 |
+| Cardio 시각 | 완료 시각 컬럼 미확인, pause/resume 복원 여부 Unknown | 코드로 확정: 완료 시각은 이후 수정으로 덮어써지고 pause/resume 구간 이력은 저장되지 않음(§2, §7) |
+| 백업 | 고정 TABLE_ORDER 언급 | 복원 시 테이블 집합 **정확 일치** 검증을 근거로 links 저장 형식 제약 명시(§6) |
+| 계정 claim | 경로 존재 | 테이블별 수동 나열, 자동 커버리지 검사 미확인 → PR2 테스트 요구(§6) |
+| Health Connect manifest | Play Console 선언 일치만 언급 | 공식 가이드 기준 필수 선언 체크리스트 추가(§8) |
+| PR0 | 프로브 위치·결과 기록 위치 미정 | 권장안과 결정 항목 명시(§9, §10.1) |
+| PR1 | ABI 확인만 언급 | 시각 표현·suspend 브리지 결정 항목 명시(§4, §10.1) |
+| 계정 귀속 | 계정 A→B async 경합만 다룸 | Health Connect 데이터가 기기 사용자 단위라는 점에서 계정 귀속 정책 결정 항목 추가(§8, §10.1) |
 
 ## 1. Goal / Scope
 
@@ -31,14 +46,17 @@ Fitness App이 Galaxy Fit3 등 외부 웨어러블에서 **운동 관련 관측*
 | Android SDK | minSdk 26 / targetSdk 36 / compileSdk 36 | `app/build.gradle` |
 | 유산소 | CardioRepository → Room, CardioSessionApplicationService/CompleteCardio가 Workout과의 완료 작업을 조정 | `feature/cardio/.../CardioRepository.java`, `CardioSessionApplicationService.java`, `CompleteCardio.java` |
 | 평균 심박 | `workout_records.average_heart_rate` nullable, 유산소 완료 및 사후 수정 API 존재 | `core/database/FitnessRoomLegacyEntities.kt`, `shared/.../WorkoutRepositoryApi.kt` |
-| Cardio 시각 | `cardio_sessions.started_at_epoch_ms`, `active_duration_ms`, `updated_at_epoch_ms`; 명시적 완료 시각 컬럼은 확인되지 않음 | `core/database/FitnessRoomLegacyEntities.kt` |
+| Cardio 시각 | `cardio_sessions.started_at_epoch_ms`, `last_resumed_at_epoch_ms`, `active_duration_ms`, `updated_at_epoch_ms`; 명시적 완료 시각 컬럼 없음. pause/resume은 `last_resumed_at_epoch_ms` 한 값만 덮어쓰며 구간 이력을 남기지 않음 | `core/database/FitnessRoomLegacyEntities.kt`, `feature/cardio/data/CardioRepository.java` (`pause`/`resume`/`completeSessionInTransaction`) |
+| 근력 시각 | `workout_records`는 `date`, `duration_seconds`, `created_at`, `updated_at`만 보유; 운동 시작·종료 시각 없음 | `core/database/FitnessRoomLegacyEntities.kt` |
 | 신체 | `BodyMetricsRepository`가 weight record를 owner scope로 관리 | `feature/body/data/BodyMetricsRepository.java` |
-| 계정 | `AccountOwnershipService`에 anonymous→로그인 계정 로컬 행 claim 경로 존재 | `core/account/AccountOwnershipService.java` |
-| 백업 | `LocalDataBackupService`는 고정 `TABLE_ORDER`, `fitness-os.local-backup` formatVersion 1 사용 | `backup/LocalDataBackupService.java` |
+| 계정 | `AccountOwnershipService.claimLocalRows`가 단일 transaction에서 anonymous→로그인 계정 로컬 행을 claim. 대상 테이블은 `claimSimpleRows`에 테이블별 DAO 호출로 직접 나열됨 | `core/account/AccountOwnershipService.java:44`, `:70` |
+| 백업 | `LocalDataBackupService`는 고정 `TABLE_ORDER`, `fitness-os.local-backup` formatVersion 1 사용. 복원 시 백업의 테이블 집합이 (DB 버전별 예외를 뺀) 기대 집합과 **정확히 같아야** 하며 다르면 거부 | `backup/LocalDataBackupService.java:42-51`, `validateCompatibleTables` `:629`, `:670` |
+| 빌드 도구 | AGP 8.11.0, Kotlin 2.3.0, JVM target 17. `kotlinx-coroutines`는 직접 의존성이 아니며 room-ktx·lifecycle-ktx를 통한 전이 의존성만 존재 | `build.gradle`, `app/build.gradle` |
+| shared | `commonMain`에 외부 라이브러리 의존성 없음(kotlinx-datetime/coroutines 없음). Android library + iosX64/iosArm64/iosSimulatorArm64 static framework | `shared/build.gradle` |
 | 웨어러블 | 현행 검색/확인 범위에서 Health Connect/HealthKit Reader, 웨어러블 persistence 경로 확인되지 않음 | `AndroidManifest.xml`, `app/build.gradle`, 관련 코드 검색 |
 | iOS | `iosApp`은 KMP shared host proof이며 HealthKit/production 영속 계층이 아님 | `iosApp/README.md` |
 
-**중요 관측:** Cardio의 `updated_at_epoch_ms`를 곧바로 운동 종료 시각으로 사용하면 안 된다. 이후 수정으로 바뀔 수 있는 시각이며, `active_duration_ms`는 일시 정지 구간을 포함한 wall-clock 종료 시각과 같지 않다. PR3 전에 정확한 workout/cardio 완료 시각의 실제 영속 경로를 확인해야 한다.
+**중요 관측:** Cardio의 `updated_at_epoch_ms`를 곧바로 운동 종료 시각으로 사용하면 안 된다. 완료 시 현재 시각으로 기록되지만(`CardioRepository.completeSessionInTransaction`) 이후 실내 수동 거리 수정(`FitnessRoomDatabase.kt` `updateManualDistance`)이 같은 컬럼을 덮어쓴다. `active_duration_ms`는 일시 정지 구간을 제외한 활동 시간이라 wall-clock 종료 시각과 같지 않고, pause/resume 구간 이력은 저장되지 않는다. 따라서 **현행 저장 구조만으로는 기존 Cardio 기록의 정확한 종료 시각과 일시 정지 구간을 복원할 수 없다**(v0.2 확정, §7·§10 #4).
 
 **기존 canonical 구조 제약:** 화면 → ViewModel → 업무 Service/Repository API → Repository/DAO, Cardio/Workout 저장은 `CompleteCardio`가 조정한다. 외부 연동은 `integration/`에 두고, 도메인 Repository가 직접 다른 기능 DAO를 수정하거나 새 범용 Repository/Hilt/별도 모듈을 만들지 않는다.
 
@@ -99,6 +117,8 @@ app/src/main/.../integration/wearable/
 
 `WearableObservationReader` 역할: capability 조회, 기간 및 타입에 대한 read-only 조회, 페이지/부분 실패 처리. 권한 요청 화면·Health Connect 설정 전환은 Android의 `PermissionGateway`가 담당하고, 공통 API에는 플랫폼 Permission 객체를 노출하지 않는다.
 
+**비동기 경계 (PR1 결정):** Health Connect client는 suspend API다. 앱에는 `kotlinx-coroutines` 직접 의존성이 없고 Cardio·Workout 조정 계층은 Java다. PR1은 (1) Android adapter에 coroutines를 명시 의존성으로 추가할지, (2) Java `ApplicationService`에서 호출할 브리지(콜백/Executor/Future)를 무엇으로 할지, (3) 공통 `WearableObservationReader`를 suspend로 둘지(Swift export 영향 포함)를 확정한다. 공통 API에 coroutines 타입을 노출하려면 `shared` 의존성 추가가 함께 필요하다.
+
 `ObservationReadResult`: `Success(records, nextPage?, complete)`, `PermissionRequired`, `Unavailable`, `Unsupported`, `Failure(retryable, reason)`처럼 **빈 성공·권한 없음·미지원·부분 실패**를 구별한다. 중간 페이지만 성공했을 때 전체 성공으로 표시하지 않는다.
 
 `ObservationProvenance` 최소 필드:
@@ -118,7 +138,7 @@ app/src/main/.../integration/wearable/
 
 실제 source record ID가 미존재/불안정한 provider를 발견하면 임의의 시각 해시로 canonical identity를 확정하지 말고 PR0 결과를 근거로 별도 identity 규칙을 결정한다.
 
-**시각 규칙:** 저장·매칭은 UTC Instant 기반, 표시 날짜는 명시적 time zone 정책으로 계산한다. `date` 문자열만으로 운동과 관측의 동일성을 판정하지 않는다. start/end timezone offset은 확인 가능한 경우 원본 그대로 보존한다.
+**시각 규칙:** 저장·매칭은 UTC Instant 기반, 표시 날짜는 명시적 time zone 정책으로 계산한다. `date` 문자열만으로 운동과 관측의 동일성을 판정하지 않는다. start/end timezone offset은 확인 가능한 경우 원본 그대로 보존한다. `shared` commonMain에는 날짜·시각 라이브러리가 없으므로 공통 타입의 Instant 표현(UTC epoch millis `Long` 또는 `kotlin.time.Instant`)은 PR1에서 Kotlin 2.3.0 안정성·Swift 노출 형태를 확인해 하나로 확정한다. 기존 Cardio 컬럼이 epoch millis라는 점을 고려한다.
 
 **측정 방법:** `RECORDING_METHOD_AUTOMATICALLY_RECORDED` 같은 메타데이터 자체가 Fit3 장치를 확증하지 않는다. `unknown`은 관측을 보존하되 센서 전용 비교에서 별도 취급한다. 분류 규칙 변경 시 알고리즘 버전을 올린다.
 
@@ -163,14 +183,20 @@ app/src/main/.../integration/wearable/
 
 **Backup/restore gate (필수):** 현재 `LocalDataBackupService`는 고정 TABLE_ORDER의 formatVersion 1이다. 새 wearable 테이블이 자동으로 backup되는 것으로 가정하지 않는다. 선호 정책은 **기기 재수집 가능한 raw cache와 sync token은 export 제외**, **사용자 확인 링크 결정은 별도 versioned backup contract로 보존**이다. 복원 후 raw가 없으면 연결은 pending/needsReview로 보존하고 재수집 후 매칭한다. 이 정책을 실제로 구현할 수 없으면 PR2 merge를 보류한다. 백업 v1 reader의 의미를 바꾸지 말고 필요 시 새 버전을 설계한다.
 
-**Account claim gate:** anonymous 사용자의 cache/links가 지원된다면 현재 `AccountOwnershipService.claimLocalRows`의 동일 transaction 및 owner 분리 검증을 추가한다. 누락하면 데이터 유실/타 계정 노출 가능성이 있으므로 PR2 merge 불가.
+v0.2 코드 근거에 따른 구체 제약:
+
+- `validateCompatibleTables`는 백업의 테이블 집합이 `TABLE_ORDER`에서 DB 버전별 예외를 뺀 집합과 정확히 같아야 복원을 허용한다.
+- raw cache·sample·sync state 테이블은 `TABLE_ORDER`에 추가하지 않는 것만으로 v1 의미가 바뀌지 않는다. 이 제외가 의도된 것임을 테스트에 명시적 제외 목록으로 고정한다.
+- `wearable_workout_links`를 v1 `TABLE_ORDER`에 추가하면 v57 이하 백업 복원을 위해 `databaseVersion < 58` 예외가 필요하고 v1 백업의 테이블 집합 의미가 바뀐다. 이 방식은 사용하지 않는다. 링크 결정은 formatVersion 2 또는 v1 reader가 영향받지 않는 별도 versioned 섹션/파일로 설계하고, 구버전 앱이 새 백업을 받았을 때의 동작(거부 또는 링크 무시)을 PR2에서 명시한다.
+
+**Account claim gate:** anonymous 사용자의 cache/links가 지원된다면 현재 `AccountOwnershipService.claimLocalRows`의 동일 transaction 및 owner 분리 검증을 추가한다. 누락하면 데이터 유실/타 계정 노출 가능성이 있으므로 PR2 merge 불가. `claimSimpleRows`는 테이블을 직접 나열하고, 경로 범위 검색으로는 owner-scoped 테이블 누락을 잡는 자동 커버리지 검사를 확인하지 못했다. PR2는 wearable 테이블 claim을 추가하면서 `sqlite_master`에서 `user_id`를 가진 테이블이 claim 대상 또는 명시적 제외 목록에 들어 있는지 검사하는 테스트를 함께 추가한다. `wearable_sync_states`는 claim으로 옮길지 초기화 후 재수집할지 PR2에서 정하되, cache와 cursor의 owner가 어긋나지 않아야 한다.
 
 ## 7. 운동 연결 규칙 / 분석 규칙 (PR3–PR4)
 
 **v1은 사용자 확인 연결을 우선한다.** 후보 탐색 기준은 기록 ID + 시간 겹침 + activity type 보조 정보이며, 날짜 일치만으로 auto-confirm하지 않는다.
 
-- Cardio 세션 시작 시각은 현재 존재한다. 정확한 완료 시각/중지·재개 구간의 영속 경로를 PR3에서 별도로 추적한다. `updated_at_epoch_ms` 또는 `start+activeDuration`을 종료 시각으로 대체하지 않는다.
-- 시간이 불충분하면 사용자 선택으로만 연결하거나 추가 메타데이터 migration을 별도 결정한다.
+- Cardio 세션 시작 시각은 현재 존재한다. 완료 시각과 중지·재개 구간은 현행 구조에 영속되지 않음이 v0.2에서 확인됐다(§2). `updated_at_epoch_ms` 또는 `start+activeDuration`을 종료 시각으로 대체하지 않는다. 실외 세션의 `cardio_route_points.captured_at_epoch_ms`는 관측 범위의 보조 근거일 뿐 종료 시각이 아니며, 실내 세션에는 없다.
+- 따라서 PR3의 시간 기반 자동 후보 제시는 완료 시각(및 필요하면 pause 구간)을 기록하는 별도 migration을 전제로 한다. 그 migration 이전에 만들어진 기존 Cardio 기록은 사용자 선택으로만 연결한다. migration 여부·범위는 PR3 착수 시 별도로 결정하며 PR2 migration에 섞지 않는다.
 - 근력 세션은 시간 정보가 제한적이면 v1 자동 후보 연결에서 제외한다. `workout_records.date`만으로 HR을 결합하지 않는다.
 - 기존 `workout_records.average_heart_rate`의 null·수동 수정·legacy 동기화 의미를 변경하지 않는다.
 - 연결된 HR time series의 평균·최대는 sensor-derived projection으로 제공하고 `value`, `source`, `method`, `algorithmVersion`, `qualityFlags`를 동반한다.
@@ -182,6 +208,14 @@ app/src/main/.../integration/wearable/
 ## 8. 권한 / Privacy / UX
 
 - Health Connect 권한은 필요한 데이터 타입의 **read-only**로 최소 요청한다. manifest, 시스템 권한 요청, Play Console 선언 일치 여부를 PR0/PR1에서 확인한다.
+- **Manifest 체크리스트** (Health Connect 공식 get-started 가이드, 2026-11-04 확인). 누락하면 권한 요청·개인정보 처리방침 링크 흐름이 정상 동작하지 않는다.
+  - P0 타입 read 권한만 선언: `android.permission.health.READ_HEART_RATE`, `android.permission.health.READ_EXERCISE`. 30일보다 오래된 데이터가 필요할 때만 `READ_HEALTH_DATA_HISTORY`를 별도 검토한다. background read 권한은 v1에서 선언하지 않는다(D-06).
+  - Health Connect 설치 확인용 `<queries><package android:name="com.google.android.apps.healthdata" /></queries>`.
+  - Android 13 이하: `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE`를 처리하는 exported activity.
+  - Android 14 이상: 같은 activity를 가리키는 `activity-alias`, action `android.intent.action.VIEW_PERMISSION_USAGE`, category `android.intent.category.HEALTH_PERMISSIONS`, `android:permission="android.permission.START_VIEW_PERMISSION_USAGE"`.
+  - 해당 activity는 Play Console에 제출하는 것과 같은 개인정보 처리방침을 표시해야 한다.
+  - `connect-client` 1.1.0 이상은 compileSdk 36, AGP 8.9.1 이상을 요구한다. 현재 compileSdk 36, AGP 8.11.0으로 충족한다. 버전은 PR0/PR1 착수 시 최신 안정판을 다시 확인한다.
+- **계정 귀속:** Health Connect 권한과 데이터는 앱 계정이 아니라 기기 사용자 단위다. 같은 기기에서 앱 계정을 A에서 B로 바꾸면 B도 같은 원본을 읽을 수 있다. 계정별 연결 동의를 따로 받을지, 계정 전환 시 동기화를 멈추고 재동의를 요구할지 PR2 전에 결정한다(§10.1). 결정 전에는 A가 가져온 cache·links를 B 소유로 옮기거나 노출하지 않는다.
 - Android OS/Health Connect availability 확인 → 권한 안내 → 시스템 승인 → 첫 수집 → 최근 동기화 시각/오류를 구분하여 표시한다.
 - UI states: `notSupported`, `permissionRequired`, `readyEmpty`, `syncing`, `partial`, `synced`, `errorRetryable`, `permissionRevoked`; 서로 무의미하게 합치지 않는다.
 - 동기화 실패로 수동 운동 기록 저장을 실패시키지 않는다.
@@ -201,6 +235,9 @@ app/src/main/.../integration/wearable/
 - 걸음 수는 aggregate 경로와 raw origin 중복 여부 검토.
 - 기기 동기화 지연과 동일 구간 재조회 수정·삭제 여부 확인.
 - 읽기 권한 거부/회수·Health Connect 미지원·빈 수집을 기록하고, 외부로 데이터를 전송하지 않는다.
+- **프로브 위치 (권장, §10.1에서 확정):** 프로브 화면·Health Connect 의존성·권한 선언은 `debug` 빌드 타입 전용 소스셋(`app/src/debug/`, 현재 없음 — 새로 생성) 또는 main에 병합하지 않는 프로브 브랜치에 한정한다. `qa`·`release` manifest에는 health 권한을 추가하지 않는다. Play Console 선언과 개인정보 처리방침이 준비되기 전에 배포 빌드에 권한이 들어가지 않게 하기 위함이다. 프로브는 Room DB를 열거나 쓰지 않는다.
+- **결과 기록 (권장 경로):** `docs/wearable/PR0_PROBE_RESULT.md`. 기기 모델, Android·One UI·Samsung Health·Health Connect 버전, 타입별 record 수, sample 간격·공백 분포, origin/recordingMethod/device 메타데이터 존재 여부, 권한 흐름 결과를 남긴다. 원시 심박 값과 record ID 원문은 커밋하지 않고 분포 요약과 마스킹된 식별자만 기록한다.
+- **실행 경계:** 프로브 코드 작성과 빌드는 클라우드에서 가능하다(Android SDK와 `dl.google.com` 접근 필요). 실측과 PASS 판정은 실기기에서만 가능하다.
 
 **PASS:** 실제 실기기에서 최소 하나의 관심 유형에 대해 데이터, 출처, 시간, 권한 흐름을 확인하고 재현 가능한 익명화된 결과 기록. 심박 시계열이 없으면 P0 기능 구현을 진행하지 않고 Samsung SDK/대체 경로의 필요성을 의사결정으로 보고.
 
@@ -215,7 +252,8 @@ app/src/main/.../integration/wearable/
 
 - 새 Entity/DAO/migration, source identity upsert, 변경 token/cursor, tombstone, owner claim, 재시도, backup 계약.
 - 기존 support migration chain과 신규 설치 Room schema 양쪽 테스트; rollback 없는 migration.
-- **PASS:** repeated import 동일 row 수, sample update identity 유지, delete → needsReview, token/transaction 복구, A/B 격리 및 anonymous claim, backup/restore link 보존.
+- 백업 테이블 제외 목록 고정 테스트, owner-scoped 테이블 claim 커버리지 테스트(§6).
+- **PASS:** repeated import 동일 row 수, sample update identity 유지, delete → needsReview, token/transaction 복구, A/B 격리 및 anonymous claim, backup/restore link 보존, 기존 v1 백업 복원 결과 불변.
 
 ### PR3 — Cardio linking without rewriting workouts
 
@@ -236,11 +274,25 @@ app/src/main/.../integration/wearable/
 1. Galaxy Fit3가 Samsung Health를 통해 어떤 HR sample rate와 운동 데이터를 Health Connect에 전달하는지 (모델·OS·앱 버전별).
 2. Health Connect metadata가 Galaxy Fit3 자체의 identity를 구분하기에 충분한지.
 3. 읽기 권한, history permission, changes token 사용 흐름의 현재 실제 SDK 동작.
-4. Cardio 종료와 pause/resume wall-clock 구간을 현행 저장 구조만으로 복원할 수 있는지.
+4. ~~Cardio 종료와 pause/resume wall-clock 구간을 현행 저장 구조만으로 복원할 수 있는지.~~ **v0.2 확정: 복원 불가**(§2). PR3 착수 시 완료 시각 migration 여부를 결정한다(§7).
 5. 장기간 HR cache 크기, 변경 피드의 삭제/수정 이벤트 형식 및 cursor 만료 처리.
 6. 백업의 링크 결정 보존 및 anonymous account claim 경로의 실제 구현·테스트.
 7. iOS HealthKit adapter 및 production iOS persistence 여부(현재 미구현).
 8. Samsung Health Data SDK의 실사용 접근 조건·데이터 범위; Health Connect 충족 시 추가하지 않음.
+
+### 10.1 착수 전 결정 항목 (v0.2 검토)
+
+| # | 결정 | 필요 시점 | 권장안 |
+| --- | --- | --- | --- |
+| K-01 | PR0 프로브 코드 위치 | PR0 착수 전 | `app/src/debug/` 전용 소스셋. qa/release에는 권한·의존성 미포함 |
+| K-02 | PR0 결과 기록 위치·익명화 수준 | PR0 착수 전 | `docs/wearable/PR0_PROBE_RESULT.md`, 분포 요약과 마스킹된 식별자만 |
+| K-03 | 공통 타입 Instant 표현 | PR1 | 기존 Cardio 컬럼과 같은 UTC epoch millis `Long`. `kotlin.time.Instant`는 Swift 노출을 확인한 뒤 재검토 |
+| K-04 | suspend/coroutines 경계와 Java 브리지 | PR1 | coroutines는 Android adapter에만 명시 의존성으로 두고, Java 호출부는 결과 콜백 브리지로 연결 |
+| K-05 | Health Connect 데이터의 앱 계정 귀속 | PR2 전 | 계정별 연결 동의. 계정 전환 시 동기화 중지 후 재동의 |
+| K-06 | links 백업 형식 | PR2 | formatVersion 2 또는 별도 versioned 섹션. v1 `TABLE_ORDER`에는 추가하지 않음 |
+| K-07 | Cardio 완료 시각 migration | PR3 착수 시 | PR2와 분리된 migration. 그 전의 기존 기록은 사용자 선택 연결만 |
+
+권장안은 확정이 아니다. 각 PR Task Contract에서 확정하고 이 표를 갱신한다.
 
 ## 11. Rejected Alternatives / Revisit Conditions
 
@@ -261,6 +313,12 @@ app/src/main/.../integration/wearable/
 
 **Codex conflict rule:** 실제 코드/SDK 동작이 본 계획과 충돌하면 범위를 임의 확장하거나 관련 없는 대규모 리팩터링을 하지 말고 `CONTRACT CONFLICT`로 파일·이유·최소 대안을 보고한다.
 
+### 12.1 착수 판정 (2026-11-04, v0.2 검토)
+
+- **PR1~PR4: 착수 불가.** 이 문서가 PR1 Task Contract 확정을 PR0 결과와 baseline 재고정 뒤로 두고 있다. provenance·identity·coverage 규칙이 PR0 실측에 의존하므로, 먼저 구현하면 다시 작업할 위험이 크다.
+- **PR0: K-01·K-02 확정 후 착수 가능.** 프로브 코드 작성과 빌드는 클라우드에서도 가능하지만, PASS는 Galaxy A25 + Fit3 실기기 실측으로만 판정한다.
+- **검토 증거 수준:** 소스 정적 검토와 공식 문서 확인만 수행했다. 단위 테스트·Android 빌드·instrumentation·실기기는 NOT_RUN이다(검토 세션에 Android SDK 없음, `dl.google.com` 차단).
+
 ## 13. References
 
 - Fitness repository source: https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/1df259296ce9c21e022edcd0e2d0154c6ff2d343
@@ -274,4 +332,4 @@ app/src/main/.../integration/wearable/
 
 ---
 
-**Document status:** PROPOSED. PR0 검증 결과와 최신 기준 SHA를 재고정한 후 PR1 구현 Task Contract를 확정한다.
+**Document status:** PROPOSED v0.2. PR0 검증 결과와 최신 기준 SHA를 재고정한 후 PR1 구현 Task Contract를 확정한다.
