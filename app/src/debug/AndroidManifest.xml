@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only additions for the wearable PR0 probe (K-01). qa and release builds use their own
+  source sets and never merge this file, so they get no Health Connect permission, activity or
+  dependency. See docs/WEARABLE_COMMON_INTERFACE_PLAN.md §9 and docs/wearable/PR0_PROBE_RESULT.md.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Read-only. ExerciseSession and Steps are auxiliary PR0 observations, not the G-HR gate. -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+
+    <queries>
+        <!-- Health Connect availability check and installed-version lookup for the PR0 record. -->
+        <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.google.android.healthconnect.controller" />
+        <package android:name="com.android.healthconnect.controller" />
+        <package android:name="com.sec.android.app.shealth" />
+    </queries>
+
+    <application>
+        <activity
+            android:name=".probe.wearable.WearableProbeActivity"
+            android:exported="true"
+            android:label="@string/wearable_probe_label"
+            android:taskAffinity="com.yeonsik.fitnessapp.wearableprobe">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 13 and lower: privacy policy link on the Health Connect permission screen. -->
+        <activity
+            android:name=".probe.wearable.WearableProbeRationaleActivity"
+            android:exported="true"
+            android:label="@string/wearable_probe_rationale_label">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 14 and later: the same rationale screen through the permission-usage alias. -->
+        <activity-alias
+            android:name=".probe.wearable.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".probe.wearable.WearableProbeRationaleActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

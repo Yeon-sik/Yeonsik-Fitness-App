@@ -1,7 +1,7 @@
-# Fitness App — Wearable Common Interface Plan v0.3
+# Fitness App — Wearable Common Interface Plan v0.3.1
 
-- **Status:** PROPOSED — 설계 보정 v0.3, PR0 관측 결과 대기
-- **작성일:** 2026-11-04 (Asia/Seoul) · **v0.2 갱신:** 2026-11-04 착수 가능성 검토 반영 · **v0.3 갱신:** 2026-11-04 계정 claim·링크 백업·PR0 게이트·백업 형식 보정
+- **Status:** PROPOSED — 설계 보정 v0.3, PR0 프로브 구현 중(실기기 관측 전)
+- **작성일:** 2026-11-04 (Asia/Seoul) · **v0.2 갱신:** 2026-11-04 착수 가능성 검토 반영 · **v0.3 갱신:** 2026-11-04 계정 claim·링크 백업·PR0 게이트·백업 형식 보정 · **v0.3.1 갱신:** 2026-11-05 K-01·K-02 확정, PR0 프로브 코드 추가
 - **Repository:** Yeon-sik/Yeonsik-Fitness-App
 - **Baseline:** `main@1df259296ce9c21e022edcd0e2d0154c6ff2d343` (v0.2·v0.3 작업 시 `origin/main` HEAD와 동일함을 재확인)
 - **문서 대상 브랜치:** `docs/wearable-common-interface-v1` (v0.1) · v0.2·v0.3: `claude/fitness-wearable-docs-review-xqntnb` (v0.3 작업 기준 HEAD `f7a9af68`)
@@ -13,6 +13,17 @@
 - **CONFIRMED (v0.3):** 설계로 확정된 결정. 구현·테스트·실기기 검증이 끝났다는 뜻이 아니다.
 - **DECISION PENDING:** 권장안은 있지만 아직 확정하지 않은 결정. 표시된 시점의 Task Contract에서 확정한다.
 - **UNVERIFIED:** 코드·SDK·기기 동작을 아직 확인하지 못한 사실. 추측으로 채우지 않는다.
+
+## v0.3 → v0.3.1 변경 요약 (2026-11-05)
+
+설계 결정은 바꾸지 않는다. PR0 착수 조건이던 K-01·K-02를 권장안대로 확정하고, 그 결정대로 프로브 코드를 추가했다.
+
+| 항목 | v0.3 | v0.3.1 |
+| --- | --- | --- |
+| K-01 프로브 위치 | DECISION PENDING | **CONFIRMED:** `app/src/debug/` 전용 소스셋, qa/release에는 권한·의존성 없음 |
+| K-02 결과 기록 | DECISION PENDING | **CONFIRMED:** `docs/wearable/PR0_PROBE_RESULT.md`, 분포 요약과 마스킹된 식별자만 |
+| PR0 구현 | 미착수 | 프로브 코드·debug manifest·테스트·결과 문서 템플릿 추가(§9). Android 빌드·lint·실기기 실행은 **NOT_RUN** |
+| 실기기 설치 경로 | 언급 없음 | debug·qa·release가 같은 applicationId를 쓰는 문제를 발견해 K-13으로 추가(§9, §10.1) |
 
 ## v0.2 → v0.3 변경 요약
 
@@ -443,9 +454,33 @@ v1 코드 사실은 §2에 있다: `formatVersion`·`databaseVersion` 사전 거
 - 걸음 수는 aggregate 경로와 raw origin 중복 여부 검토.
 - 기기 동기화 지연과 동일 구간 재조회 수정·삭제 여부 확인.
 - 읽기 권한 거부/회수·Health Connect 미지원·빈 수집을 기록하고, 외부로 데이터를 전송하지 않는다.
-- **프로브 위치 (권장, §10.1에서 확정):** 프로브 화면·Health Connect 의존성·권한 선언은 `debug` 빌드 타입 전용 소스셋(`app/src/debug/`, 현재 없음 — 새로 생성) 또는 main에 병합하지 않는 프로브 브랜치에 한정한다. `qa`·`release` manifest에는 health 권한을 추가하지 않는다. Play Console 선언과 개인정보 처리방침이 준비되기 전에 배포 빌드에 권한이 들어가지 않게 하기 위함이다. 프로브는 Room DB를 열거나 쓰지 않는다.
-- **결과 기록 (권장 경로):** `docs/wearable/PR0_PROBE_RESULT.md`. 기기 모델, Android·One UI·Samsung Health·Health Connect 버전, 타입별 record 수, sample 간격·공백 분포, origin/recordingMethod/device 메타데이터 존재 여부, 권한 흐름 결과를 남긴다. 원시 심박 값과 record ID 원문은 커밋하지 않고 분포 요약과 마스킹된 식별자만 기록한다.
+- **프로브 위치 (CONFIRMED, K-01, 2026-11-05):** 프로브 화면·Health Connect 의존성·권한 선언은 `debug` 빌드 타입 전용 소스셋 `app/src/debug/`에만 둔다. `qa`·`release` manifest에는 health 권한을 추가하지 않는다. Play Console 선언과 개인정보 처리방침이 준비되기 전에 배포 빌드에 권한이 들어가지 않게 하기 위함이다. 프로브는 Room DB를 열거나 쓰지 않는다.
+- **결과 기록 (CONFIRMED, K-02, 2026-11-05):** `docs/wearable/PR0_PROBE_RESULT.md`. 기기 모델, Android·One UI·Samsung Health·Health Connect 버전, 타입별 record 수, sample 간격·공백 분포, origin/recordingMethod/device 메타데이터 존재 여부, 권한 흐름 결과를 남긴다. 원시 심박 값과 record ID 원문은 커밋하지 않고 분포 요약과 마스킹된 식별자만 기록한다.
 - **실행 경계:** 프로브 코드 작성과 빌드는 클라우드에서 가능하다(Android SDK와 `dl.google.com` 접근 필요). 실측과 PASS 판정은 실기기에서만 가능하다.
+
+#### PR0 프로브 구현 (v0.3.1)
+
+| 파일 | 역할 |
+| --- | --- |
+| `app/build.gradle` | `debugImplementation "androidx.health.connect:connect-client:1.1.0"` (2025-10-08 안정판). 다른 구성에는 추가하지 않음 |
+| `app/src/debug/AndroidManifest.xml` | `READ_HEART_RATE`·`READ_EXERCISE`·`READ_STEPS` 읽기 권한, Health Connect·Samsung Health `<queries>`, 프로브 launcher, rationale activity(Android 13 이하)와 `VIEW_PERMISSION_USAGE` alias(Android 14 이상). 쓰기·background 권한 없음 |
+| `app/src/debug/kotlin/.../probe/wearable/HealthConnectProbeReader.kt` | 읽기 전용 HC 접근. HR은 sample 시각만 남기고 bpm 값은 버림. 결과를 SUCCESS·EMPTY_SUCCESS·PERMISSION_DENIED·HC_UNAVAILABLE·HC_UPDATE_REQUIRED·UNSUPPORTED·FAILURE로 구분. 예외는 클래스 이름만 기록 |
+| `app/src/debug/kotlin/.../probe/wearable/WearableProbeActivity.kt` | 세션 구간(수동 기록) 입력, HR·ExerciseSession·Steps 조회, 최근 7일 ExerciseSession 목록, HR changes token 발급·조회, 익명화 보고서 표시·복사 |
+| `app/src/debug/kotlin/.../probe/wearable/WearableProbeRationaleActivity.kt` | Health Connect 권한 화면에서 여는 데이터 사용 안내 |
+| `app/src/debug/kotlin/.../probe/wearable/analysis/` | Android 의존이 없는 순수 로직: 구간 파서, 간격·coverage·최대 공백 계산, 잠정 K-12 기준, salt 기반 id 마스킹, 백업 제외 상태 파일, 익명화 보고서 |
+| `app/src/testDebug/kotlin/.../probe/wearable/analysis/` | 순수 로직 단위 테스트 |
+| `app/src/test/kotlin/.../probe/WearableProbeBuildBoundaryTest.kt` | 모든 변형에서 도는 경계 테스트: main manifest·main 소스에 HC 없음, qa/release manifest에 health 권한 없음, HC 의존성은 `debugImplementation` 한 줄뿐 |
+| `docs/wearable/PR0_PROBE_RESULT.md` | 결과 기록 템플릿과 실행 절차. 현재 상태 NOT_RUN |
+
+**프로브의 개인정보 처리**
+- 보고서의 시각은 모두 세션 시작·종료 기준 상대값이다.
+- record id는 기기 안 무작위 salt로 만든 12자리 마스크로만 나온다. salt·마스크·changes token은 `noBackupFilesDir`의 상태 파일에만 있다.
+- 네트워크 경로가 없다. 보고서는 사용자가 누를 때만 클립보드로 복사하며, 민감 데이터 표시를 붙인다.
+
+**실기기 설치 경로 (K-13, DECISION PENDING):** debug·qa·release가 모두 같은 applicationId `com.yeonsik.fitnessapp`를 쓴다.
+- 실기기에 데이터가 든 qa/release 앱이나 다른 키로 서명한 debug 앱이 이미 있으면, 프로브가 든 debug APK는 서명 불일치로 설치되지 않는다.
+- 이때 **기존 앱을 제거하고 재설치하면 로컬 기록이 지워지므로 금지한다**(Android Studio의 "uninstall and retry" 포함).
+- 설치 전에 `adb shell pm list packages com.yeonsik.fitnessapp`로 기존 설치 여부를 확인한다. 설치돼 있으면 K-13을 결정하기 전까지 실기기 실행을 멈춘다.
 
 #### PR0 판정 (F-03)
 
@@ -541,13 +576,14 @@ PR0 결과 문서에는 판정 하나, 증거 수준(실기기), 위 관측값�
 9. **UNVERIFIED (PR0):** Health Connect `metadata.id`가 Samsung Health 재동기화, 앱 재설치, 기기 변경·HC 데이터 이전 뒤에도 유지되는지(K-09).
 10. **UNVERIFIED (PR2):** `claimLocalRows`가 예외를 던질 때 `applyAuthenticatedSharedConfig` 호출 흐름이 로그인을 계속 진행하는지.
 11. **UNVERIFIED (범위 밖):** `dining_identity_proposals`(`owner_id`)에 claim·백업 경로가 없는 것이 의도인지 누락인지. wearable 작업에서 바꾸지 않으며, 소유권 registry(C-1)에는 사유를 적어 등록한다.
+12. **UNVERIFIED (v0.3.1, 빌드 환경 필요):** 프로브의 Android·Health Connect 의존 코드(`HealthConnectProbeReader`, 두 Activity), debug manifest 병합, `connect-client 1.1.0` 해석, `lintDebug`. 작성 세션은 Android SDK가 없고 `dl.google.com`이 차단돼 Gradle Android 빌드를 실행하지 못했다. 순수 분석 계층과 경계 테스트만 독립 JVM 프로젝트(Kotlin 2.3.0)에서 컴파일·실행했다.
 
 ### 10.1 결정 항목 (v0.3)
 
 | # | 결정 | 상태 | 필요 시점 | 내용 |
 | --- | --- | --- | --- | --- |
-| K-01 | PR0 프로브 코드 위치 | DECISION PENDING | PR0 착수 전 | 권장: `app/src/debug/` 전용 소스셋. qa/release에는 권한·의존성 미포함 |
-| K-02 | PR0 결과 기록 위치·익명화 수준 | DECISION PENDING | PR0 착수 전 | 권장: `docs/wearable/PR0_PROBE_RESULT.md`, 분포 요약과 마스킹된 식별자만 |
+| K-01 | PR0 프로브 코드 위치 | **CONFIRMED (2026-11-05)** | — | `app/src/debug/` 전용 소스셋. qa/release에는 권한·의존성 미포함(경계 테스트로 고정) |
+| K-02 | PR0 결과 기록 위치·익명화 수준 | **CONFIRMED (2026-11-05)** | — | `docs/wearable/PR0_PROBE_RESULT.md`, 분포 요약과 마스킹된 식별자만 |
 | K-03 | 공통 타입 Instant 표현 | DECISION PENDING | PR1-a | 권장: 기존 Cardio 컬럼과 같은 UTC epoch millis `Long`. `kotlin.time.Instant`는 Swift 노출 확인 후 재검토 |
 | K-04 | suspend/coroutines 경계와 Java 브리지 | DECISION PENDING | PR1-a | 권장: coroutines는 Android adapter에만 명시 의존성으로 두고, Java 호출부는 결과 콜백 브리지로 연결 |
 | K-05 | Health Connect 데이터의 앱 계정 귀속 | **CONFIRMED (v0.3)** | — | 계정별 연결 동의. 전환 규칙은 §6.3 |
@@ -558,6 +594,7 @@ PR0 결과 문서에는 판정 하나, 증거 수준(실기기), 위 관측값�
 | K-10 | cache 내부 SQLite FK 사용 여부 | DECISION PENDING | PR2 | 현행 DB는 FK를 쓰지 않음(S-03). 어떤 경우에도 링크는 cache에 FK를 걸지 않음 |
 | K-11 | claim 시 wearable sync cursor | **CONFIRMED (v0.3)** | — | 승계하지 않고 초기화한 뒤 bootstrap 재조회(§6.3) |
 | K-12 | G-HR coverage 기준 | DECISION PENDING | PR0 결과 보고 시 | 잠정: 활동 1분 구간 80% 이상에 sample, 최대 공백 5분 이하. 실측 분포와 함께 사용자 승인 |
+| K-13 | PR0 프로브 실기기 설치 경로 | DECISION PENDING | PR0 실기기 실행 전 | debug·qa·release가 같은 applicationId라 데이터가 든 앱 위에 debug APK를 설치할 수 없음. 선택지: (a) `com.yeonsik.fitnessapp`가 없는 기기·사용자에서 실행(같은 사용자 공간에 Samsung Health·Fit3 연결 필요) (b) 기기에 같은 debug 키로 서명된 debug 빌드만 있으면 그 키로 빌드해 업데이트 설치 (c) 프로브 전용 applicationId(debug `applicationIdSuffix` 또는 별도 프로브 앱, K-01과 단일 모듈 규칙 재검토 필요). 권장: 먼저 기기 상태를 확인해 (a)·(b)를 쓰고, 둘 다 안 되면 (c)를 별도로 결정. **기존 앱 제거·데이터 초기화는 어떤 경우에도 금지** |
 
 CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다. DECISION PENDING은 표시된 시점의 Task Contract에서 확정하고 이 표를 갱신한다.
 
@@ -589,7 +626,7 @@ CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다
 
 | 단계 | 판정 | 조건 |
 | --- | --- | --- |
-| PR0 | **K-01·K-02 확정 후 구현 착수 가능** | 프로브 코드 작성·빌드는 클라우드에서도 가능(Android SDK와 `dl.google.com` 접근 필요). 판정(PASS·PARTIAL·BLOCKED)은 Galaxy A25 + Fit3 실기기 실측으로만 기록. 실기기 검증 전에는 PASS 불가 |
+| PR0 | **구현 진행 중 (K-01·K-02 확정, 2026-11-05)** | 프로브 코드 추가됨(§9). 남은 단계: (1) Android 빌드·단위 테스트·lint 통과(SDK와 `dl.google.com` 필요) (2) K-13 결정 (3) Galaxy A25 + Fit3 실측과 `docs/wearable/PR0_PROBE_RESULT.md` 기록. 판정(PASS·PARTIAL·BLOCKED)은 실기기 실측으로만 기록하며, 실기기 검증 전에는 PASS 불가 |
 | PR1 | **PR1-a 설계·브랜치 구현 가능 / 최종 확정은 PR0 이후** | PR1-a: 순수 모델·합성 fixture mock 테스트, K-03·K-04. PR1-b와 main 병합: PR0 PASS 후, 또는 PARTIAL이고 사용자 결정이 끝난 뒤. 원본 identity(K-09)·품질 규칙은 그때까지 DECISION PENDING |
 | PR2 | **착수 보류** | PR0 판정, K-09·K-10 확정 전까지. 백업 형식·계정 귀속·cursor 계약(K-05·K-06·K-08·K-11)은 v0.3에서 설계 확정 |
 | PR3 | **선행 계약 검증 후 착수** | PR2 병합과 §6.4 AC 통과, K-07 결정 |
@@ -612,4 +649,4 @@ CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다
 
 ---
 
-**Document status:** PROPOSED v0.3. PR0 검증 결과와 최신 기준 SHA를 재고정한 후 PR1 구현 Task Contract를 확정한다.
+**Document status:** PROPOSED v0.3.1. PR0 검증 결과와 최신 기준 SHA를 재고정한 후 PR1 구현 Task Contract를 확정한다.
