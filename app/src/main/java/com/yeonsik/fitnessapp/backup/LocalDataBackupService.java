@@ -633,6 +633,10 @@ public final class LocalDataBackupService {
         }
         Set<String> expected = new LinkedHashSet<>(TABLE_ORDER);
         Set<String> required = new LinkedHashSet<>(expected);
+        if (databaseVersion < 58) {
+            required.remove("fitness_information_inbox");
+            required.remove("fitness_information_drafts");
+        }
         if (databaseVersion < 56) {
             required.remove("workout_setup_notes");
         }
@@ -1117,6 +1121,8 @@ public final class LocalDataBackupService {
     private static List<String> createTableOrder() {
         List<String> tables = new ArrayList<>();
         tables.add("workout_records");
+        tables.add("fitness_information_inbox");
+        tables.add("fitness_information_drafts");
         tables.add("workout_exercises");
         tables.add("workout_manual_exercise_links");
         tables.add("workout_setup_notes");

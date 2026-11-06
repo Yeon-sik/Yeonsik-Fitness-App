@@ -39,6 +39,7 @@ object FitnessRoomMigrations {
             add(V54_TO_V55)
             add(V55_TO_V56)
             add(V56_TO_V57)
+            add(V57_TO_V58)
         }.toTypedArray()
     }
 
@@ -126,6 +127,19 @@ object FitnessRoomMigrations {
     }
 
     /** 선택형 외부 참조만 추가한다. 기존 영양·식사·상품 연결 값은 변경하지 않는다. */
+    /** Private inbox only: no native records or aggregate values are changed. */
+    val V57_TO_V58: Migration = object : Migration(57, 58) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS fitness_information_inbox (" +
+                "user_id TEXT NOT NULL, project TEXT NOT NULL, record_id TEXT NOT NULL, title TEXT NOT NULL, " +
+                "payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL, status TEXT NOT NULL, received_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, project, record_id))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS fitness_information_drafts (" +
+                "user_id TEXT NOT NULL, project TEXT NOT NULL, draft_json TEXT NOT NULL, updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, project))")
+        }
+    }
+
     val V56_TO_V57: Migration = object : Migration(56, 57) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE nutrition_foods ADD COLUMN pricetrace_brand_id TEXT")
