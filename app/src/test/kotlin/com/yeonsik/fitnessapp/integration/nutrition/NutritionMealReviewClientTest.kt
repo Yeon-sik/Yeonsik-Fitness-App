@@ -102,6 +102,18 @@ class NutritionMealReviewClientTest {
         }
     }
 
+    @Test fun transportPageMayContainMultipleIndividuallyBoundedRecords() {
+        fun largeMeal(id: String) = JsonObject(Json.parseToJsonElement(meal(id)).jsonObject + ("metadata" to JsonPrimitive("x".repeat(600_000))))
+        val text = "[${largeMeal("meal-1")},${largeMeal("meal-2")}]"
+        assertTrue(text.toByteArray().size > InformationRecordCodec.MAX_BYTES)
+        assertThrows(IllegalArgumentException::class.java) { InformationRecordCodec.parseValue(text) }
+        val received = NutritionMealReviewClient.decodePage(text, owner)
+        assertEquals(2, received.meals.size)
+        received.meals.forEach { snapshot ->
+            assertTrue(NutritionMealReviewEnvelope.create(source, snapshot, "2026-11-06T12:00:00Z").canonical.toByteArray().size < InformationRecordCodec.MAX_BYTES)
+        }
+    }
+
     private class FakeConnection(url: URL, private val response: String, private val status: Int = 200) : HttpURLConnection(url) {
         var closed = false
         override fun connect() = Unit

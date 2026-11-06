@@ -72,9 +72,10 @@ class NutritionMealReviewClient(
 
         fun decodePage(text: String, owner: String, beforeId: String? = null): NutritionMealPage {
             require(text.toByteArray(Charsets.UTF_8).size <= MAX_RESPONSE_BYTES)
-            // Enforce the same no-loss guard before parsing the raw remote snapshot too.
-            InformationRecordCodec.validateStructureBeforeParsing(text)
-            val rows = Json.parseToJsonElement(text) as? JsonArray ?: error("원격 식사 응답 형식이 올바르지 않습니다.")
+            // Up to 10 individually bounded records may exceed the single-record 1 MiB limit.
+            // Keep the 12 MiB transport cap while sharing every strict raw-JSON validation.
+            val rows = InformationRecordCodec.parseValue(text, MAX_RESPONSE_BYTES) as? JsonArray
+                ?: error("원격 식사 응답 형식이 올바르지 않습니다.")
             require(rows.size <= PAGE_SIZE)
             val meals = rows.map { normalizeMeal(it.jsonObject, owner) }
             val ids = meals.map { it.requiredText("id") }

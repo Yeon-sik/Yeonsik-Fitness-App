@@ -39,7 +39,7 @@ class LegacyHealthExportRepository(private val db: FitnessRoomDatabase, private 
                             if (cursor.getColumnName(i) == "user_id") continue
                             put(cursor.getColumnName(i), when (cursor.getType(i)) {
                                 Cursor.FIELD_TYPE_NULL -> JsonNull
-                                Cursor.FIELD_TYPE_INTEGER, Cursor.FIELD_TYPE_FLOAT -> Json.parseToJsonElement(cursor.getString(i))
+                                Cursor.FIELD_TYPE_INTEGER, Cursor.FIELD_TYPE_FLOAT -> InformationRecordCodec.parseValue(cursor.getString(i))
                                 else -> JsonPrimitive(cursor.getString(i))
                             })
                         }

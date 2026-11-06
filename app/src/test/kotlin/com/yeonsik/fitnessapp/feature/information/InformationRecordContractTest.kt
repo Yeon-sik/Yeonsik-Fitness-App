@@ -19,16 +19,27 @@ class InformationRecordContractTest {
         val rawCases = Json.parseToJsonElement(fixture.readText()).jsonObject
         for (case in rawCases.getValue("accepted").jsonArray) {
             val text = case.jsonObject.getValue("text").jsonPrimitive.content
+            assertEquals(InformationRecordCodec.parseObject(text), InformationRecordCodec.parseValue(text))
             val record = InformationRecordCodec.decode(text)
             assertEquals(record.canonical, InformationRecordCodec.decode(InformationRecordCodec.pretty(record)).canonical)
             if (record.owner == InformationOwner.FITNESS) InformationRecordCodec.decode(text, InformationOwner.FITNESS)
             else assertThrows(Exception::class.java) { InformationRecordCodec.decode(text, InformationOwner.FITNESS) }
         }
         for (case in rawCases.getValue("rejected").jsonArray) {
+            val text = case.jsonObject.getValue("text").jsonPrimitive.content
+            assertThrows(IllegalArgumentException::class.java) { InformationRecordCodec.parseValue(text) }
+            assertThrows(IllegalArgumentException::class.java) { InformationRecordCodec.parseObject(text) }
             assertThrows(case.jsonObject.getValue("name").jsonPrimitive.content, IllegalArgumentException::class.java) {
-                InformationRecordCodec.decode(case.jsonObject.getValue("text").jsonPrimitive.content)
+                InformationRecordCodec.decode(text)
             }
         }
+    }
+
+    @Test fun manualValueEntryRejectsInvalidRawLiteralsBeforeDomEdits() {
+        for (invalid in listOf("NaN", "Infinity", "undefined", "01", "+1", "1.")) {
+            assertThrows(IllegalArgumentException::class.java) { InformationRecordCodec.parseValue(invalid) }
+        }
+        assertEquals("12345678901234567890.0010", InformationRecordCodec.parseValue("12345678901234567890.0010").jsonPrimitive.content)
     }
 
     @Test fun sharedAcceptedCasesAndOwnerBoundary() {

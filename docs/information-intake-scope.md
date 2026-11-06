@@ -14,6 +14,8 @@ Room v57→v58은 `fitness_information_inbox`, `fitness_information_drafts`만 �
 
 JSON 파서가 같은 객체의 중복 키를 마지막 값으로 덮어쓰기 전에 원문 구조를 검사한다. 최상위·중첩·배열 안 객체·Unicode escape로 다르게 적은 동일 키 모두 거절한다. 서로 다른 객체에 같은 키가 있는 것은 허용한다. Nutrition 원격 응답도 같은 검사를 거쳐 자료 손실을 막는다. 공통 raw fixture 16개 거절/4개 허용 및 별도 원격 회귀를 포함한 JVM 648개가 통과했다(실패 0, 기존 live test 2개 skipped).
 
+수동 편집·수신·내보내기의 JSON 진입점은 `parseValue`/`parseObject`와 이를 사용하는 `decode`로 통일했다. 원격 페이지에만 명시적 12 MiB 파싱 한도를 적용하며 개별 기록은 계속 1 MiB다. 단일 기록 한도보다 큰 페이지의 정상 수신과 raw 값 검증을 포함한 최종 JVM 650개(실패 0, 기존 2개 skipped), APK 빌드 및 관련 DB 통합 테스트 4개가 통과했다.
+
 검증: `testDebugUnitTest assembleDebug assembleDebugAndroidTest` 통과. JVM 637개 중 실패 0, 기존 live test 2개 skipped. 격리된 Android emulator에서 새 검토함 migration/backup/restart/계정·프로젝트 격리/중복·충돌/집계 불변, 소유 확인 UI, 기존 migration·backup 회귀까지 15개 instrumentation test 통과. 검토함/초안 화면 캡처를 확인했다. 물리 기기 설치와 원격 DB 검증은 수행하지 않았다.
 
 ## 기존 수용 범위와 빈 구조

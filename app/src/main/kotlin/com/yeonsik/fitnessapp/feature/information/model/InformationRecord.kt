@@ -30,11 +30,19 @@ object InformationRecordCodec {
     private val instant = Regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})")
     private val rootKeys = setOf("schema_version", "record_id", "owner_app", "record_type", "title", "captured_at", "occurred_at", "supersedes_record_id", "sources", "fields", "references")
 
-    fun decode(text: String, expectedOwner: InformationOwner? = null): InformationRecord {
-        require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "기록은 UTF-8 1 MiB 이하여야 합니다." }
+    /** Draft editing must reject ambiguous keys before any DOM operation can discard them.
+     * Fitness remote transport batches use an explicit byte limit; individual records keep 1 MiB.
+     */
+    fun parseValue(text: String, maxBytes: Int = MAX_BYTES): JsonElement {
+        require(maxBytes > 0 && text.toByteArray(Charsets.UTF_8).size <= maxBytes) { "JSON은 UTF-8 $maxBytes 바이트 이하여야 합니다." }
         validateStructureBeforeParsing(text)
-        val root = json.parseToJsonElement(text) as? JsonObject ?: error("기록은 JSON 객체여야 합니다.")
-        validateJsonValues(root)
+        return json.parseToJsonElement(text).also { validateJsonValues(it) }
+    }
+
+    fun parseObject(text: String): JsonObject = parseValue(text) as? JsonObject ?: error("기록은 JSON 객체여야 합니다.")
+
+    fun decode(text: String, expectedOwner: InformationOwner? = null): InformationRecord {
+        val root = parseObject(text)
         root.keysOnly(rootKeys)
         require(root.text("schema_version") == "information-record.v1") { "지원하지 않는 기록 형식입니다." }
         val id = root.text("record_id").also { require(uuid.matches(it)) { "record_id는 소문자 UUID여야 합니다." } }
@@ -147,7 +155,7 @@ object InformationRecordCodec {
     }
     private class JsonContainer(val kind: Char, val keys: MutableSet<String> = mutableSetOf(), var expectingKey: Boolean = true)
 
-    internal fun validateStructureBeforeParsing(text: String) {
+    private fun validateStructureBeforeParsing(text: String) {
         val containers = mutableListOf<JsonContainer>()
         var inString = false
         var escaped = false
