@@ -24,7 +24,7 @@
             android:name=".probe.wearable.WearableProbeActivity"
             android:exported="true"
             android:label="@string/wearable_probe_label"
-            android:taskAffinity="com.yeonsik.fitnessapp.wearableprobe">
+            android:taskAffinity="${applicationId}.wearableprobe">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
