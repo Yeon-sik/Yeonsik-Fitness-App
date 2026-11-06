@@ -2,6 +2,8 @@ package com.yeonsik.fitnessapp.integration.nutrition
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.feature.information.model.InformationRecordCodec
+import com.yeonsik.fitnessapp.feature.information.model.InformationOwner
+import com.yeonsik.fitnessapp.feature.information.model.InformationRecord
 import kotlinx.serialization.json.*
 import java.net.HttpURLConnection
 import java.net.URI
@@ -11,29 +13,40 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
 data class NutritionMealPage(val meals: List<JsonObject>, val nextCursor: String?)
+data class NutritionInformationDelivery(val record: InformationRecord, val fingerprint: String, val receivedAt: String)
+data class NutritionInformationPage(val records: List<NutritionInformationDelivery>, val nextCursor: String?)
 
 /** GET-only intake. Credentials and local profile IDs never enter the imported payload. */
 class NutritionMealReviewClient(
     private val open: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }
 ) {
     fun pull(config: SupabaseConfig, beforeId: String? = null): NutritionMealPage {
+        val selection = "*,meal_record_items(*,meal_record_item_nutrients(*)),meal_verified_imports(*)"
+        return decodePage(read(config, "meal_records", "owner_id", "id", selection, PAGE_SIZE, beforeId), config.userId, beforeId)
+    }
+
+    fun pullInformation(config: SupabaseConfig, beforeId: String? = null): NutritionInformationPage = decodeInformationPage(
+        read(config, "fitness_information_inbox", "user_id", "record_id",
+            "record_id,user_id,payload_text,content_fingerprint,state,received_at", INFORMATION_PAGE_SIZE, beforeId), config.userId, beforeId)
+
+    private fun read(config: SupabaseConfig, table: String, ownerColumn: String, idColumn: String,
+                     selection: String, pageSize: Int, beforeId: String?): String {
         require(config.isConfigured) { "설정에서 Nutrition 계정에 로그인한 뒤 다시 가져오세요." }
         val base = URI(config.supabaseUrl)
         require(base.scheme == "https" && !base.host.isNullOrBlank() && base.userInfo == null &&
             base.rawQuery == null && base.rawFragment == null) { "Nutrition 연결 주소를 확인하세요." }
         require(Regex("[0-9a-fA-F-]{36}").matches(config.userId)) { "Nutrition 계정 ID를 확인하세요." }
         // The verified-import FK is unique: PostgREST returns an object (or null), not an array.
-        val selection = "*,meal_record_items(*,meal_record_item_nutrients(*)),meal_verified_imports(*)"
         val query = buildString {
             append("select=").append(encode(selection))
-            append("&owner_id=eq.").append(encode(config.userId))
-            append("&order=id.desc&limit=").append(PAGE_SIZE)
+            append("&").append(ownerColumn).append("=eq.").append(encode(config.userId))
+            append("&order=").append(idColumn).append(".desc&limit=").append(pageSize)
             if (beforeId != null) {
                 require(beforeId.isNotBlank() && beforeId.length <= 200)
-                append("&id=lt.").append(encode("\"" + beforeId.replace("\\", "\\\\").replace("\"", "\\\"") + "\""))
+                append("&").append(idColumn).append("=lt.").append(encode("\"" + beforeId.replace("\\", "\\\\").replace("\"", "\\\"") + "\""))
             }
         }
-        val connection = open(URL(config.supabaseUrl.trimEnd('/') + "/rest/v1/meal_records?" + query))
+        val connection = open(URL(config.supabaseUrl.trimEnd('/') + "/rest/v1/" + table + "?" + query))
         try {
             connection.requestMethod = "GET"
             connection.instanceFollowRedirects = false
@@ -45,8 +58,8 @@ class NutritionMealReviewClient(
             when (val code = connection.responseCode) {
                 200, 206 -> Unit
                 401 -> error("Nutrition 로그인이 만료되었습니다. 설정의 Nutrition 계정에서 다시 로그인한 뒤 가져오세요. 기존 기록과 초안은 유지됩니다.")
-                403 -> error("Nutrition 식사 자료를 읽을 권한이 없습니다. 설정의 Nutrition 계정을 확인하세요.")
-                else -> error("Nutrition 식사 자료를 읽지 못했습니다 (HTTP $code). 연결과 식사 수신 계약을 확인한 뒤 다시 시도하세요.")
+                403 -> error("Nutrition 자료를 읽을 권한이 없습니다. 설정의 Nutrition 계정을 확인하세요.")
+                else -> error("Nutrition 자료를 읽지 못했습니다 (HTTP $code). 연결과 수신 계약을 확인한 뒤 다시 시도하세요.")
             }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
@@ -61,14 +74,35 @@ class NutritionMealReviewClient(
             }
             val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
-            return decodePage(text, config.userId, beforeId)
+            return text
         } finally { connection.disconnect() }
     }
 
     companion object {
         const val PAGE_SIZE = 10
+        // payload_text is a JSON string, so transport escaping can double its byte size.
+        const val INFORMATION_PAGE_SIZE = 5
         const val MAX_RESPONSE_BYTES = 12 * 1_048_576
         private fun encode(value: String) = URLEncoder.encode(value, "UTF-8")
+
+        fun decodeInformationPage(text: String, owner: String, beforeId: String? = null): NutritionInformationPage {
+            val rows = InformationRecordCodec.parseValue(text, MAX_RESPONSE_BYTES) as? JsonArray ?: error("검토함 응답이 배열이 아닙니다.")
+            require(rows.size <= INFORMATION_PAGE_SIZE)
+            val records = rows.map { value ->
+                val row = value.jsonObject
+                require(row.requiredText("user_id") == owner) { "다른 계정의 검토 자료는 가져올 수 없습니다." }
+                val record = InformationRecordCodec.decode(row.requiredText("payload_text"), InformationOwner.FITNESS)
+                require(record.id == row.requiredText("record_id")) { "원격 원문 ID와 수신 ID가 다릅니다." }
+                val fingerprint = row.requiredText("content_fingerprint")
+                require(Regex("[0-9a-f]{64}").matches(fingerprint)) { "원격 원문 fingerprint가 올바르지 않습니다." }
+                val received = row.requiredText("received_at")
+                java.time.OffsetDateTime.parse(received)
+                NutritionInformationDelivery(record, fingerprint, received)
+            }
+            val ids = records.map { it.record.id }
+            require(ids.distinct().size == ids.size && (beforeId == null || beforeId !in ids)) { "원격 검토 자료 페이지가 반복되었습니다." }
+            return NutritionInformationPage(records, ids.lastOrNull().takeIf { ids.size == INFORMATION_PAGE_SIZE })
+        }
 
         fun decodePage(text: String, owner: String, beforeId: String? = null): NutritionMealPage {
             require(text.toByteArray(Charsets.UTF_8).size <= MAX_RESPONSE_BYTES)

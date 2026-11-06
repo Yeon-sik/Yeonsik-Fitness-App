@@ -30,7 +30,11 @@ data class InformationInboxUiState(
     val message: String = "",
     val error: String = "",
     val remoteMapping: String? = null,
-    val hasMoreRemoteMeals: Boolean = false
+    val hasMoreRemoteMeals: Boolean = false,
+    val hasMoreRemoteInformation: Boolean = false,
+    val projectionDraft: InformationProjectionDraft? = null,
+    val projectionPreview: InformationProjectionPreview? = null,
+    val application: InformationApplicationEntity? = null
 )
 
 class InformationInboxViewModel(application: Application) : AndroidViewModel(application) {
@@ -40,11 +44,15 @@ class InformationInboxViewModel(application: Application) : AndroidViewModel(app
     private val nutritionConfig = NutritionSupabaseConfigStore(application)
     private val remoteMeals = NutritionMealReviewClient()
     private val remoteImporter = NutritionMealReviewImporter(FitnessRoomDatabaseProvider.get(application), profile)
+    private val informationImporter = NutritionInformationImporter(FitnessRoomDatabaseProvider.get(application), profile)
+    private val projections = InformationProjectionRepository(FitnessRoomDatabaseProvider.get(application), application, profile)
     private val mutableState = MutableStateFlow(InformationInboxUiState())
     val state = mutableState.asStateFlow()
     private var pendingExport: Pair<InformationProfile, String>? = null
-    private var pendingRemote: Pair<SupabaseConfig, String?>? = null
+    private data class RemoteRequest(val config: SupabaseConfig, val cursor: String?, val information: Boolean)
+    private var pendingRemote: RemoteRequest? = null
     private var nextRemote: Pair<NutritionMealSource, String>? = null
+    private var nextRemoteInformation: Pair<NutritionMealSource, String>? = null
 
     init { work { refresh() } }
 
@@ -75,28 +83,65 @@ class InformationInboxViewModel(application: Application) : AndroidViewModel(app
     fun edit(text: String) { mutableState.value = mutableState.value.copy(editor = text, ownerReviewed = false) }
     fun ownerReviewed(value: Boolean) { mutableState.value = mutableState.value.copy(ownerReviewed = value) }
     fun select(row: InformationInboxSummary?) {
-        if (row == null) mutableState.value = mutableState.value.copy(selected = null, editor = null, error = "", message = "")
+        if (row == null) mutableState.value = mutableState.value.copy(selected = null, editor = null, error = "", message = "", projectionDraft = null, projectionPreview = null, application = null)
         else work {
             val selected = repository.record(row.recordId)
-            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(selected = selected, editor = null) }
+            val receipt = projections.receipt(row.recordId)
+            val conflict = receipt != null && receipt.sourceFingerprint != selected.fingerprint
+            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(selected = selected, editor = null, projectionDraft = null, projectionPreview = null, application = receipt,
+                error = if (conflict) "다른 가져오기 경로에서 같은 ID의 다른 원문을 이미 반영했습니다. 기존 실제 기록을 확인하세요." else "") }
         }
     }
     fun resumeDraft() { edit(mutableState.value.draft ?: return) }
     fun closeEditor() { mutableState.value = mutableState.value.copy(editor = null, ownerReviewed = false) }
 
-    fun prepareRemoteMeals(nextPage: Boolean = false) = work {
+    fun startProjection(kind: InformationProjectionKind) = work {
+        val selected = mutableState.value.selected ?: return@work
+        val record = InformationRecordCodec.decode(repository.export(selected.recordId), InformationOwner.FITNESS)
+        check(projections.receipt(record.id) == null) { "이미 실제 기록에 반영했습니다. 실제 기록 화면에서 정정하세요." }
+        val draft = InformationProjection.draft(record, kind)
+        withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(projectionDraft = draft, projectionPreview = null) }
+    }
+    fun editProjection(key: String, value: String) {
+        val draft = mutableState.value.projectionDraft ?: return
+        mutableState.value = mutableState.value.copy(projectionDraft = draft.copy(values = draft.values + (key to value)), projectionPreview = null)
+    }
+    fun closeProjection() { mutableState.value = mutableState.value.copy(projectionDraft = null, projectionPreview = null) }
+    fun previewProjection() = work {
+        val draft = mutableState.value.projectionDraft ?: return@work
+        val preview = InformationProjection.preview(draft)
+        withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(projectionPreview = preview) }
+    }
+    fun applyProjection() {
+        val selected = mutableState.value.selected ?: return
+        val preview = mutableState.value.projectionPreview ?: return
+        work {
+            val receipt = projections.apply(selected.recordId, preview, true, ::requireCurrentProfile)
+            getApplication<Application>().getSharedPreferences("information_projection_ui", android.content.Context.MODE_PRIVATE).let {
+                it.edit().putLong("generation", it.getLong("generation", 0L) + 1L).apply()
+            }
+            refresh()
+            val latest = repository.record(selected.recordId)
+            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(application = receipt, selected = latest, projectionDraft = null, projectionPreview = null) }
+            message("${preview.kind.label} 실제 기록과 통계에 반영했습니다. 같은 자료는 다시 반영되지 않습니다.")
+        }
+    }
+
+    fun prepareRemoteMeals(nextPage: Boolean = false) = prepareRemote(nextPage, false)
+    fun prepareRemoteInformation(nextPage: Boolean = false) = prepareRemote(nextPage, true)
+    private fun prepareRemote(nextPage: Boolean, information: Boolean) = work {
         val remote = nutritionConfig.load()
         require(remote.isConfigured) { "설정의 Nutrition 계정에 로그인한 뒤 다시 가져오세요." }
         val source = NutritionMealSource(remote.supabaseUrl, remote.userId)
-        val cursor = if (nextPage) nextRemote?.also {
+        val cursor = if (nextPage) (if (information) nextRemoteInformation else nextRemote)?.also {
             check(it.first == source) { "Nutrition 계정이 변경되었습니다. 처음부터 가져오세요." }
         }?.second ?: error("처음부터 가져오기를 선택하세요.") else null
-        pendingRemote = remote to cursor
+        pendingRemote = RemoteRequest(remote, cursor, information)
         withContext(Dispatchers.Main) {
             mutableState.value = mutableState.value.copy(remoteMapping =
                 "가져올 Nutrition 계정\n${remote.email.ifBlank { remote.userId }}\n${remote.userId}\n${remote.supabaseUrl}\n\n" +
                 "저장할 Fitness 프로필\n${profile.userId}\n${profile.project}\n\n" +
-                "두 계정이 본인의 계정인지 확인하세요. ${if (cursor == null) "처음" else "다음"} 최대 ${NutritionMealReviewClient.PAGE_SIZE}건을 검토 대기에 저장합니다. 누락된 영양값과 원문을 보존하며 식사 집계에는 반영하지 않습니다.")
+                "두 계정이 본인의 계정인지 확인하세요. ${if (cursor == null) "처음" else "다음"} 최대 ${if (information) NutritionMealReviewClient.INFORMATION_PAGE_SIZE else NutritionMealReviewClient.PAGE_SIZE}건의 ${if (information) "OCR 활동 자료" else "식사 자료"}를 검토 대기에 저장합니다. 실제 기록과 통계 반영은 수신 후 별도 승인합니다.")
         }
     }
     fun dismissRemoteMeals() {
@@ -108,7 +153,7 @@ class InformationInboxViewModel(application: Application) : AndroidViewModel(app
         pendingRemote = null
         mutableState.value = mutableState.value.copy(remoteMapping = null)
         work {
-            val remote = request.first
+            val remote = request.config
             val source = NutritionMealSource(remote.supabaseUrl, remote.userId)
             fun checkMapping() {
                 requireCurrentProfile()
@@ -118,13 +163,17 @@ class InformationInboxViewModel(application: Application) : AndroidViewModel(app
                     current.accessToken == remote.accessToken) { "Nutrition 계정 또는 연결이 변경되었습니다. 계정을 다시 확인한 뒤 가져오세요." }
             }
             checkMapping()
-            val page = remoteMeals.pull(remote, request.second)
-            val result = remoteImporter.importPage(source, page, ::checkMapping)
-            nextRemote = page.nextCursor?.let { source to it }
+            val result = if (request.information) {
+                val page = remoteMeals.pullInformation(remote, request.cursor)
+                informationImporter.importPage(source, page, ::checkMapping).also { nextRemoteInformation = page.nextCursor?.let { source to it } }
+            } else {
+                val page = remoteMeals.pull(remote, request.cursor)
+                remoteImporter.importPage(source, page, ::checkMapping).also { nextRemote = page.nextCursor?.let { source to it } }
+            }
             refresh()
-            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(hasMoreRemoteMeals = nextRemote != null) }
-            message("원격 식사 ${result.inserted}건을 검토 대기에 저장했습니다. 동일 기록 ${result.duplicates}건은 유지했습니다." +
-                if (nextRemote != null) " 다음 자료도 가져올 수 있습니다." else " 현재 페이지까지 모두 확인했습니다.")
+            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(hasMoreRemoteMeals = nextRemote != null, hasMoreRemoteInformation = nextRemoteInformation != null) }
+            message("원격 자료 ${result.inserted}건을 검토 대기에 저장했습니다. 동일 기록 ${result.duplicates}건은 유지했습니다." +
+                if ((if (request.information) nextRemoteInformation else nextRemote) != null) " 다음 자료도 가져올 수 있습니다." else " 현재 페이지까지 모두 확인했습니다.")
         }
     }
 

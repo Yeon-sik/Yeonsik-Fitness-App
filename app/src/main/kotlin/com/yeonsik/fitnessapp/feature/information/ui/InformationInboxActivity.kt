@@ -46,7 +46,7 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::readFile) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportFile) }
     val back: () -> Unit = {
-        when { ui.editor != null -> confirmLeave = true; ui.selected != null -> model.select(null); else -> close() }
+        when { ui.editor != null -> confirmLeave = true; ui.projectionDraft != null -> model.closeProjection(); ui.selected != null -> model.select(null); else -> close() }
     }
     BackHandler(onBack = back)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -57,7 +57,7 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
                 Text("활동 정보 검토함", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text("운동·식사·체중과 관련된 자료를 보관합니다. 결제, 상품 정보, 수면·복용 기록은 해당 앱의 참조로 연결하세요.",
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-                Text("이곳의 자료는 비공개이며 운동량·칼로리·체중 집계에 자동 반영되지 않습니다.",
+                Text("이곳의 자료는 비공개입니다. 실제 기록과 통계에는 반영 내용을 확인하고 승인한 자료만 추가합니다.",
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
             if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("기록을 처리하고 있습니다.") }
@@ -65,6 +65,7 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
             if (ui.message.isNotBlank()) item { Text(ui.message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
             val editor = ui.editor
             val selected = ui.selected
+            val projection = ui.projectionDraft
             when {
                 editor != null -> {
                     item {
@@ -84,11 +85,41 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
                         AppOutlinedButton(onClick = model::saveDraft, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("초안 보관") }
                     }
                 }
+                projection != null -> {
+                    item {
+                        Text("${projection.kind.label} 반영 내용 확인", style = MaterialTheme.typography.titleLarge)
+                        Text("원문: ${selected?.title.orEmpty()}")
+                        Text("원문은 그대로 보존합니다. 아래 값은 실제 기록에 넣을 내용입니다. 모르는 값은 0으로 채우지 말고 원문을 확인하세요. 시각은 기기 시간대(${java.time.ZoneId.systemDefault().id}) 기준입니다.")
+                        if (projection.kind == InformationProjectionKind.MEAL) Text("한 끼 전체를 한 항목으로 반영합니다. 여러 음식의 세부 구성은 원문에 남습니다. 칼로리와 3대 영양값이 모두 있어야 합니다.")
+                        if (projection.kind == InformationProjectionKind.WORKOUT) {
+                            Text("한 종목의 완료 기록을 만듭니다. 중량 운동은 모든 세트가 같은 구성일 때 지원합니다.")
+                            AppOutlinedButton(onClick = { model.editProjection("mode", "timed") }, enabled = !ui.busy) { Text("시간 기록${if (projection.values["mode"] == "timed") " · 선택됨" else ""}") }
+                            AppOutlinedButton(onClick = { model.editProjection("mode", "resistance") }, enabled = !ui.busy) { Text("중량·횟수 기록${if (projection.values["mode"] == "resistance") " · 선택됨" else ""}") }
+                        }
+                    }
+                    items(InformationProjection.fields(projection.kind, projection.values), key = { it.key }) { field ->
+                        OutlinedTextField(value = projection.values[field.key].orEmpty(), onValueChange = { model.editProjection(field.key, it) },
+                            label = { Text(field.label + if (field.optional) " · 선택" else " · 필수") },
+                            modifier = Modifier.fillMaxWidth(), enabled = !ui.busy, singleLine = field.key != "memo")
+                    }
+                    item {
+                        val preview = ui.projectionPreview
+                        if (preview == null) AppButton(onClick = model::previewProjection, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("반영 미리보기") }
+                        else {
+                            Text("실제 기록에 추가할 내용", style = MaterialTheme.typography.titleMedium)
+                            Text(preview.summary, modifier = Modifier.padding(vertical = 12.dp))
+                            Text("승인하면 기록과 통계가 바뀝니다. 이후 수정·삭제는 실제 기록 화면에서 하세요. 원문 보관 상태를 바꿔도 실제 기록은 되돌아가지 않습니다.", style = MaterialTheme.typography.bodySmall)
+                            AppButton(onClick = model::applyProjection, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("확인한 내용으로 실제 기록에 반영") }
+                        }
+                        AppOutlinedButton(onClick = model::closeProjection, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("원문으로 돌아가기") }
+                    }
+                }
                 selected != null -> {
                     item {
                         Text(selected.title, style = MaterialTheme.typography.titleLarge)
                         Text(InformationReviewState.entries.find { it.wire == selected.status }?.label ?: "상태 확인 필요")
                         Text("출처와 신뢰도는 제출된 주장입니다. 검토 상태는 사실 검증이나 원래 기록 반영을 뜻하지 않습니다.", style = MaterialTheme.typography.bodySmall)
+                        ui.application?.let { Text("실제 기록 반영 완료 · ${it.appliedAt.take(10)}\n수정·삭제는 체중·식사·운동의 실제 기록 화면에서 진행하세요.", style = MaterialTheme.typography.titleSmall) }
                     }
                     val record = runCatching { InformationRecordCodec.decode(selected.payloadJson, InformationOwner.FITNESS) }.getOrNull()
                     if (record != null) {
@@ -110,6 +141,13 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
                         }
                     } else item { Text("기록 형식이 올바르지 않습니다. 백업 원본을 확인하세요.", color = MaterialTheme.colorScheme.error) }
                     item {
+                        if (ui.application == null && record != null) {
+                            Text("실제 기록으로 반영", style = MaterialTheme.typography.titleMedium)
+                            Text("자료 종류를 선택하고 빠진 값을 보완한 뒤 승인하세요. 지원하지 않는 자료는 원문으로 계속 보관할 수 있습니다.", style = MaterialTheme.typography.bodySmall)
+                            InformationProjectionKind.entries.forEach { kind ->
+                                AppButton(onClick = { model.startProjection(kind) }, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("${kind.label} 반영 검토") }
+                            }
+                        }
                         InformationReviewState.entries.forEach { state ->
                             AppOutlinedButton(onClick = { model.changeState(state) }, enabled = !ui.busy && selected.status != state.wire,
                                 modifier = Modifier.fillMaxWidth()) { Text("${state.label} 상태로 변경") }
@@ -124,6 +162,10 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
                         AppButton(onClick = model::create, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("새 활동 자료 기록") }
                         AppOutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                             enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("JSON 파일 가져오기") }
+                        AppOutlinedButton(onClick = { model.prepareRemoteInformation() }, enabled = !ui.busy,
+                            modifier = Modifier.fillMaxWidth()) { Text("OCR 전송 자료 가져오기") }
+                        if (ui.hasMoreRemoteInformation) AppOutlinedButton(onClick = { model.prepareRemoteInformation(true) },
+                            enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("다음 OCR 전송 자료 가져오기") }
                         AppOutlinedButton(onClick = { model.prepareRemoteMeals() }, enabled = !ui.busy,
                             modifier = Modifier.fillMaxWidth()) { Text("Nutrition 식사 가져오기") }
                         if (ui.hasMoreRemoteMeals) AppOutlinedButton(onClick = { model.prepareRemoteMeals(true) },

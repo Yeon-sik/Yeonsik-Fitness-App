@@ -545,6 +545,7 @@ public final class LocalDataBackupService {
 
             JSONObject tablesObject = root.getJSONObject("tables");
             normalizeLegacyDiningOutComponentLinks(tablesObject, databaseVersion);
+            normalizeInformationApplicationLineages(tablesObject, databaseVersion);
             validateCompatibleTables(tablesObject, databaseVersion);
 
             Map<String, JSONArray> tables = new LinkedHashMap<>();
@@ -626,6 +627,37 @@ public final class LocalDataBackupService {
         tablesObject.remove(tableName);
     }
 
+    /** v60 receipts predate correction-family identity; derive it without changing source/native rows. */
+    private void normalizeInformationApplicationLineages(JSONObject tables, int databaseVersion) throws JSONException {
+        if (databaseVersion != 60) return;
+        JSONArray applications = tables.optJSONArray("fitness_information_applications");
+        if (applications == null || applications.length() == 0) return;
+        JSONArray inbox = tables.getJSONArray("fitness_information_inbox");
+        Map<List<String>, JSONObject> sources = new LinkedHashMap<>();
+        for (int i = 0; i < inbox.length(); i++) {
+            JSONObject row = inbox.getJSONObject(i);
+            sources.put(java.util.Arrays.asList(row.getString("project"), row.getString("record_id")), row);
+        }
+        for (int i = 0; i < applications.length(); i++) {
+            JSONObject receipt = applications.getJSONObject(i);
+            String current = receipt.getString("record_id");
+            Set<String> visited = new LinkedHashSet<>();
+            while (true) {
+                if (!visited.add(current) || visited.size() > 64) {
+                    throw new IllegalArgumentException("Backup information correction lineage is cyclic or too long.");
+                }
+                // Backups omit the original user_id and restore into the explicitly selected owner.
+                JSONObject row = sources.get(java.util.Arrays.asList(receipt.getString("project"), current));
+                if (row == null) throw new IllegalArgumentException("Backup is missing an information correction source.");
+                JSONObject payload = new JSONObject(row.getString("payload_json"));
+                String parent = payload.optString("supersedes_record_id", "");
+                if (parent.isEmpty()) break;
+                current = parent;
+            }
+            receipt.put("lineage_root_id", current);
+        }
+    }
+
     private void validateCompatibleTables(JSONObject tablesObject, int databaseVersion) {
         Set<String> actual = new LinkedHashSet<>();
         for (String key : jsonKeys(tablesObject)) {
@@ -633,6 +665,10 @@ public final class LocalDataBackupService {
         }
         Set<String> expected = new LinkedHashSet<>(TABLE_ORDER);
         Set<String> required = new LinkedHashSet<>(expected);
+        if (databaseVersion < 60) {
+            required.remove("fitness_information_applications");
+            required.remove("fitness_information_deliveries");
+        }
         if (databaseVersion < 59) {
             required.remove("fitness_health_export_receipts");
         }
@@ -1127,6 +1163,8 @@ public final class LocalDataBackupService {
         tables.add("fitness_information_inbox");
         tables.add("fitness_information_drafts");
         tables.add("fitness_health_export_receipts");
+        tables.add("fitness_information_applications");
+        tables.add("fitness_information_deliveries");
         tables.add("workout_exercises");
         tables.add("workout_manual_exercise_links");
         tables.add("workout_setup_notes");

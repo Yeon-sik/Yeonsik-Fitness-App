@@ -88,7 +88,7 @@ class InformationInboxMigrationTest {
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             }).build())
         fun open() = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-            .addMigrations(FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59).build()
+            .addMigrations(FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59, FitnessRoomMigrations.V59_TO_V60, FitnessRoomMigrations.V60_TO_V61).build()
         val profile = InformationProfile("owner", "https://project.example")
         try {
             helper.writableDatabase.execSQL("INSERT INTO weight_records(id,user_id,date,weight_kg,created_at,is_backfilled,updated_at,device_id,source_app,scope,metadata) " +
@@ -137,6 +137,56 @@ class InformationInboxMigrationTest {
                     InformationRecordCodec.decode(repository.export(repository.records().single().recordId)).canonical)
                 assertEquals("reviewed", repository.records().single().status)
                 assertEquals("{unfinished draft}", repository.draft())
+            } finally { db.close() }
+        } finally { helper.close(); context.deleteDatabase(name) }
+    }
+
+    @Test fun v60ProjectionUpgradePreservesNativeSourceAndMappingWhileBackfillingCorrectionRoot() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val name = "projection-migration-${UUID.randomUUID()}.db"
+        val schema = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open(
+            "com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase/60.json").bufferedReader().use { it.readText() }).getJSONObject("database")
+        val helper = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context).name(name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(60) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    val entities = schema.getJSONArray("entities")
+                    for (i in 0 until entities.length()) {
+                        val entity = entities.getJSONObject(i); val table = entity.getString("tableName")
+                        db.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                        entity.optJSONArray("indices")?.let { indices ->
+                            for (j in 0 until indices.length()) db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+                        }
+                    }
+                    val queries = schema.getJSONArray("setupQueries")
+                    for (i in 0 until queries.length()) db.execSQL(queries.getString(i))
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }).build())
+        try {
+            val old = helper.writableDatabase
+            val parent = InformationRecordCodec.decode(payload)
+            val childId = UUID.randomUUID().toString()
+            val child = InformationRecordCodec.decode(JsonObject(parent.payload + mapOf(
+                "record_id" to JsonPrimitive(childId), "supersedes_record_id" to JsonPrimitive(parent.id))).toString())
+            listOf(parent, child).forEach { record -> old.execSQL(
+                "INSERT INTO fitness_information_inbox VALUES (?,?,?,?,?,?,?,?)",
+                arrayOf("owner", "local", record.id, record.title, record.canonical, record.fingerprint, "reviewed", "received")) }
+            old.execSQL("INSERT INTO weight_records(id,user_id,date,weight_kg,created_at,is_backfilled,updated_at,device_id,source_app,scope,metadata) " +
+                "VALUES ('weight','owner','2026-11-01',72.25,'created',0,'updated','device','fitness','fitness','{\"memo\":\"원본\"}')")
+            old.execSQL("INSERT INTO fitness_information_applications VALUES (?,?,?,?,?,?,?,?)",
+                arrayOf("owner", "local", childId, child.fingerprint, "weight", "weight", "{\"mapping\":\"preserved\"}", "applied"))
+            val originalWeight = rows(old, "weight_records"); val originalInbox = rows(old, "fitness_information_inbox")
+            helper.close()
+            val db = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name).addMigrations(FitnessRoomMigrations.V60_TO_V61).build()
+            try {
+                assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.openHelper.writableDatabase.version)
+                assertEquals(originalWeight, rows(db.openHelper.readableDatabase, "weight_records"))
+                assertEquals(originalInbox, rows(db.openHelper.readableDatabase, "fitness_information_inbox"))
+                val receipt = db.informationProjectionDao().applicationForOwner("owner", childId)!!
+                assertEquals(parent.id, receipt.lineageRootId); assertEquals("weight", receipt.nativeId)
+                assertEquals("{\"mapping\":\"preserved\"}", receipt.mappingJson)
+                assertThrows(Exception::class.java) { db.informationProjectionDao().insertApplication(receipt.copy(project = "another")) }
+                assertThrows(Exception::class.java) { db.informationProjectionDao().insertApplication(receipt.copy(recordId = UUID.randomUUID().toString())) }
             } finally { db.close() }
         } finally { helper.close(); context.deleteDatabase(name) }
     }

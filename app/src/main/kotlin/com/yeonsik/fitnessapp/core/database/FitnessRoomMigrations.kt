@@ -41,6 +41,8 @@ object FitnessRoomMigrations {
             add(V56_TO_V57)
             add(V57_TO_V58)
             add(V58_TO_V59)
+            add(V59_TO_V60)
+            add(V60_TO_V61)
         }.toTypedArray()
     }
 
@@ -134,6 +136,49 @@ object FitnessRoomMigrations {
             db.execSQL("CREATE TABLE IF NOT EXISTS fitness_health_export_receipts (" +
                 "user_id TEXT NOT NULL, project TEXT NOT NULL, snapshot_key TEXT NOT NULL, record_id TEXT NOT NULL, " +
                 "payload_json TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(user_id, project, snapshot_key))")
+        }
+    }
+
+    /** Local projection receipts and authenticated delivery provenance only; native histories stay intact. */
+    val V59_TO_V60: Migration = object : Migration(59, 60) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS fitness_information_applications (" +
+                "user_id TEXT NOT NULL, project TEXT NOT NULL, record_id TEXT NOT NULL, source_fingerprint TEXT NOT NULL, " +
+                "kind TEXT NOT NULL, native_id TEXT NOT NULL, mapping_json TEXT NOT NULL, applied_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, project, record_id))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS fitness_information_deliveries (" +
+                "user_id TEXT NOT NULL, project TEXT NOT NULL, record_id TEXT NOT NULL, source_project TEXT NOT NULL, " +
+                "source_user_id TEXT NOT NULL, content_fingerprint TEXT NOT NULL, remote_received_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, project, record_id, source_project, source_user_id))")
+        }
+    }
+
+    /** Forward migration also supports the first v60 review build without deleting native history. */
+    val V60_TO_V61: Migration = object : Migration(60, 61) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE fitness_information_applications ADD COLUMN lineage_root_id TEXT NOT NULL DEFAULT ''")
+            db.query("SELECT user_id, project, record_id FROM fitness_information_applications").use { rows ->
+                while (rows.moveToNext()) {
+                    val owner = rows.getString(0); val project = rows.getString(1); val record = rows.getString(2)
+                    var root = record
+                    val visited = mutableSetOf<String>()
+                    while (true) {
+                        check(visited.add(root) && visited.size <= 64) { "Stored correction lineage is cyclic or too deep; original data was not removed." }
+                        val payload = db.query("SELECT payload_json FROM fitness_information_inbox WHERE user_id=? AND project=? AND record_id=?",
+                            arrayOf(owner, project, root)).use { source ->
+                            check(source.moveToFirst()) { "Stored application is missing its source; original data was not removed." }
+                            org.json.JSONObject(source.getString(0))
+                        }
+                        if (!payload.has("supersedes_record_id")) break
+                        root = payload.getString("supersedes_record_id")
+                    }
+                    db.execSQL("UPDATE fitness_information_applications SET lineage_root_id=? WHERE user_id=? AND project=? AND record_id=?",
+                        arrayOf(root, owner, project, record))
+                }
+            }
+            // Do not merge/delete pre-existing duplicates to make the constraint pass.
+            db.execSQL("CREATE UNIQUE INDEX fitness_information_applications_owner_record ON fitness_information_applications(user_id, record_id)")
+            db.execSQL("CREATE UNIQUE INDEX fitness_information_applications_owner_lineage ON fitness_information_applications(user_id, lineage_root_id)")
         }
     }
 

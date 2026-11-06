@@ -163,6 +163,43 @@ class WorkoutRoomStorage(
 
     fun nowValue(): String = now()
 
+    /** Reviewed single-exercise history. No catalog identity, previous sets or GPS data are inferred. */
+    fun createReviewedCompletedSession(
+        scope: AccountScope, date: String, title: String, memo: String, startedAt: String, endedAt: String,
+        durationSeconds: Int, setCount: Int, reps: Int?, loadKg: Double?
+    ): String = transactionRunner.call {
+        require(setCount in 1..100 && durationSeconds in 1..86400)
+        require((reps == null) == (loadKg == null))
+        require(reps == null || reps in 1..10000)
+        require(loadKg == null || loadKg.isFinite() && loadKg > 0)
+        val start = OffsetDateTime.parse(startedAt)
+        val end = OffsetDateTime.parse(endedAt)
+        require(start.toLocalDate().toString() == date && Duration.between(start, end).seconds == durationSeconds.toLong())
+        require(reps != null || setCount == 1)
+        val id = createSession(scope, date, title, if (reps == null) "other" else "strength", memo, startedAt, "")
+        val timestamp = now()
+        val exerciseId = UUID.randomUUID().toString()
+        workoutDao.insertExercise(WorkoutExercisesRoomEntity(
+            exerciseId, scope.ownerId, id, 1, "manual", title, "", null, null,
+            if (reps == null) FitnessRecordContract.TIME else FitnessRecordContract.WEIGHT_REPS,
+            null, null, null, null, null, timestamp, timestamp, null, "android-local", FitnessRecordContract.VERSION.toLong()
+        ))
+        repeat(setCount) { index ->
+            check(addSet(scope, id, exerciseId, index + 1, WorkoutSetInput(
+                loadKg, reps, if (reps == null) durationSeconds else null, null, null, null, null, null,
+                true, null, loadKg, if (loadKg != null) MassUnit.KG else null
+            )))
+        }
+        val current = checkNotNull(workoutDao.visibleRecord(id, scope.ownerId))
+        check(workoutDao.updateRecord(current.copy(durationSeconds = durationSeconds.toLong(), isBackfilled = 1,
+            backfilledAt = timestamp, backfillReason = "reviewed information record")) == 1)
+        check(complete(scope, id)) { "완료 운동 기록을 저장하지 못했습니다." }
+        val completed = checkNotNull(workoutDao.visibleRecord(id, scope.ownerId))
+        val metadata = JSONObject(completed.metadata).put("started_at", startedAt).put("ended_at", endedAt).toString()
+        check(workoutDao.updateRecord(completed.copy(metadata = metadata, durationSeconds = durationSeconds.toLong())) == 1)
+        id
+    }
+
     fun createSession(
         scope: AccountScope,
         date: String,

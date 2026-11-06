@@ -114,6 +114,28 @@ class NutritionMealReviewClientTest {
         }
     }
 
+    @Test fun genericInboxPullUsesOwnAccountAndRejectsChangedIdentityOrForeignPayload() {
+        val payload = """{"schema_version":"information-record.v1","record_id":"12345678-1234-4234-8234-1234567890ab","owner_app":"fitness","record_type":"fitness.observation","title":"범용 자료","captured_at":"2026-11-06T00:00:00Z","sources":[{"source_id":"manual","kind":"manual"}],"fields":[{"key":"value","value_type":"json","value":{"exact":12345678901234567890.0010}}],"references":[]}"""
+        val record = InformationRecordCodec.decode(payload)
+        fun row(user: String = owner, id: String = record.id, text: String = payload) = buildJsonObject {
+            put("user_id", user); put("record_id", id); put("payload_text", text)
+            put("content_fingerprint", record.fingerprint); put("received_at", "2026-11-06T00:00:00Z")
+        }
+        val response = JsonArray(listOf(row())).toString()
+        val connection = FakeConnection(URL(config.supabaseUrl), response)
+        var requested: URL? = null
+        val page = NutritionMealReviewClient { requested = it; connection }.pullInformation(config)
+        assertEquals(record.canonical, page.records.single().record.canonical)
+        assertEquals("/rest/v1/fitness_information_inbox", requested!!.path)
+        assertTrue(URLDecoder.decode(requested!!.query, "UTF-8").contains("user_id=eq.$owner"))
+        assertTrue(URLDecoder.decode(requested!!.query, "UTF-8").contains("limit=5"))
+        for (invalid in listOf(row(user = "other"), row(id = "other"),
+            row(text = payload.replace("fitness", "healthtrace")),
+            row(text = payload.replace("\"title\":", "\"title\":\"discarded\",\"title\":")))) {
+            assertThrows(Exception::class.java) { NutritionMealReviewClient.decodeInformationPage(JsonArray(listOf(invalid)).toString(), owner) }
+        }
+    }
+
     private class FakeConnection(url: URL, private val response: String, private val status: Int = 200) : HttpURLConnection(url) {
         var closed = false
         override fun connect() = Unit
