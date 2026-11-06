@@ -104,6 +104,12 @@ class InformationInboxMigrationTest {
                 assertTrue(repository.importRecord(payload, true))
                 assertFalse(repository.importRecord(" \n$payload", true))
                 assertThrows(IllegalArgumentException::class.java) { repository.importRecord(payload.replace("정밀도 보존", "다른 내용"), true) }
+                for (duplicate in listOf(
+                    payload.replace("\"title\":", "\"title\":\"discarded\",\"title\":"),
+                    payload.replace("\"nested\":[", "\"nested\":0,\"nested\":["),
+                    payload.replace("\"nested\":[", "\"\\u006eested\":0,\"nested\":["))) {
+                    assertThrows(IllegalArgumentException::class.java) { repository.importRecord(duplicate, true) }
+                }
                 assertEquals(1, repository.records().size)
                 val other = InformationInboxRepository(db, InformationProfile("other", profile.project))
                 assertTrue(other.records().isEmpty())

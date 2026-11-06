@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.integration.nutrition
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig
+import com.yeonsik.fitnessapp.feature.information.model.InformationRecordCodec
 import kotlinx.serialization.json.*
 import java.net.HttpURLConnection
 import java.net.URI
@@ -71,18 +72,8 @@ class NutritionMealReviewClient(
 
         fun decodePage(text: String, owner: String, beforeId: String? = null): NutritionMealPage {
             require(text.toByteArray(Charsets.UTF_8).size <= MAX_RESPONSE_BYTES)
-            // Guard before the recursive JSON parser, including quoted braces/escaped quotes.
-            var depth = 0; var quoted = false; var escaped = false
-            for (c in text) {
-                if (quoted) {
-                    if (escaped) escaped = false else if (c == '\\') escaped = true else if (c == '"') quoted = false
-                } else when (c) {
-                    '"' -> quoted = true
-                    '[', '{' -> { depth++; require(depth <= 64) { "원격 자료의 JSON 중첩이 너무 깊습니다." } }
-                    ']', '}' -> { depth--; require(depth >= 0) }
-                }
-            }
-            require(depth == 0 && !quoted)
+            // Enforce the same no-loss guard before parsing the raw remote snapshot too.
+            InformationRecordCodec.validateStructureBeforeParsing(text)
             val rows = Json.parseToJsonElement(text) as? JsonArray ?: error("원격 식사 응답 형식이 올바르지 않습니다.")
             require(rows.size <= PAGE_SIZE)
             val meals = rows.map { normalizeMeal(it.jsonObject, owner) }

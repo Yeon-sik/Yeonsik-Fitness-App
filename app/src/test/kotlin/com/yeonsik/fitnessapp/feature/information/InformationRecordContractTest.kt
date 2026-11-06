@@ -13,6 +13,24 @@ class InformationRecordContractTest {
         return Json.parseToJsonElement(file.readText()).jsonObject
     }
 
+    @Test fun sharedRawCasesRejectDuplicateMembersBeforeValuesCanBeDiscarded() {
+        val fixture = listOf(File("../contracts/information-record.v1.raw-cases.json"), File("contracts/information-record.v1.raw-cases.json"))
+            .first { it.isFile }
+        val rawCases = Json.parseToJsonElement(fixture.readText()).jsonObject
+        for (case in rawCases.getValue("accepted").jsonArray) {
+            val text = case.jsonObject.getValue("text").jsonPrimitive.content
+            val record = InformationRecordCodec.decode(text)
+            assertEquals(record.canonical, InformationRecordCodec.decode(InformationRecordCodec.pretty(record)).canonical)
+            if (record.owner == InformationOwner.FITNESS) InformationRecordCodec.decode(text, InformationOwner.FITNESS)
+            else assertThrows(Exception::class.java) { InformationRecordCodec.decode(text, InformationOwner.FITNESS) }
+        }
+        for (case in rawCases.getValue("rejected").jsonArray) {
+            assertThrows(case.jsonObject.getValue("name").jsonPrimitive.content, IllegalArgumentException::class.java) {
+                InformationRecordCodec.decode(case.jsonObject.getValue("text").jsonPrimitive.content)
+            }
+        }
+    }
+
     @Test fun sharedAcceptedCasesAndOwnerBoundary() {
         for (case in cases.getValue("accepted").jsonArray) {
             val source = case.jsonObject.getValue("record").toString()

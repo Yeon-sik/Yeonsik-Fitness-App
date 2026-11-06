@@ -12,6 +12,8 @@ Room v57→v58은 `fitness_information_inbox`, `fitness_information_drafts`만 �
 
 이 구조는 표현 가능한 정보를 유실 없이 보관하는 확장 경로다. 모든 매체의 자동 이해나 언어 내용만으로 완전한 소유권 판별을 보장하지 않는다.
 
+JSON 파서가 같은 객체의 중복 키를 마지막 값으로 덮어쓰기 전에 원문 구조를 검사한다. 최상위·중첩·배열 안 객체·Unicode escape로 다르게 적은 동일 키 모두 거절한다. 서로 다른 객체에 같은 키가 있는 것은 허용한다. Nutrition 원격 응답도 같은 검사를 거쳐 자료 손실을 막는다. 공통 raw fixture 16개 거절/4개 허용 및 별도 원격 회귀를 포함한 JVM 648개가 통과했다(실패 0, 기존 live test 2개 skipped).
+
 검증: `testDebugUnitTest assembleDebug assembleDebugAndroidTest` 통과. JVM 637개 중 실패 0, 기존 live test 2개 skipped. 격리된 Android emulator에서 새 검토함 migration/backup/restart/계정·프로젝트 격리/중복·충돌/집계 불변, 소유 확인 UI, 기존 migration·backup 회귀까지 15개 instrumentation test 통과. 검토함/초안 화면 캡처를 확인했다. 물리 기기 설치와 원격 DB 검증은 수행하지 않았다.
 
 ## 기존 수용 범위와 빈 구조

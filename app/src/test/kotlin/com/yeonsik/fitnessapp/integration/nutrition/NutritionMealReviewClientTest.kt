@@ -92,6 +92,16 @@ class NutritionMealReviewClientTest {
         assertEquals(NutritionMealReviewEnvelope.id(source, first), NutritionMealReviewEnvelope.id(source, reversed))
     }
 
+    @Test fun duplicateRawRemoteKeysAreRejectedBeforeWrappingTheSnapshot() {
+        val original = meal()
+        for (duplicate in listOf(
+            original.replaceFirst("\"menu\":", "\"menu\":\"discarded\",\"menu\":"),
+            original.replace("\"amount\":", "\"amount\":1,\"amount\":"),
+            original.replace("\"amount\":", "\"\\u0061mount\":1,\"amount\":"))) {
+            assertThrows(IllegalArgumentException::class.java) { page(duplicate) }
+        }
+    }
+
     private class FakeConnection(url: URL, private val response: String, private val status: Int = 200) : HttpURLConnection(url) {
         var closed = false
         override fun connect() = Unit
