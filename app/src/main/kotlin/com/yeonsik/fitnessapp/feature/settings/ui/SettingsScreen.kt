@@ -101,6 +101,11 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
             com.yeonsik.fitnessapp.feature.information.ui.InformationInboxActivity::class.java)
             .putExtra("theme", state.themeMode))
     }, modifier = Modifier.fillMaxWidth()) { Text("활동 정보 검토함") }
+    AppOutlinedButton(onClick = {
+        context.startActivity(android.content.Intent(context,
+            com.yeonsik.fitnessapp.integration.healthtrace.HealthHandoffActivity::class.java)
+            .putExtra("theme", state.themeMode))
+    }, modifier = Modifier.fillMaxWidth()) { Text("이전 건강 자료 내보내기") }
     SettingsExpandableGroup(
         title = "백업 및 복원",
         summary = "기록을 파일로 보관하거나 복구",

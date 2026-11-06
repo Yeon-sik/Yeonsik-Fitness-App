@@ -11,6 +11,8 @@ import com.yeonsik.fitnessapp.backup.LocalDataBackupService
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
 import com.yeonsik.fitnessapp.feature.information.data.*
 import com.yeonsik.fitnessapp.feature.information.model.*
+import com.yeonsik.fitnessapp.integration.healthtrace.LegacyHealthExportRepository
+import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -44,7 +46,7 @@ class InformationInboxMigrationTest {
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             }).build())
         fun open() = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-            .addMigrations(FitnessRoomMigrations.V57_TO_V58).build()
+            .addMigrations(FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59).build()
         val profile = InformationProfile("owner", "https://project.example")
         try {
             helper.writableDatabase.execSQL("INSERT INTO weight_records(id,user_id,date,weight_kg,created_at,is_backfilled,updated_at,device_id,source_app,scope,metadata) " +
@@ -53,7 +55,7 @@ class InformationInboxMigrationTest {
             helper.close()
             var db = open()
             try {
-                assertEquals(58, db.openHelper.writableDatabase.version)
+                assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.openHelper.writableDatabase.version)
                 assertEquals(originalWeight, rows(db.openHelper.writableDatabase, "weight_records"))
                 val repository = InformationInboxRepository(db, profile)
                 assertThrows(IllegalArgumentException::class.java) { repository.importRecord(payload, false) }
@@ -89,6 +91,58 @@ class InformationInboxMigrationTest {
                 assertEquals("{unfinished draft}", repository.draft())
             } finally { db.close() }
         } finally { helper.close(); context.deleteDatabase(name) }
+    }
+
+    @Test fun healthExportPreservesLegacyRowsAndStableIdentityAcrossBackup() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val db = Room.inMemoryDatabaseBuilder(context, FitnessRoomDatabase::class.java)
+            .openHelperFactory(FitnessRoomOpenHelperFactory()).build()
+        try {
+            val sql = db.openHelper.writableDatabase
+            sql.execSQL("INSERT INTO nutrition_daily_checkins(id,user_id,date,water_ml,sleep_hours,energy_score,hunger_score,digestion_score,training_readiness_score,note,created_at,updated_at) " +
+                "VALUES ('legacy-owner','owner','2026-11-01',1200,7.5,3,2,4,5,'기존 건강 메모','2026-11-01T12:00:00Z','2026-11-01T12:00:00Z')")
+            sql.execSQL("INSERT INTO nutrition_daily_checkins(id,user_id,date,water_ml,note,created_at,updated_at) " +
+                "VALUES ('foreign','other','2026-11-01',900,'다른 계정 비공개','created','updated')")
+            val original = rows(sql, "nutrition_daily_checkins")
+            val exporter = LegacyHealthExportRepository(db, InformationProfile("owner", "local"))
+            val first = exporter.export()
+            assertEquals(InformationOwner.HEALTHTRACE, first.owner)
+            assertEquals(first.canonical, exporter.export().canonical)
+            assertFalse(first.canonical.contains("water_ml"))
+            assertFalse(first.canonical.contains("training_readiness_score"))
+            assertFalse(first.canonical.contains("다른 계정 비공개"))
+            assertTrue(first.canonical.contains("기존 건강 메모"))
+            assertTrue(first.canonical.contains("2026-11-01T12:00:00Z"))
+            assertEquals(original, rows(sql, "nutrition_daily_checkins"))
+            assertTrue(rows(sql, "fitness_information_inbox").isEmpty())
+            val backup = LocalDataBackupService(RoomBackupDatabaseStorage(db), "owner", "owner")
+            val bytes = ByteArrayOutputStream().also { backup.writeBackup(it) }.toByteArray()
+            sql.execSQL("DELETE FROM fitness_health_export_receipts")
+            backup.restoreBackup(ByteArrayInputStream(bytes))
+            assertEquals(first.canonical, exporter.export().canonical)
+            assertEquals(first.id, exporter.export(exporter.rows().single()).id)
+            File(context.getExternalFilesDir(null), "fitness-health-handoff-fixture.json").writeText(first.canonical)
+        } finally { db.close() }
+    }
+
+    @Test fun oversizedHealthSnapshotFallsBackToIndividualRowsWithoutPartialReceipt() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val db = Room.inMemoryDatabaseBuilder(context, FitnessRoomDatabase::class.java)
+            .openHelperFactory(FitnessRoomOpenHelperFactory()).build()
+        try {
+            val sql = db.openHelper.writableDatabase
+            for (index in 1..8) sql.execSQL(
+                "INSERT INTO nutrition_daily_checkins(id,user_id,date,water_ml,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+                arrayOf<Any>("large-$index", "owner", "2026-11-0$index", 0, "x".repeat(160000), "created", "updated"))
+            val exporter = LegacyHealthExportRepository(db, InformationProfile("owner", "local"))
+            assertThrows(IllegalArgumentException::class.java) { exporter.export() }
+            assertTrue(rows(sql, "fitness_health_export_receipts").isEmpty())
+            val single = exporter.export(exporter.rows().first())
+            assertTrue(single.canonical.toByteArray(Charsets.UTF_8).size <= InformationRecordCodec.MAX_BYTES)
+            assertEquals(single.canonical, InformationRecordCodec.decode(single.canonical, InformationOwner.HEALTHTRACE).canonical)
+            assertEquals(8, rows(sql, "nutrition_daily_checkins").size)
+            assertEquals(1, rows(sql, "fitness_health_export_receipts").size)
+        } finally { db.close() }
     }
 
     private fun rows(db: SupportSQLiteDatabase, table: String): List<List<String?>> =

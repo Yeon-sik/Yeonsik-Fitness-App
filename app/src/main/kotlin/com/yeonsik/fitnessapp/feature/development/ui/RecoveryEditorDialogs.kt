@@ -147,29 +147,14 @@ internal fun RecoveryCheckInEditorDialog(
     var water by rememberSaveable(ready.requestId, "check-in-water") {
         mutableStateOf(current.waterMl.toString())
     }
-    var sleep by rememberSaveable(ready.requestId, "check-in-sleep") {
-        mutableStateOf(current.sleepHours?.toString().orEmpty())
-    }
-    var energy by rememberSaveable(ready.requestId, "check-in-energy") {
-        mutableStateOf(current.energyScore?.toString().orEmpty())
-    }
-    var hunger by rememberSaveable(ready.requestId, "check-in-hunger") {
-        mutableStateOf(current.hungerScore?.toString().orEmpty())
-    }
-    var digestion by rememberSaveable(ready.requestId, "check-in-digestion") {
-        mutableStateOf(current.digestionScore?.toString().orEmpty())
-    }
     var readiness by rememberSaveable(ready.requestId, "check-in-readiness") {
         mutableStateOf(current.trainingReadinessScore?.toString().orEmpty())
-    }
-    var note by rememberSaveable(ready.requestId, "check-in-note") {
-        mutableStateOf(current.note)
     }
 
     AlertDialog(
         onDismissRequest = actions::dismissRecovery,
         icon = { Icon(FitnessRecoveryIcon, null) },
-        title = { Text("컨디션 기록 · ${ready.date}") },
+        title = { Text("수분·운동 준비도 · ${ready.date}") },
         text = {
             Column(
                 modifier = Modifier
@@ -183,19 +168,13 @@ internal fun RecoveryCheckInEditorDialog(
                     style = MaterialTheme.typography.bodySmall
                 )
                 GoalNumberField("수분 섭취 ml", water) { water = it }
-                GoalNumberField("수면 시간(시간, 선택)", sleep) { sleep = it }
-                GoalNumberField("에너지 점수 1~5(선택)", energy) { energy = it }
-                GoalNumberField("허기 점수 1~5(선택)", hunger) { hunger = it }
-                GoalNumberField("소화 점수 1~5(선택)", digestion) { digestion = it }
                 GoalNumberField("운동 준비도 1~5(선택)", readiness) { readiness = it }
                 Text("운동 준비도는 1에 가까울수록 준비가 덜 된 상태, 5에 가까울수록 충분히 준비된 상태예요.",
                     style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("메모(선택)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text("이전 건강 기록 · 읽기 전용", style = MaterialTheme.typography.titleSmall)
+                Text("수면 ${current.sleepHours ?: "미기록"} · 에너지 ${current.energyScore ?: "미기록"} · 허기 ${current.hungerScore ?: "미기록"} · 소화 ${current.digestionScore ?: "미기록"}")
+                if (current.note.isNotBlank()) Text(current.note)
+                com.yeonsik.fitnessapp.integration.healthtrace.HealthOwnershipActions()
             }
         },
         confirmButton = {
@@ -206,12 +185,12 @@ internal fun RecoveryCheckInEditorDialog(
                             current.id,
                             ready.date,
                             water.requiredNonNegativeInt("수분 섭취량"),
-                            sleep.optionalDouble("수면 시간"),
-                            energy.optionalScore("에너지"),
-                            hunger.optionalScore("허기"),
-                            digestion.optionalScore("소화"),
+                            current.sleepHours,
+                            current.energyScore,
+                            current.hungerScore,
+                            current.digestionScore,
                             readiness.optionalScore("훈련 준비도"),
-                            note
+                            current.note
                         )
                     )
                 } catch (error: IllegalArgumentException) {

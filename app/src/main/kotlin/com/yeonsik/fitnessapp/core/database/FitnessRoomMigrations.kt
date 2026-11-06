@@ -40,6 +40,7 @@ object FitnessRoomMigrations {
             add(V55_TO_V56)
             add(V56_TO_V57)
             add(V57_TO_V58)
+            add(V58_TO_V59)
         }.toTypedArray()
     }
 
@@ -127,6 +128,15 @@ object FitnessRoomMigrations {
     }
 
     /** 선택형 외부 참조만 추가한다. 기존 영양·식사·상품 연결 값은 변경하지 않는다. */
+    /** Outgoing immutable export receipts preserve IDs/timestamps across retry and backup. */
+    val V58_TO_V59: Migration = object : Migration(58, 59) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS fitness_health_export_receipts (" +
+                "user_id TEXT NOT NULL, project TEXT NOT NULL, snapshot_key TEXT NOT NULL, record_id TEXT NOT NULL, " +
+                "payload_json TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(user_id, project, snapshot_key))")
+        }
+    }
+
     /** Private inbox only: no native records or aggregate values are changed. */
     val V57_TO_V58: Migration = object : Migration(57, 58) {
         override fun migrate(db: SupportSQLiteDatabase) {

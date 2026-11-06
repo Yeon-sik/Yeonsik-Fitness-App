@@ -10,6 +10,9 @@
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="false" />
+    <queries>
+        <package android:name="com.yeonsik.health.health_observation_app" />
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -32,6 +35,9 @@
             android:name=".feature.information.ui.InformationInboxActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".integration.healthtrace.HealthHandoffActivity"
+            android:exported="false" />
         <activity-alias
             android:name=".DarkLauncher"
             android:enabled="true"

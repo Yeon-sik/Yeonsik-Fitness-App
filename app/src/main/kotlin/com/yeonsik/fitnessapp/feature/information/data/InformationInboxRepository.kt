@@ -51,6 +51,6 @@ class InformationInboxRepository(private val db: FitnessRoomDatabase, val profil
     fun export(id: String): String {
         val row = dao.find(profile.userId, profile.project, id) ?: error("현재 계정의 기록을 찾지 못했습니다.")
         // A restored backup is validated again before it can leave this inbox.
-        return InformationRecordCodec.pretty(InformationRecordCodec.decode(row.payloadJson, InformationOwner.FITNESS))
+        return InformationRecordCodec.decode(row.payloadJson, InformationOwner.FITNESS).canonical
     }
 }

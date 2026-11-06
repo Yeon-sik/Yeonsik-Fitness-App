@@ -30,13 +30,16 @@ Room v57→v58은 `fitness_information_inbox`, `fitness_information_drafts`만 �
 
 원격 Meal은 알 수 없는 영양값을 NULL로 보존하며 섭취 원입력·confidence·provenance를 가진다. 현재 로컬 핵심 영양 필드는 NOT NULL인 부분이 있다. 수신 시 0으로 채우면 자료의 의미가 바뀐다. 별도 Meal 수신 계약, nullable 모델/표시/집계의 보존 계획, 원격 snapshot과 출처 저장, owner/project 인증 매핑, 재전송·충돌·실제 기기 검증이 선행되어야 한다. Nutrition 카탈로그 동기화 안에 몰래 추가하지 않는다.
 
-## 우선순위 2: 건강 정보 소유권 이행
+## 구현된 건강 정보 소유권 경계
 
-현재 Fitness의 보충제·건강 체크인은 사용자의 새 경계와 겹친다. 기존 기록이나 복용 계획을 삭제하거나 HealthTrace 기록으로 임의 재표기하지 않는다. 다음 순서로 이행한다.
+현재 Fitness의 보충제·건강 체크인 원본은 legacy 자료로 유지한다. 보충제 화면과 앱의 runtime repository port는 신규/수정/삭제/되돌리기/복용 계획/경과 기록을 허용하지 않는다. 새 기록 버튼은 HealthTrace(`com.yeonsik.health.health_observation_app`)를 연다. 저수준 기존 저장 코드는 과거 백업·migration 호환성을 위해 남긴다.
 
-1. 기존 기록 ID·원문·시각·복용량·원래 단위·삭제 상태를 export fixture로 고정한다.
-2. HealthTrace가 수신하고 원본 ID와 대상 ID의 매핑, 행 수/값 보존, 중복/충돌을 검증한다.
-3. 검증된 기록을 Fitness에서 HealthTrace 참조로 연결한다. 과거 Fitness 원본은 legacy 기록임을 유지한다.
-4. 신규 건강 기록 입력을 HealthTrace로 연결하고 Fitness는 허용된 읽기 projection만 소비한다.
+체크인은 Fitness 소유의 수분 섭취와 운동 준비도만 편집한다. 기존 sleep/energy/hunger/digestion/note를 변경하거나 지우는 요청은 runtime port에서 거절한다. 이전 건강값은 화면에 읽기 전용으로 표시한다. 기존 행을 삭제하거나 건강값을 0으로 초기화하지 않는다.
 
-이 이행과 운영 계정 연결, 원격 DB/RLS 검증, 실제 기기 설치는 이번 로컬 검토함 구현의 완료 범위가 아니다.
+설정·보충제·체크인에서 **이전 건강 자료 내보내기**로 전체 snapshot 또는 개별 행을 JSON 파일로 내보낸다. `healthtrace.legacy_fitness_health_snapshot`의 `legacy_rows`에 이전 보충제 5개 테이블과 건강 체크인 부분만 보존하며, 수분/운동 준비도와 다른 사용자 행은 제외한다. 원래 ID·시각·값·삭제 상태를 유지하고 정확한 과거 관찰 시각이 없으면 `occurred_at`을 만들지 않는다. 이 파일은 HealthTrace의 검토 자료이며 의료·복용 집계로 자동 반영하지 않는다.
+
+Room v58→v59는 `fitness_health_export_receipts`만 추가한다. 이는 도메인 건강 기록이 아닌 **내보내기 영수증**이다. 최초 사용자의 내보내기 요청 때 snapshot fingerprint로 결정한 UUID와 실제 수집 시각을 한 번 저장한다. 같은 snapshot의 재시도는 동일 payload를 사용하며, 영수증도 로컬 백업에 포함된다. 전체가 1 MiB보다 크면 쓰기 없이 거절하고 개별 행 내보내기를 안내한다.
+
+추가 검증: JVM 639개 중 실패 0, 기존 2개 skipped; debug 및 instrumentation APK 빌드 통과. 격리 emulator instrumentation 18개 통과: v57→59 보존, owner 격리, 건강 원본 불변, export 재시도/backup, 크기 초과 원자성·개별 행 fallback, UI, 기존 migration·backup 회귀. Android가 실제 생성한 합성 fixture는 `contracts/fitness-health-handoff.v1.example.json`이다.
+
+HealthTrace 전용 복용·건강 모델로의 명시적 변환, 인증된 읽기 projection, 실제 운영 계정 간 전송, 물리 기기 설치는 별도 검증이 필요하다. 원격 DB 변경은 하지 않았다.

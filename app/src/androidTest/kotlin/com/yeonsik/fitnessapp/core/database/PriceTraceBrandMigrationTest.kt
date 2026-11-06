@@ -42,7 +42,7 @@ class PriceTraceBrandMigrationTest {
                 tables.associateWith { table -> rows(db, table, columns(db, table)) }
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-                .addMigrations(FitnessRoomMigrations.V56_TO_V57, FitnessRoomMigrations.V57_TO_V58).build()
+                .addMigrations(FitnessRoomMigrations.V56_TO_V57, FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59).build()
             room.useRoom {
                 val db = it.openHelper.writableDatabase
                 assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.version)

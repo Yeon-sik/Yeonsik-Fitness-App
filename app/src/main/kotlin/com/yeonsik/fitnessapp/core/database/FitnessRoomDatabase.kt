@@ -2270,6 +2270,7 @@ interface NutritionRoomDao {
     entities = [
         InformationInboxEntity::class,
         InformationDraftEntity::class,
+        HealthExportReceiptEntity::class,
         BodyProfileEntity::class,
         WeightRecordEntity::class,
         RoutineEntity::class,
@@ -2317,6 +2318,7 @@ interface NutritionRoomDao {
 )
 abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun informationInboxDao(): InformationInboxDao
+    abstract fun healthExportReceiptDao(): HealthExportReceiptDao
     abstract fun diningProposalRoomDao(): DiningProposalRoomDao
     abstract fun bodyRoomDao(): BodyRoomDao
     abstract fun deviceRoomDao(): DeviceRoomDao
