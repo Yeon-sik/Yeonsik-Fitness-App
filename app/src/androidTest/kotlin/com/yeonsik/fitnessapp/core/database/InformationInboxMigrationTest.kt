@@ -12,6 +12,8 @@ import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
 import com.yeonsik.fitnessapp.feature.information.data.*
 import com.yeonsik.fitnessapp.feature.information.model.*
 import com.yeonsik.fitnessapp.integration.healthtrace.LegacyHealthExportRepository
+import com.yeonsik.fitnessapp.integration.nutrition.*
+import kotlinx.serialization.json.*
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -22,6 +24,46 @@ import java.util.UUID
 
 class InformationInboxMigrationTest {
     private val payload = """{"schema_version":"information-record.v1","record_id":"12345678-1234-4234-8234-1234567890ab","owner_app":"fitness","record_type":"fitness.activity_observation","title":"정밀도 보존","captured_at":"2026-11-06T12:00:00Z","sources":[{"source_id":"manual","kind":"manual","text":"출처 원문"}],"fields":[{"key":"mass","value_type":"decimal","value":"12345678901234567890.0010","unit":"kg"},{"key":"raw","value_type":"json","value":{"nested":[false,"",null,12345678901234567890.0010]}}],"references":[]}"""
+
+    @Test fun remoteMealReviewPreservesNullableSnapshotsDraftsAndProfileIsolationAtomically() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val db = Room.inMemoryDatabaseBuilder(context, FitnessRoomDatabase::class.java).build()
+        try {
+            val profile = InformationProfile("local-fitness-owner", "local")
+            val source = NutritionMealSource("https://nutrition.example", "remote-nutrition-owner")
+            val inbox = InformationInboxRepository(db, profile)
+            val importer = NutritionMealReviewImporter(db, profile)
+            val page = NutritionMealReviewClient.decodePage("""[{"id":"remote-meal-1","owner_id":"remote-nutrition-owner","scope":"fitness","menu":"수신 식사","calories":null,"protein_grams":12345678901234567890.0010,"meal_record_items":[{"id":"item-1","owner_id":"remote-nutrition-owner","meal_record_id":"remote-meal-1","calories":null,"meal_record_item_nutrients":[]}],"meal_verified_imports":{"id":"receipt","owner_id":"remote-nutrition-owner","meal_record_id":"remote-meal-1","request_payload":{"source":"OCR 원문"}}}]""", source.owner)
+            inbox.saveDraft("{unfinished draft}")
+            assertEquals(1, importer.importPage(source, page) {}.inserted)
+            val original = inbox.export(inbox.records().single().recordId)
+            assertTrue(original.contains("\"calories\":null"))
+            assertTrue(original.contains("12345678901234567890.0010"))
+            assertTrue(original.contains("OCR 원문"))
+            assertEquals(1, importer.importPage(source, page) {}.duplicates)
+            assertEquals(original, inbox.export(inbox.records().single().recordId))
+            assertEquals("{unfinished draft}", inbox.draft())
+            assertTrue(InformationInboxRepository(db, profile.copy(userId = "other")).records().isEmpty())
+            assertTrue(InformationInboxRepository(db, profile.copy(project = "https://other.example")).records().isEmpty())
+            assertTrue(rows(db.openHelper.writableDatabase, "meal_records").isEmpty())
+            assertTrue(rows(db.openHelper.writableDatabase, "meal_record_items").isEmpty())
+
+            val revision = NutritionMealPage(listOf(JsonObject(page.meals.single() + ("calories" to JsonPrimitive(0)))), null)
+            var checks = 0
+            assertThrows(IllegalStateException::class.java) {
+                importer.importPage(source, revision) { checks++; check(checks < 2) { "Account changed" } }
+            }
+            assertEquals(1, inbox.records().size)
+            assertEquals(1, importer.importPage(source, revision) {}.inserted)
+            assertEquals(2, inbox.records().size)
+            val oversized = JsonObject(page.meals.single() + ("metadata" to JsonPrimitive("x".repeat(1_048_576))))
+            assertThrows(IllegalArgumentException::class.java) {
+                importer.importPage(source, NutritionMealPage(listOf(oversized), null)) {}
+            }
+            assertEquals(2, inbox.records().size)
+            assertEquals("{unfinished draft}", inbox.draft())
+        } finally { db.close() }
+    }
 
     @Test fun v57MigrationReplayIsolationRestartAndBackupPreserveOriginals() {
         val context: Context = ApplicationProvider.getApplicationContext()

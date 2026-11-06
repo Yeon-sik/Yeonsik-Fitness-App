@@ -67,4 +67,16 @@ class InformationRecordContractTest {
             }
         }
     }
+
+    @Test fun hostileNestingIsRejectedBeforeParsingAndQuotedBracesRemainText() {
+        assertThrows(IllegalArgumentException::class.java) {
+            InformationRecordCodec.decode("[".repeat(50_000) + "]".repeat(50_000))
+        }
+        val root = cases.getValue("accepted").jsonArray.first().jsonObject.getValue("record").jsonObject
+        val text = "[".repeat(100) + "\"\\\"" + "]".repeat(100)
+        val payload = JsonObject(root + ("fields" to JsonArray(listOf(buildJsonObject {
+            put("key", "quoted"); put("value_type", "text"); put("value", text)
+        }))))
+        assertEquals(text, InformationRecordCodec.decode(payload.toString()).payload.getValue("fields").jsonArray.single().jsonObject.getValue("value").jsonPrimitive.content)
+    }
 }

@@ -32,8 +32,9 @@ object InformationRecordCodec {
 
     fun decode(text: String, expectedOwner: InformationOwner? = null): InformationRecord {
         require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "기록은 UTF-8 1 MiB 이하여야 합니다." }
+        validateNestingBeforeParsing(text)
         val root = json.parseToJsonElement(text) as? JsonObject ?: error("기록은 JSON 객체여야 합니다.")
-        requireJsonPrimitives(root)
+        validateJsonValues(root)
         root.keysOnly(rootKeys)
         require(root.text("schema_version") == "information-record.v1") { "지원하지 않는 기록 형식입니다." }
         val id = root.text("record_id").also { require(uuid.matches(it)) { "record_id는 소문자 UUID여야 합니다." } }
@@ -111,19 +112,17 @@ object InformationRecordCodec {
         return InformationRecord(root)
     }
 
-    // JsonElement's serializer infers Double for numeric primitives; that rounds large
-    // nested JSON values. Render primitives directly so original numeric lexemes survive.
-    fun pretty(record: InformationRecord): String = prettyValue(record.payload, 0)
-    private fun prettyValue(value: JsonElement, depth: Int): String {
-        val indent = "  ".repeat(depth)
-        val childIndent = indent + "  "
+    // JsonElement's default serializer can coerce an arbitrary JSON numeric token to Double.
+    // Emit scalar tokens directly so both precision and trailing zeros survive export.
+    fun pretty(record: InformationRecord): String = pretty(record.payload).let {
+        if (it.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) it else record.canonical
+    }
+    fun pretty(value: JsonElement, depth: Int = 0): String {
+        val prefix = "  ".repeat(depth + 1)
+        val closing = "  ".repeat(depth)
         return when (value) {
-            is JsonObject -> if (value.isEmpty()) "{}" else value.entries.joinToString(",\n", "{\n", "\n$indent}") {
-                "$childIndent${JsonPrimitive(it.key)}: ${prettyValue(it.value, depth + 1)}"
-            }
-            is JsonArray -> if (value.isEmpty()) "[]" else value.joinToString(",\n", "[\n", "\n$indent]") {
-                childIndent + prettyValue(it, depth + 1)
-            }
+            is JsonObject -> if (value.isEmpty()) "{}" else value.entries.joinToString(",\n", "{\n", "\n$closing}") { "$prefix${JsonPrimitive(it.key)}: ${pretty(it.value, depth + 1)}" }
+            is JsonArray -> if (value.isEmpty()) "[]" else value.joinToString(",\n", "[\n", "\n$closing]") { "$prefix${pretty(it, depth + 1)}" }
             else -> value.toString()
         }
     }
@@ -137,16 +136,31 @@ object InformationRecordCodec {
         require(instant.matches(value)) { "시각에는 날짜·초·시간대(Z 또는 +09:00 등)가 필요합니다." }
         OffsetDateTime.parse(value)
     }
-    private fun requireJsonPrimitives(value: JsonElement, depth: Int = 0) {
-        require(depth < 64 || value is JsonPrimitive) { "JSON 중첩은 64단계 이하여야 합니다." }
+    private fun validateJsonValues(value: JsonElement, depth: Int = 0) {
+        require(depth < 64 || value is JsonPrimitive) { "중첩 JSON은 64단계까지 지원합니다." }
         when (value) {
-            is JsonObject -> value.values.forEach { requireJsonPrimitives(it, depth + 1) }
-            is JsonArray -> value.forEach { requireJsonPrimitives(it, depth + 1) }
-            is JsonPrimitive -> if (!value.isString) require(
-                value.content in setOf("null", "true", "false") ||
-                    Regex("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?").matches(value.content)
-            ) { "JSON 값에는 올바른 숫자·true·false·null만 사용할 수 있습니다." }
+            is JsonObject -> value.values.forEach { validateJsonValues(it, depth + 1) }
+            is JsonArray -> value.forEach { validateJsonValues(it, depth + 1) }
+            is JsonPrimitive -> require(value.isString || value === JsonNull || value.content in setOf("true", "false") ||
+                Regex("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?").matches(value.content)) { "표준 JSON 값만 사용할 수 있습니다." }
         }
+    }
+    private fun validateNestingBeforeParsing(text: String) {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (character in text) {
+            if (inString) {
+                if (escaped) escaped = false
+                else if (character == '\\') escaped = true
+                else if (character == '"') inString = false
+            } else when (character) {
+                '"' -> inString = true
+                '{', '[' -> { depth++; require(depth <= 64) { "중첩 JSON은 64단계까지 지원합니다." } }
+                '}', ']' -> { depth--; require(depth >= 0) { "JSON 괄호가 올바르지 않습니다." } }
+            }
+        }
+        require(depth == 0 && !inString) { "JSON 문자열 또는 괄호가 닫히지 않았습니다." }
     }
     private fun httpUri(value: String) {
         val uri = URI(value)

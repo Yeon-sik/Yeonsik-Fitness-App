@@ -5,9 +5,12 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
+import com.yeonsik.fitnessapp.config.SupabaseConfig
+import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
 import com.yeonsik.fitnessapp.core.database.*
 import com.yeonsik.fitnessapp.feature.information.data.*
 import com.yeonsik.fitnessapp.feature.information.model.*
+import com.yeonsik.fitnessapp.integration.nutrition.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,16 +28,23 @@ data class InformationInboxUiState(
     val ownerReviewed: Boolean = false,
     val busy: Boolean = false,
     val message: String = "",
-    val error: String = ""
+    val error: String = "",
+    val remoteMapping: String? = null,
+    val hasMoreRemoteMeals: Boolean = false
 )
 
 class InformationInboxViewModel(application: Application) : AndroidViewModel(application) {
     private val config = SupabaseConfigStore(application)
     private val profile = currentProfile()
     private val repository = InformationInboxRepository(FitnessRoomDatabaseProvider.get(application), profile)
+    private val nutritionConfig = NutritionSupabaseConfigStore(application)
+    private val remoteMeals = NutritionMealReviewClient()
+    private val remoteImporter = NutritionMealReviewImporter(FitnessRoomDatabaseProvider.get(application), profile)
     private val mutableState = MutableStateFlow(InformationInboxUiState())
     val state = mutableState.asStateFlow()
     private var pendingExport: Pair<InformationProfile, String>? = null
+    private var pendingRemote: Pair<SupabaseConfig, String?>? = null
+    private var nextRemote: Pair<NutritionMealSource, String>? = null
 
     init { work { refresh() } }
 
@@ -73,6 +83,50 @@ class InformationInboxViewModel(application: Application) : AndroidViewModel(app
     }
     fun resumeDraft() { edit(mutableState.value.draft ?: return) }
     fun closeEditor() { mutableState.value = mutableState.value.copy(editor = null, ownerReviewed = false) }
+
+    fun prepareRemoteMeals(nextPage: Boolean = false) = work {
+        val remote = nutritionConfig.load()
+        require(remote.isConfigured) { "설정의 Nutrition 계정에 로그인한 뒤 다시 가져오세요." }
+        val source = NutritionMealSource(remote.supabaseUrl, remote.userId)
+        val cursor = if (nextPage) nextRemote?.also {
+            check(it.first == source) { "Nutrition 계정이 변경되었습니다. 처음부터 가져오세요." }
+        }?.second ?: error("처음부터 가져오기를 선택하세요.") else null
+        pendingRemote = remote to cursor
+        withContext(Dispatchers.Main) {
+            mutableState.value = mutableState.value.copy(remoteMapping =
+                "가져올 Nutrition 계정\n${remote.email.ifBlank { remote.userId }}\n${remote.userId}\n${remote.supabaseUrl}\n\n" +
+                "저장할 Fitness 프로필\n${profile.userId}\n${profile.project}\n\n" +
+                "두 계정이 본인의 계정인지 확인하세요. ${if (cursor == null) "처음" else "다음"} 최대 ${NutritionMealReviewClient.PAGE_SIZE}건을 검토 대기에 저장합니다. 누락된 영양값과 원문을 보존하며 식사 집계에는 반영하지 않습니다.")
+        }
+    }
+    fun dismissRemoteMeals() {
+        pendingRemote = null
+        mutableState.value = mutableState.value.copy(remoteMapping = null)
+    }
+    fun importRemoteMeals() {
+        val request = pendingRemote ?: return
+        pendingRemote = null
+        mutableState.value = mutableState.value.copy(remoteMapping = null)
+        work {
+            val remote = request.first
+            val source = NutritionMealSource(remote.supabaseUrl, remote.userId)
+            fun checkMapping() {
+                requireCurrentProfile()
+                val current = nutritionConfig.load()
+                check(current.isConfigured && current.supabaseUrl == remote.supabaseUrl &&
+                    current.userId == remote.userId && current.supabaseAnonKey == remote.supabaseAnonKey &&
+                    current.accessToken == remote.accessToken) { "Nutrition 계정 또는 연결이 변경되었습니다. 계정을 다시 확인한 뒤 가져오세요." }
+            }
+            checkMapping()
+            val page = remoteMeals.pull(remote, request.second)
+            val result = remoteImporter.importPage(source, page, ::checkMapping)
+            nextRemote = page.nextCursor?.let { source to it }
+            refresh()
+            withContext(Dispatchers.Main) { mutableState.value = mutableState.value.copy(hasMoreRemoteMeals = nextRemote != null) }
+            message("원격 식사 ${result.inserted}건을 검토 대기에 저장했습니다. 동일 기록 ${result.duplicates}건은 유지했습니다." +
+                if (nextRemote != null) " 다음 자료도 가져올 수 있습니다." else " 현재 페이지까지 모두 확인했습니다.")
+        }
+    }
 
     fun create() {
         val record = buildJsonObject {

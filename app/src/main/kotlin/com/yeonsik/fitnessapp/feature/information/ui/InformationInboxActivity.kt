@@ -10,6 +10,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -122,6 +124,10 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
                         AppButton(onClick = model::create, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("새 활동 자료 기록") }
                         AppOutlinedButton(onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                             enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("JSON 파일 가져오기") }
+                        AppOutlinedButton(onClick = { model.prepareRemoteMeals() }, enabled = !ui.busy,
+                            modifier = Modifier.fillMaxWidth()) { Text("Nutrition 식사 가져오기") }
+                        if (ui.hasMoreRemoteMeals) AppOutlinedButton(onClick = { model.prepareRemoteMeals(true) },
+                            enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("다음 원격 식사 가져오기") }
                         if (ui.draft != null) AppOutlinedButton(onClick = model::resumeDraft, enabled = !ui.busy) { Text("보관한 초안 이어 쓰기") }
                     }
                     if (ui.records.isEmpty() && !ui.busy) item { Text("아직 보관한 자료가 없습니다. 활동 관찰을 기록하거나 OCR에서 내보낸 Fitness 자료를 가져오세요.") }
@@ -136,7 +142,19 @@ private fun InformationInboxScreen(model: InformationInboxViewModel, close: () -
             }
         }
     }
+    ui.remoteMapping?.let { mapping ->
+        AlertDialog(onDismissRequest = model::dismissRemoteMeals,
+            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 1f),
+            titleContentColor = MaterialTheme.colorScheme.onBackground,
+            textContentColor = MaterialTheme.colorScheme.onBackground,
+            title = { Text("계정 연결 확인") },
+            text = { Text(mapping, modifier = Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { AppButton(onClick = model::importRemoteMeals) { Text("확인 후 가져오기") } },
+            dismissButton = { TextButton(onClick = model::dismissRemoteMeals,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("취소") } })
+    }
     if (confirmLeave) AlertDialog(onDismissRequest = { confirmLeave = false },
+        containerColor = MaterialTheme.colorScheme.background.copy(alpha = 1f),
         title = { Text("초안 편집을 닫을까요?") },
         text = { Text("보관하지 않은 수정은 사라집니다. 계속 작성하거나 초안 보관을 누른 뒤 닫으세요.") },
         confirmButton = { TextButton(onClick = { confirmLeave = false; model.closeEditor() }) { Text("편집 닫기") } },
