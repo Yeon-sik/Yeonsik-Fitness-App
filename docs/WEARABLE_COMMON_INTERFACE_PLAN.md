@@ -626,7 +626,7 @@ CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다
 
 | 단계 | 판정 | 조건 |
 | --- | --- | --- |
-| PR0 | **구현 진행 중 (K-01·K-02 확정, 2026-11-05)** | 프로브 코드 추가됨(§9). 남은 단계: (1) Android 빌드·단위 테스트·lint 통과(SDK와 `dl.google.com` 필요) (2) K-13 결정 (3) Galaxy A25 + Fit3 실측과 `docs/wearable/PR0_PROBE_RESULT.md` 기록. 판정(PASS·PARTIAL·BLOCKED)은 실기기 실측으로만 기록하며, 실기기 검증 전에는 PASS 불가 |
+| PR0 | **디버그 프로브 빌드 검증 완료 · 실기기 실측 대기 (2026-11-06)** | Android 빌드·단위 테스트·lint와 빌드 타입별 매니페스트 확인 결과는 [PR0 검증 기록](wearable/PR0_PROBE_RESULT.md)에 있다. 남은 단계는 K-13 설치 경로 결정과 Galaxy A25 + Fit3 실측이다. PR0 판정은 실기기 실측 후 기록한다. |
 | PR1 | **PR1-a 설계·브랜치 구현 가능 / 최종 확정은 PR0 이후** | PR1-a: 순수 모델·합성 fixture mock 테스트, K-03·K-04. PR1-b와 main 병합: PR0 PASS 후, 또는 PARTIAL이고 사용자 결정이 끝난 뒤. 원본 identity(K-09)·품질 규칙은 그때까지 DECISION PENDING |
 | PR2 | **착수 보류** | PR0 판정, K-09·K-10 확정 전까지. 백업 형식·계정 귀속·cursor 계약(K-05·K-06·K-08·K-11)은 v0.3에서 설계 확정 |
 | PR3 | **선행 계약 검증 후 착수** | PR2 병합과 §6.4 AC 통과, K-07 결정 |

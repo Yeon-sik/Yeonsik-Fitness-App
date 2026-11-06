@@ -2,7 +2,7 @@
 
 - **상태:** NOT_RUN — 실기기 실측 전
 - **판정:** 미기록. 실측 후 `PASS` · `PARTIAL` · `BLOCKED — 대체 수집 경로 결정 필요` · `INCONCLUSIVE` 중 하나만 적는다.
-- **증거 수준:** 없음. 판정은 실기기 실측 근거가 있을 때만 적는다.
+- **실기기 증거:** 미수집. 판정은 실기기 실측 근거가 있을 때만 적는다.
 - **기준 문서:** `docs/WEARABLE_COMMON_INTERFACE_PLAN.md` v0.3.1 §9 (PR0 판정, G-HR), §10.1 (K-09·K-12·K-13)
 - **프로브 코드:** `app/src/debug/` (debug 빌드 전용, K-01)
 - **실행 커밋:** (실측에 쓴 커밋 SHA)
@@ -32,15 +32,21 @@ debug·qa·release는 같은 applicationId(`com.yeonsik.fitnessapp`)를 쓴다. 
 
 각 단계는 실제로 실행한 경우에만 PASS/FAIL을 적는다. 실행하지 않았으면 NOT_RUN과 이유를 적는다.
 
+2026-11-06 점검 기준은 원격 커밋 `2d6d314da317b1045367a2183113ad1b6cb61f73`이다. Android CI는 Linux와 JDK 17에서, 로컬 검증은 Windows와 JDK 21에서 실행했다. [Android CI 실행 결과](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/41992165430)
+
+```powershell
+.\gradlew.bat --console=plain --max-workers=2 --continue testDebugUnitTest assembleDebug :app:lintDebug :app:processQaMainManifest :app:processReleaseMainManifest
+```
+
 | 단계 | 명령·방법 | 결과 |
 | --- | --- | --- |
 | 순수 분석 로직·소스 경계 테스트 | 독립 JVM 프로젝트(Kotlin 2.3.0, 경고를 오류로 처리)에서 `app/src/debug/.../analysis`와 `testDebug` 테스트 25개, `WearableProbeBuildBoundaryTest` 5개 컴파일·실행 | PASS, 30/30 (2026-11-05, 작성 세션. Gradle Android 빌드가 아니며 Android·Health Connect 의존 코드는 포함하지 않음) |
-| Android 단위 테스트 | `./gradlew :app:testDebugUnitTest` | NOT_RUN — 작성 세션에 Android SDK 없음, `dl.google.com` 차단 |
-| Android 빌드 | `./gradlew :app:assembleDebug` | NOT_RUN — 같은 이유 |
-| lint | `./gradlew :app:lintDebug` | NOT_RUN — 같은 이유 |
-| qa·release 병합 manifest에 health 권한 없음 | `:app:processQaMainManifest`, `:app:processReleaseMainManifest` 산출 manifest에서 `android.permission.health.` 검색 | NOT_RUN — 같은 이유. 소스 수준 경계 테스트는 위 순수 로직 실행에 포함되어 PASS |
-| 실기기 설치 | §1 체크 후 업데이트 설치 | NOT_RUN |
-| 실기기 관측 | §3 절차 | NOT_RUN |
+| Android 단위 테스트 | `:app:testDebugUnitTest` | PASS (CI·로컬). 로컬 XML 보고서 기준 660건 통과, 2건 건너뜀. 프로브 분석·경계 테스트 30건 모두 통과 |
+| Android 빌드 | `:app:assembleDebug` | PASS (CI·로컬). 로컬 디버그 APK 생성 확인 |
+| lint | `:app:lintDebug` | PASS (CI·로컬) |
+| 빌드 타입별 권한·프로브 경계 | `:app:processDebugMainManifest`, `:app:processQaMainManifest`, `:app:processReleaseMainManifest` 병합 결과 비교 | PASS (로컬). `debug`에는 심박·운동·걸음 읽기 권한과 프로브 구성요소가 있다. `qa`와 `release`에는 health 권한과 프로브 구성요소가 각각 0개다. |
+| 실기기 설치 | §1 체크 후 업데이트 설치 | NOT_RUN (2026-11-06 `adb devices -l`에 연결된 기기 없음) |
+| 실기기 관측 | §3 절차 | NOT_RUN (Fit3에서 기록한 운동 중 심박의 Health Connect 유입 미확인) |
 
 ## 3. 실행 절차
 
@@ -53,6 +59,7 @@ debug·qa·release는 같은 applicationId(`com.yeonsik.fitnessapp`)를 쓴다. 
 5. **조회:** Samsung Health 동기화를 확인한 뒤, 프로브에 날짜·시작·종료·일시정지를 입력하고 "세션 조회"를 누른다.
    - "최근 7일 운동"으로 ExerciseSession을 누르면 날짜·시작·종료가 채워진다. 일시정지는 직접 입력한다.
    - 운동 종료 직후와 조회 시점의 차이가 "조회 시점: 세션 종료 후" 줄에 나온다.
+   - 전체 심박 coverage에는 여러 앱이 쓴 기록이 합쳐진다. G-HR에는 Samsung Health(`com.sec.android.app.shealth`) origin 행의 심박 지표를 사용하고, 해당 운동 구간과 기기 메타데이터를 Fit3 기록과 대조한다. 기기 출처가 불명확하면 §5에 근거와 함께 기록한다.
 6. **24시간 뒤 재조회:** 같은 구간을 다시 조회하면 "재조회 비교" 줄에 유지·새로 보임·사라짐이 나온다. 이어서 "changes 조회"를 누른다.
 7. **상태 시나리오:** §6의 시나리오를 차례로 만든다. 권한 회수는 "HC 열기"에서 이 앱의 권한을 끈 뒤 조회한다.
 8. **기록:** "보고서 복사"로 익명화 보고서를 복사해 §5에 붙여 넣고, 요약 표를 채운다.
