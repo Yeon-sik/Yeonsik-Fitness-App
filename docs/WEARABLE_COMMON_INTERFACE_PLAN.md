@@ -477,10 +477,9 @@ v1 코드 사실은 §2에 있다: `formatVersion`·`databaseVersion` 사전 거
 - record id는 기기 안 무작위 salt로 만든 12자리 마스크로만 나온다. salt·마스크·changes token은 `noBackupFilesDir`의 상태 파일에만 있다.
 - 네트워크 경로가 없다. 보고서는 사용자가 누를 때만 클립보드로 복사하며, 민감 데이터 표시를 붙인다.
 
-**실기기 설치 경로 (K-13, DECISION PENDING):** debug·qa·release가 모두 같은 applicationId `com.yeonsik.fitnessapp`를 쓴다.
-- 실기기에 데이터가 든 qa/release 앱이나 다른 키로 서명한 debug 앱이 이미 있으면, 프로브가 든 debug APK는 서명 불일치로 설치되지 않는다.
-- 이때 **기존 앱을 제거하고 재설치하면 로컬 기록이 지워지므로 금지한다**(Android Studio의 "uninstall and retry" 포함).
-- 설치 전에 `adb shell pm list packages com.yeonsik.fitnessapp`로 기존 설치 여부를 확인한다. 설치돼 있으면 K-13을 결정하기 전까지 실기기 실행을 멈춘다.
+**실기기 설치 경로 (K-13, 2026-11-06 A25 검증):** 기본 debug·qa·release는 `com.yeonsik.fitnessapp`를 쓴다. A25의 설치본과 debug APK의 서명이 달라 별도 패키지 경로를 적용했다.
+- `-PfitnessWearableProbeIsolated=true`를 사용한 debug 빌드는 `com.yeonsik.fitnessapp.wearableprobe`로 설치되며, 앱 목록에는 `HC Probe (debug)`가 표시된다.
+- 설치 전 APK의 패키지 ID를 확인하고, 설치 후 원본 앱의 설치 정보와 DB·설정 파일 해시를 대조한다. 실행 절차와 A25 확인 결과는 [PR0 검증 기록](wearable/PR0_PROBE_RESULT.md)에 있다.
 
 #### PR0 판정 (F-03)
 
@@ -594,7 +593,7 @@ PR0 결과 문서에는 판정 하나, 증거 수준(실기기), 위 관측값�
 | K-10 | cache 내부 SQLite FK 사용 여부 | DECISION PENDING | PR2 | 현행 DB는 FK를 쓰지 않음(S-03). 어떤 경우에도 링크는 cache에 FK를 걸지 않음 |
 | K-11 | claim 시 wearable sync cursor | **CONFIRMED (v0.3)** | — | 승계하지 않고 초기화한 뒤 bootstrap 재조회(§6.3) |
 | K-12 | G-HR coverage 기준 | DECISION PENDING | PR0 결과 보고 시 | 잠정: 활동 1분 구간 80% 이상에 sample, 최대 공백 5분 이하. 실측 분포와 함께 사용자 승인 |
-| K-13 | PR0 프로브 실기기 설치 경로 | DECISION PENDING | PR0 실기기 실행 전 | debug·qa·release가 같은 applicationId라 데이터가 든 앱 위에 debug APK를 설치할 수 없음. 선택지: (a) `com.yeonsik.fitnessapp`가 없는 기기·사용자에서 실행(같은 사용자 공간에 Samsung Health·Fit3 연결 필요) (b) 기기에 같은 debug 키로 서명된 debug 빌드만 있으면 그 키로 빌드해 업데이트 설치 (c) 프로브 전용 applicationId(debug `applicationIdSuffix` 또는 별도 프로브 앱, K-01과 단일 모듈 규칙 재검토 필요). 권장: 먼저 기기 상태를 확인해 (a)·(b)를 쓰고, 둘 다 안 되면 (c)를 별도로 결정. **기존 앱 제거·데이터 초기화는 어떤 경우에도 금지** |
+| K-13 | PR0 프로브 실기기 설치 경로 | **CONFIRMED (2026-11-06, Galaxy A25)** | — | A25는 기존 설치본과 서명이 달라 선택지 (c)를 사용했다. `-PfitnessWearableProbeIsolated=true`로 debug APK만 별도 applicationId를 사용한다. 기존 앱과 프로브는 동일한 Android 사용자에 별도 UID로 설치된다. |
 
 CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다. DECISION PENDING은 표시된 시점의 Task Contract에서 확정하고 이 표를 갱신한다.
 
@@ -626,7 +625,7 @@ CONFIRMED는 설계 확정이며 구현·테스트 검증을 뜻하지 않는다
 
 | 단계 | 판정 | 조건 |
 | --- | --- | --- |
-| PR0 | **디버그 프로브 빌드 검증 완료 · 실기기 실측 대기 (2026-11-06)** | Android 빌드·단위 테스트·lint와 빌드 타입별 매니페스트 확인 결과는 [PR0 검증 기록](wearable/PR0_PROBE_RESULT.md)에 있다. 남은 단계는 K-13 설치 경로 결정과 Galaxy A25 + Fit3 실측이다. PR0 판정은 실기기 실측 후 기록한다. |
+| PR0 | **Galaxy A25 프로브 설치·실행 확인 · Fit3 실측 대기 (2026-11-06)** | [PR0 검증 기록](wearable/PR0_PROBE_RESULT.md)에 빌드 검증과 K-13 격리 설치 결과를 기록했다. PR0 판정은 Galaxy A25와 Fit3로 운동 중 심박 시계열을 실측한 뒤 기록한다. |
 | PR1 | **PR1-a 설계·브랜치 구현 가능 / 최종 확정은 PR0 이후** | PR1-a: 순수 모델·합성 fixture mock 테스트, K-03·K-04. PR1-b와 main 병합: PR0 PASS 후, 또는 PARTIAL이고 사용자 결정이 끝난 뒤. 원본 identity(K-09)·품질 규칙은 그때까지 DECISION PENDING |
 | PR2 | **착수 보류** | PR0 판정, K-09·K-10 확정 전까지. 백업 형식·계정 귀속·cursor 계약(K-05·K-06·K-08·K-11)은 v0.3에서 설계 확정 |
 | PR3 | **선행 계약 검증 후 착수** | PR2 병합과 §6.4 AC 통과, K-07 결정 |

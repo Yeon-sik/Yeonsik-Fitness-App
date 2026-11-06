@@ -21,12 +21,17 @@
 
 ## 1. 실행 전 확인 — 기기 데이터 보호 (K-13)
 
-debug·qa·release는 같은 applicationId(`com.yeonsik.fitnessapp`)를 쓴다. 데이터가 든 앱 위에 다른 서명의 debug APK는 설치되지 않는다.
+기본 debug·qa·release는 `com.yeonsik.fitnessapp`를 쓴다. A25의 기존 앱과 기본 debug APK의 서명이 달라 K-13 선택지 (c)로 별도 프로브를 설치했다.
 
-- [ ] `adb shell pm list packages com.yeonsik.fitnessapp` 결과를 확인했다. 결과: (없음 / 있음)
-- [ ] 있음이면 실행을 멈추고 K-13 선택지를 정했다. 선택: (a / b / c)
-- [ ] 기존 앱을 제거하거나 데이터를 초기화하지 않았다(Android Studio의 "uninstall and retry" 포함).
-- [ ] 설치는 업데이트 설치(`./gradlew :app:installDebug` 또는 `adb install -r`)로만 했다.
+```powershell
+.\gradlew.bat -PfitnessWearableProbeIsolated=true :app:assembleDebug
+```
+
+`aapt2 dump badging app/build/outputs/apk/debug/app-debug.apk`에서 `com.yeonsik.fitnessapp.wearableprobe`를 확인한 뒤, 해당 APK를 A25에 `adb install -r`로 설치한다.
+
+- [x] Galaxy A25의 기존 `com.yeonsik.fitnessapp` 설치와 서명 불일치를 확인했다.
+- [x] 별도 UID의 `com.yeonsik.fitnessapp.wearableprobe`를 설치하고 `HC Probe (debug)`를 실행했다.
+- [x] 설치·실행 전후로 원본 앱의 패키지 경로와 설치 정보가 일치했다. DB 관련 파일 3개(`-shm` 제외)와 설정 파일 8개의 해시도 각각 일치했다.
 
 ## 2. 검증 단계별 기록
 
@@ -45,12 +50,12 @@ debug·qa·release는 같은 applicationId(`com.yeonsik.fitnessapp`)를 쓴다. 
 | Android 빌드 | `:app:assembleDebug` | PASS (CI·로컬). 로컬 디버그 APK 생성 확인 |
 | lint | `:app:lintDebug` | PASS (CI·로컬) |
 | 빌드 타입별 권한·프로브 경계 | `:app:processDebugMainManifest`, `:app:processQaMainManifest`, `:app:processReleaseMainManifest` 병합 결과 비교 | PASS (로컬). `debug`에는 심박·운동·걸음 읽기 권한과 프로브 구성요소가 있다. `qa`와 `release`에는 health 권한과 프로브 구성요소가 각각 0개다. |
-| 실기기 설치 | §1 체크 후 업데이트 설치 | NOT_RUN (2026-11-06 `adb devices -l`에 연결된 기기 없음) |
+| 실기기 설치 | §1 격리 빌드·설치 | PASS (2026-11-06, Galaxy A25 / Android 16, `ba5a09874c018fdb6950e6660309010fc05c87f8`). 격리 APK 빌드·단위 테스트·lint를 로컬에서 다시 실행했다. 일반 debug·qa·release와 격리 debug의 병합 매니페스트도 비교했다. |
 | 실기기 관측 | §3 절차 | NOT_RUN (Fit3에서 기록한 운동 중 심박의 Health Connect 유입 미확인) |
 
 ## 3. 실행 절차
 
-1. **기기 준비:** Galaxy Fit3를 Samsung Health와 연결하고, Samsung Health의 Health Connect 연동에서 심박·운동·걸음 데이터 공유를 켠다. 메뉴 이름은 앱 버전에 따라 다를 수 있으며, 실제 경로를 §4에 적는다.
+1. **기기 준비:** A25에 Samsung Health와 Galaxy Wearable을 설치하고 Galaxy Wearable에서 Fit3를 페어링한다. Samsung Health의 `설정 → Health Connect`에서 삼성 헬스가 심박·운동·걸음 데이터를 쓰도록 허용한다. 실제 메뉴 경로는 §4에 적는다.
 2. **프로브 실행:** launcher의 `HC Probe (debug)`를 연다. "권한 요청"으로 심박·운동·걸음 읽기를 허용한다.
 3. **changes token:** 첫 운동 전에 "token 발급"을 누른다.
 4. **운동 세션:** Fit3에서 세션 3회 이상을 기록한다.
