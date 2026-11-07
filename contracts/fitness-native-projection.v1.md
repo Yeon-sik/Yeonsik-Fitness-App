@@ -1,0 +1,32 @@
+# Fitness native projection v1
+
+The immutable `information-record.v1` source remains in the private local inbox. This contract describes the **user-confirmed mapping** saved in `fitness_information_applications`; it does not change the source envelope or grant authentication authority to source fields.
+
+Every `owner_app=fitness` record, including `fitness.observation`, may enter the mapping UI. The user selects weight, meal or completed workout, completes missing typed values, reviews a preview, then explicitly approves a native write. Selecting “reviewed” in the inbox does not apply a record. Unknown or unsupported facts remain in the source inbox.
+
+Receipt mapping JSON contains `schema_version="fitness-native-projection.v1"`, `kind`, `time_zone`, and `values`. Values preserve the reviewed decimal strings; integer fields are normalized to integer strings. Only the selected adapter's fields are included. Native numeric conversion must be finite and must round-trip through decimal representation without losing the reviewed value. The source still retains original precision and lexical form.
+
+| Kind | Required values | Optional values | Native result |
+|---|---|---|---|
+| `weight` | `date` YYYY-MM-DD, positive `weight_kg` | `memo` | One body-weight record; existing visible weight on the same date blocks the write |
+| `meal` | `date`, `time` HH:mm, `name`, integer `calories_kcal`, `protein_grams`, `carbs_grams`, `fat_grams` | `sodium_mg`, `sugars_grams`, `saturated_fat_grams` | One meal with one full-meal nutrition snapshot; optional empty values stay null |
+| `workout` / `mode=timed` | `date`, `activity_name`, `start_time` HH:mm, positive integer `duration_seconds` | `memo` | One completed manual exercise session and one completed time set |
+| `workout` / `mode=resistance` | Above workout values plus integer `sets`, integer `reps`, positive `load_kg` | `memo` | One completed manual exercise session with uniform completed sets |
+
+Limits: one workout is at most 86,400 seconds; resistance has 1–100 sets, 1–10,000 repetitions per set. Duration, set count and calories must be integral. Negative, nonfinite, unrepresentable and missing required numbers are rejected. A zero nutrition value is accepted only when explicitly present in the reviewed form. Future observations and workouts ending in the future are blocked. Dates/times use the displayed device time zone; resolved workout start/end offsets are saved in the mapping. No canonical exercise, body part, equipment, GPS route, heart rate, restaurant/product identity or other owner's fact is inferred.
+
+Known flat keys prefill typed fields only when units explicitly match; missing units never imply kg, kcal, g, mg or seconds. `fitness.`-prefixed keys are supported, but ambiguous prefixed/unprefixed aliases do not pick an arbitrary winner. `fitness.remote_meal_review` can prefill a full meal from `meal_snapshot`; nullable remote nutrition stays blank. Capture time is never substituted for observation time. Offset-bearing occurred_at and remote eaten_at values are converted to the displayed device zone at the same instant before suggesting their calendar date and time. An explicit conflicting date prevents automatic time completion. The source offset remains in the immutable envelope. Multiple food components remain in the original source; this version applies only the explicitly reviewed whole-meal totals. Heterogeneous workout sets or multiple exercises require separate native editing or separately reviewed source records.
+
+Application identity is the native local `(user_id, record_id)`, enforced by a unique DB index even when an inbox project/import namespace changes. Inbox rows remain isolated by `(user_id, project, record_id)`, and the receipt retains its original project. One source record has one native application across file and direct delivery. The receipt stores source fingerprint, mapping JSON, native ID/kind and application time. Receipt insertion, native repository writes and inbox review-state update share one Room transaction. Exact replay returns the existing receipt; a changed source or mapping for an applied record is rejected. Native deletion does not silently re-enable source application. Restore includes receipts and native rows together.
+
+Every complete `supersedes_record_id` ancestry resolves to a `lineage_root_id`. A second unique index on `(user_id, lineage_root_id)` prevents another known ancestor, sibling or descendant in that correction family from being applied. Missing, cyclic or overly deep correction chains remain pending with a concrete explanation. Users correct the existing native record instead of creating a second counted fact. Independent source records with no known correction relationship cannot be identified as the same real-world event; the preview remains a user review boundary. Account/profile changes before or during the transaction roll back all writes.
+
+Native readers power body, meal, workout, record and statistics screens. They read the same native tables written by these adapters; no second statistics table or shadow total is maintained. The main activity invalidates cached summaries after a confirmed application.
+
+## Authenticated remote delivery
+
+Nutrition's private table is `public.fitness_information_inbox`; the RPC is `fitness_ingest_information_record_v1(p_payload_text text, p_expected_user_id uuid)` returning `{record_id, duplicate, content_fingerprint}`. Strict full envelope checks, decoded-key duplicate rejection, precision-preserving canonical equivalence, RLS, immutable payload columns and restricted grants match the other app receivers. The function is `SECURITY INVOKER`.
+
+Android uses the existing separate Nutrition session, shows remote account/project and destination local profile before each pull, and rechecks the mapping around the local transaction. It fetches `record_id,user_id,payload_text,content_fingerprint,state,received_at` ordered by `record_id desc` with a five-record keyset page. Five records account for JSON string escaping under the 12 MiB response bound; each decoded envelope remains limited to 1 MiB. HTTP 401 requests Nutrition sign-in again. Imported records are locally pending regardless of remote review state. Authenticated remote provenance is stored separately in `fitness_information_deliveries`.
+
+Delivery arrival and native application are distinct outcomes. OCR may report arrival in the private review inbox; only the receiving app's explicit approval and local receipt establish native application.

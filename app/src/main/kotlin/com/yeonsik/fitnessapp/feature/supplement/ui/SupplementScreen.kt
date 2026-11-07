@@ -66,178 +66,55 @@ internal fun SupplementScreen(
     actions: SupplementScreenActions
 ) {
     val ready = state as? SupplementUiState.Ready
-    AppHeader("보충제", "계획·복용·경과", back = actions::back)
+    AppHeader("보충제 이전 기록", "읽기 전용 · 새 기록은 HealthTrace", back = actions::back)
+    com.yeonsik.fitnessapp.integration.healthtrace.HealthOwnershipActions()
     if (ready == null || ready.ownerId != ownerId || ready.today != today) {
         when (state) {
             is SupplementUiState.Error -> Text(state.message)
-            else -> Text("보충제 기록을 불러오는 중입니다.")
+            else -> Text("이전 보충제 기록을 불러오는 중입니다.")
         }
         return
     }
-
-    var planEditorTarget by remember { mutableStateOf<SupplementPlan?>(null) }
-    var showPlanEditor by remember { mutableStateOf(false) }
     var evidenceTarget by remember { mutableStateOf<SupplementPlan?>(null) }
-    var effectTarget by remember { mutableStateOf<SupplementPlan?>(null) }
-    var historyTarget by remember { mutableStateOf<SupplementHistoryEntry?>(null) }
-    val selectedDate = ready.selectedDate
-    val selected = runCatching { LocalDate.parse(selectedDate) }.getOrNull()
+    val selected = runCatching { LocalDate.parse(ready.selectedDate) }.getOrNull()
     val todayDate = runCatching { LocalDate.parse(ready.today) }.getOrNull()
-
-    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-        if (!ready.notice.isNullOrBlank()) {
-            AppCard(Modifier.fillMaxWidth()) {
-                Text(ready.notice, Modifier.padding(AppSpacing.card), color = MaterialTheme.colorScheme.primary)
-            }
+    if (selected != null && todayDate != null) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            AppOutlinedButton(onClick = { actions.selectDate(selected.minusDays(1).toString()) }, modifier = Modifier.weight(1f)) { Text("이전 날짜") }
+            Text(ready.selectedDate, Modifier.weight(1f).padding(top = 14.dp), textAlign = TextAlign.Center)
+            AppOutlinedButton(onClick = { actions.selectDate(selected.plusDays(1).toString()) }, modifier = Modifier.weight(1f), enabled = selected.isBefore(todayDate)) { Text("다음 날짜") }
         }
-        if (selected != null && todayDate != null) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                AppOutlinedButton(
-                    onClick = { actions.selectDate(selected.minusDays(1).toString()) },
-                    modifier = Modifier.weight(1f)
-                ) { Text("‹ 이전") }
-                Text(
-                    selectedDate,
-                    modifier = Modifier.weight(1f).padding(top = 14.dp),
-                    textAlign = TextAlign.Center
-                )
-                AppOutlinedButton(
-                    onClick = { actions.selectDate(selected.plusDays(1).toString()) },
-                    modifier = Modifier.weight(1f),
-                    enabled = selected.isBefore(todayDate)
-                ) { Text("다음 ›") }
-            }
-            AppOutlinedButton(
-                onClick = { actions.selectDate(ready.today) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = selectedDate != ready.today
-            ) { Text("오늘로 이동") }
-        }
-
+    }
+    Text("당시 복용 ${ready.progress.taken} · 건너뜀 ${ready.progress.skipped}", style = MaterialTheme.typography.titleMedium)
+    if (ready.plans.isEmpty()) Text("이 날짜의 이전 복용 계획이 없습니다.")
+    ready.plans.forEach { plan ->
         AppCard(Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.padding(AppSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                Text(
-                    "복용 ${ready.progress.taken}/${ready.progress.planned}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "건너뜀 ${ready.progress.skipped} · 미기록 ${ready.progress.unrecorded} · " +
-                        "최근 14일 준수율 ${ready.adherence.adherencePercent()}%"
-                )
-                Text(
-                    "예정 ${ready.adherence.planned} · 복용 ${ready.adherence.taken} · " +
-                        "건너뜀 ${ready.adherence.skipped} · 미기록 ${ready.adherence.unrecorded}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        if (selectedDate == ready.today) {
-            AppButton(
-                onClick = {
-                    planEditorTarget = null
-                    showPlanEditor = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("복용 계획 추가") }
-        }
-
-        if (ready.plans.isEmpty()) {
-            AppCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(AppSpacing.card)) {
-                    Text("등록된 복용 계획이 없습니다.", fontWeight = FontWeight.Bold)
-                    Text("종류·브랜드·제품 형태·용량·복용 시점을 입력해 계획을 추가하세요.")
+            Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Text("${plan.typeName} · ${plan.brandName}", style = MaterialTheme.typography.titleMedium)
+                Text("제품 1회 ${formatDose(plan.doseAmount, plan.doseUnit)} · ${plan.productForm}")
+                Text("하루 ${plan.timesPerDay}회 · ${plan.timingLabels.joinToString(" / ")}")
+                if (plan.ingredientDetails.isNotBlank()) Text(plan.ingredientDetails)
+                ready.effects[plan.itemId]?.let { effect ->
+                    Text("이전 경과 ${effect.date} · 체감 ${effect.effectScore}/5")
+                    if (effect.adverseEffects.isNotBlank()) Text("당시 이상반응: ${effect.adverseEffects}")
                 }
-            }
-        } else {
-            Text("복용 계획", style = MaterialTheme.typography.titleLarge)
-            ready.plans.forEach { plan ->
-                SupplementPlanCard(
-                    plan = plan,
-                    allPlans = ready.plans,
-                    effect = ready.effects[plan.itemId],
-                    canRecord = selectedDate <= ready.today,
-                    onRecord = { status -> actions.record(selectedDate, plan.scheduleId, status) },
-                    onUndo = { actions.undo(selectedDate, plan.scheduleId) },
-                    onEdit = {
-                        planEditorTarget = plan
-                        showPlanEditor = true
-                    },
-                    onArchive = { actions.archive(plan.itemId) },
-                    onEvidence = { evidenceTarget = plan },
-                    onEffect = { effectTarget = plan }
-                )
+                AppOutlinedButton(onClick = { evidenceTarget = plan }) { Text("기존 근거 보기") }
             }
         }
-
-        Text("최근 7일 기록", style = MaterialTheme.typography.titleLarge)
-        if (ready.history.isEmpty()) {
-            AppCard(Modifier.fillMaxWidth()) {
-                Text("복용 기록이 없습니다.", Modifier.padding(AppSpacing.card))
-            }
-        } else {
-            ready.history.forEach { entry ->
-                SupplementHistoryCard(entry) { historyTarget = entry }
-            }
-        }
-
+    }
+    Text("최근 7일의 이전 복용 기록", style = MaterialTheme.typography.titleLarge)
+    if (ready.history.isEmpty()) Text("이 기간의 이전 복용 기록이 없습니다.")
+    ready.history.forEach { entry ->
         AppCard(Modifier.fillMaxWidth()) {
-            Text(
-                "표시되는 용량과 복용법은 사용자가 입력한 계획입니다. 근거 카드는 성분 수준의 연구 적용성 안내이며, 의료 조언·권장 용량·안전 승인을 제공하지 않습니다.",
-                Modifier.padding(AppSpacing.card),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(Modifier.padding(AppSpacing.card)) {
+                Text("${entry.date} · ${entry.typeName} · ${if (entry.status == SupplementRepository.STATUS_TAKEN) "복용" else "건너뜀"}", fontWeight = FontWeight.Bold)
+                Text("${entry.brandName} · ${formatDose(entry.doseAmount, entry.doseUnit)} · ${entry.timingLabel}")
+                Text(entry.takenAt ?: "실제 복용 시각 미기록", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
-
-    if (showPlanEditor) {
-        SupplementPlanEditorDialog(
-            existing = planEditorTarget,
-            onDismiss = { showPlanEditor = false },
-            onSave = { draft ->
-                showPlanEditor = false
-                actions.savePlan(planEditorTarget, draft)
-            }
-        )
-    }
-    evidenceTarget?.let { plan ->
-        SupplementEvidenceDialog(plan, onDismiss = { evidenceTarget = null })
-    }
-    effectTarget?.let { plan ->
-        SupplementEffectDialog(
-            plan = plan,
-            existing = ready.effects[plan.itemId],
-            date = selectedDate,
-            onDismiss = { effectTarget = null },
-            onSave = { score, adverse, note ->
-                effectTarget = null
-                actions.saveEffect(plan.itemId, score, adverse, note)
-            }
-        )
-    }
-    historyTarget?.let { entry ->
-        SupplementHistoryCorrectionDialog(
-            entry = entry,
-            onDismiss = { historyTarget = null },
-            onUpdate = { status ->
-                historyTarget = null
-                actions.updateHistory(entry.id, status)
-            },
-            onDelete = {
-                historyTarget = null
-                actions.deleteHistory(entry.id)
-            }
-        )
-    }
+    evidenceTarget?.let { plan -> SupplementEvidenceDialog(plan, onDismiss = { evidenceTarget = null }) }
 }
-
 @Composable
 private fun SupplementPlanCard(
     plan: SupplementPlan,

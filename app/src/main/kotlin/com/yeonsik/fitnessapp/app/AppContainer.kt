@@ -190,12 +190,14 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     )
     val developmentTrackingRepository =
         com.yeonsik.fitnessapp.feature.development.data.DevelopmentTrackingRepository(appContext)
-    val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
+    val supplementRepositoryApi: SupplementRepositoryApi =
+        com.yeonsik.fitnessapp.integration.healthtrace.LegacyHealthSupplementReader(supplementRepository)
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
     val nutritionTemplateRepositoryApi: NutritionTemplateRepositoryApi = nutritionTemplateRepository
     val nutritionAnalysisApi: NutritionAnalysisApi = nutritionAnalysisService
-    val recoveryRepositoryApi: RecoveryRepositoryApi = recoveryRepository
+    val recoveryRepositoryApi: RecoveryRepositoryApi =
+        com.yeonsik.fitnessapp.integration.healthtrace.FitnessActivityCheckInWriter(recoveryRepository)
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
         FeatureHomeReadSources(

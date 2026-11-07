@@ -377,10 +377,21 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
     }
 
+    private long informationApplicationGeneration = -1L;
+
     @Override
     protected void onResume() {
         super.onResume();
         refreshTodayIfChanged();
+        // The separate review activity increments this cache hint only after a committed projection.
+        long generation = getSharedPreferences("information_projection_ui", MODE_PRIVATE).getLong("generation", 0L);
+        if (informationApplicationGeneration >= 0 && generation != informationApplicationGeneration) {
+            if (homeViewModel != null) homeViewModel.markStale();
+            if (recordsViewModel != null) recordsViewModel.markStale();
+            if (statisticsViewModel != null) statisticsViewModel.markStale();
+            if (developmentViewModel != null) developmentViewModel.markStale();
+        }
+        informationApplicationGeneration = generation;
         if (waitingForLocationSettings && locationServicesEnabled()) {
             waitingForLocationSettings = false;
             continuePendingCardioAction();

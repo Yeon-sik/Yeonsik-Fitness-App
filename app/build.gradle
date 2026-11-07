@@ -100,7 +100,11 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode 2
         versionName "1.1.0"
-        manifestPlaceholders = [MAPS_API_KEY: mapsApiKey]
+        manifestPlaceholders = [
+                MAPS_API_KEY: mapsApiKey,
+                FITNESS_APP_LABEL: "@string/app_name",
+                FITNESS_MAIN_ACTIVITY_ENABLED: "true",
+        ]
         buildConfigField "boolean", "MAPS_API_KEY_CONFIGURED", mapsApiKey ? "true" : "false"
         buildConfigField "String", "FITNESS_SURFACE", buildConfigString(fitnessSurface)
         // All variants use device-saved connections entered in Settings.
@@ -165,6 +169,17 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             signingConfig signingConfigs.release
+        }
+    }
+
+    // Apply after qa copies the base debug configuration to keep QA's package identity.
+    if (providers.gradleProperty("fitnessWearableProbeIsolated").orNull == "true") {
+        buildTypes.debug {
+            applicationIdSuffix ".wearableprobe"
+            manifestPlaceholders.putAll([
+                    FITNESS_APP_LABEL: "@string/wearable_probe_label",
+                    FITNESS_MAIN_ACTIVITY_ENABLED: "false",
+            ])
         }
     }
 
@@ -273,6 +288,7 @@ tasks.register("installQaWithEnvSession") {
 
 dependencies {
     implementation project(":shared")
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
     implementation "androidx.activity:activity:1.10.1"
     implementation "androidx.activity:activity-compose:1.10.1"
     implementation platform("androidx.compose:compose-bom:2025.02.00")
@@ -284,6 +300,8 @@ dependencies {
     implementation "io.github.kashif-mehmood-km:backdrop:0.0.1-alpha02"
     implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.7"
     debugImplementation "androidx.compose.ui:ui-tooling"
+    // Wearable PR0 probe only (K-01). qa and release must not depend on Health Connect yet.
+    debugImplementation "androidx.health.connect:connect-client:1.1.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7"
     implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7"
     implementation "com.google.android.gms:play-services-location:21.4.0"

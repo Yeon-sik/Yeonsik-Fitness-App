@@ -10,13 +10,16 @@
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="false" />
+    <queries>
+        <package android:name="com.yeonsik.health.health_observation_app" />
+    </queries>
 
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${FITNESS_APP_LABEL}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
@@ -25,12 +28,20 @@
             android:value="${MAPS_API_KEY}" />
         <activity
             android:name=".MainActivity"
+            android:enabled="${FITNESS_MAIN_ACTIVITY_ENABLED}"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
         </activity>
+        <activity
+            android:name=".feature.information.ui.InformationInboxActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".integration.healthtrace.HealthHandoffActivity"
+            android:exported="false" />
         <activity-alias
             android:name=".DarkLauncher"
-            android:enabled="true"
+            android:enabled="${FITNESS_MAIN_ACTIVITY_ENABLED}"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_dark"
             android:targetActivity=".MainActivity">

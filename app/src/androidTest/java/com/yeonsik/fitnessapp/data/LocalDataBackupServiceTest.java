@@ -303,6 +303,11 @@ public final class LocalDataBackupServiceTest {
             JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             legacy.put("databaseVersion", 14);
             JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("fitness_information_inbox");
+            tables.remove("fitness_information_drafts");
+            tables.remove("fitness_health_export_receipts");
+            tables.remove("fitness_information_applications");
+            tables.remove("fitness_information_deliveries");
             tables.remove("workout_manual_exercise_links");
             tables.remove("workout_setup_notes");
             tables.remove("meal_record_item_components");
@@ -417,6 +422,11 @@ public final class LocalDataBackupServiceTest {
             JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             legacy.put("databaseVersion", 15);
             JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("fitness_information_inbox");
+            tables.remove("fitness_information_drafts");
+            tables.remove("fitness_health_export_receipts");
+            tables.remove("fitness_information_applications");
+            tables.remove("fitness_information_deliveries");
             tables.remove("workout_manual_exercise_links");
             tables.remove("workout_setup_notes");
             tables.remove("meal_record_item_consumptions");
