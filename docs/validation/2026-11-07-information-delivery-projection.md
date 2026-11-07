@@ -35,3 +35,10 @@ OCR 원문은 불변으로 남고 반영 영수증에 확인한 값, 소스 fing
 SHA-256: `375F473C5B7B2542FB334ACDDF33782F02B7371CA090C9A78375903C13E7DC29`.
 
 출시 서명 검증, 물리 기기 보존 설치, 원격 push는 하지 않았다. 앱 build 로그의 기존 Gradle deprecation 경고는 남아 있다.
+
+
+## 실기기 후속 검증 — 2026-11-07
+
+Galaxy A25 / Android 16에 기존 QA 서명·qa/test-friends 변형으로 교체 설치했다. DB57→61 및 기존 42개 테이블 원래 행 보존을 확인했다. OCR 실제 서버 전송 → 동일 Nutrition 계정 재로그인 → 기존 프로필 연결 확인 → 수신 → 식사 승인 → 1끼·1 kcal 표시 → 시험 식사 삭제·0끼 복원을 통과했다. 선택 영양값 미입력은 unknown으로 유지됐다. 최종 QA APK SHA-256: af83ab4d63739be0ac84f5e18db39d46270e11f8f082e6ac57ca51bd3a124107. 임시 debug 실행으로 빈 기본 루틴 1건이 추가됐고 기존 루틴 7건은 동일하다.
+
+통합 실기기 결과와 제한·잔여 감사 이력은 OCR 저장소 `docs/validation/2026-11-07-physical-device-information-flow.md` 참조. 앞선 “물리 기기 미검증” 설명은 이전 검증 시점에 해당한다.
