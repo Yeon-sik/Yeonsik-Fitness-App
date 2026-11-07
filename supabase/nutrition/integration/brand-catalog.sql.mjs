@@ -4,7 +4,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 const { PGlite } = await import(process.argv[2] ? pathToFileURL(path.resolve(process.argv[2])).href : '@electric-sql/pglite');
-const db = new PGlite();
+const { pgcrypto } = await import(process.argv[2]
+  ? pathToFileURL(path.resolve(path.dirname(process.argv[2]), 'contrib/pgcrypto.js')).href
+  : '@electric-sql/pglite/contrib/pgcrypto');
+const db = new PGlite({ extensions: { pgcrypto } });
 const dir = fileURLToPath(new URL('../supabase/migrations/', import.meta.url));
 const migration = '20261023121311_pricetrace_brand_catalog_consumer.sql';
 const repair = '20261023143111_fix_nutrition_read_v4_contract_version.sql';
@@ -19,9 +22,11 @@ const sqlFile = file => readFileSync(file, 'utf8').replaceAll('\r\n', '\n');
 try {
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema extensions;
+    create extension pgcrypto with schema extensions;
+    create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create function auth.role() returns text language sql stable as $$select nullif(current_setting('request.jwt.claim.role',true),'')$$;
-    grant usage on schema public, auth to anon, authenticated, service_role;
+    grant usage on schema public, auth, extensions to anon, authenticated, service_role;
     grant execute on all functions in schema auth to anon, authenticated, service_role;`);
   const files = readdirSync(dir).filter(f => f.endsWith('.sql') && f !== migration && f !== repair).sort();
   for (const name of files) {
