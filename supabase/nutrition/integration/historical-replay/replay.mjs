@@ -24,7 +24,8 @@ const remote = [
 const relationGuardsVersion = '20261013065001';
 const canonicalV2EvidenceFixVersion = '20261013072000';
 const productAmountProjectionVersion = '20261029060700';
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111', productAmountProjectionVersion];
+const informationInboxVersion = '20261106135251';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111', productAmountProjectionVersion, informationInboxVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -330,6 +331,19 @@ async function replay(label, final, kaguriId) {
     console.log('Applying read-time exact product amount projection locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_product_amount_projection.sql'), 'utf8'));
+
+    stage(informationInboxVersion, project.migrationsDir);
+    console.log('Applying owner-private Fitness information inbox locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, `do $$ begin
+      if not (select relrowsecurity from pg_class where oid='public.fitness_information_inbox'::regclass) then
+        raise exception 'Information inbox RLS must remain enabled';
+      end if;
+      if public.fitness_information_record_valid('{"schema_version":"unsupported"}') then
+        raise exception 'Unsupported information payload must be rejected';
+      end if;
+    end $$;
+    select 'PASS Fitness information inbox migration and fail-closed validation';`);
 
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
