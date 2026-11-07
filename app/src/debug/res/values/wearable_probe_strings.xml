@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wearable_probe_label">HC Probe (debug)</string>
+    <string name="wearable_probe_rationale_label">HC Probe 데이터 사용 안내</string>
+</resources>
