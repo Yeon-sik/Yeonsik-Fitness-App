@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Debug-only additions for the wearable PR0 probe (K-01). qa and release builds use their own
-  source sets and never merge this file, so they get no Health Connect permission, activity or
-  dependency. See docs/WEARABLE_COMMON_INTERFACE_PLAN.md §9 and docs/wearable/PR0_PROBE_RESULT.md.
+  source sets and never merge this diagnostic launcher. The main source set now provides the
+  read-only workout importer and its permissions. See docs/WEARABLE_COMMON_INTERFACE_PLAN.md §9 and docs/wearable/PR0_PROBE_RESULT.md.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 

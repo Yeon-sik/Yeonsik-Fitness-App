@@ -10,6 +10,16 @@ import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper
  * the production file; a SQLiteOpenHelper must never manage the same file afterward.
  */
 object FitnessRoomMigrations {
+    val V61_TO_V62 = object : Migration(61, 62) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS wearable_workouts (user_id TEXT NOT NULL, " +
+                "origin TEXT NOT NULL, provider_id TEXT NOT NULL, title TEXT NOT NULL, " +
+                "start_time TEXT NOT NULL, end_time TEXT NOT NULL, exercise_type INTEGER NOT NULL, " +
+                "samples_json TEXT NOT NULL, linked_record_id TEXT, imported_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, origin, provider_id))")
+        }
+    }
+
     const val MINIMUM_SUPPORTED_LEGACY_VERSION = 8
 
     /**
@@ -43,6 +53,7 @@ object FitnessRoomMigrations {
             add(V58_TO_V59)
             add(V59_TO_V60)
             add(V60_TO_V61)
+            add(V61_TO_V62)
         }.toTypedArray()
     }
 
