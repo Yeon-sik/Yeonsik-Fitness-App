@@ -1696,6 +1696,7 @@ internal fun WorkoutSummaryScreen(
     }
 
     Text(session.title, fontWeight = FontWeight.Bold)
+    com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, session.recordId, session.startedAt.take(10))
     FitnessStatusBadge(
         status = FitnessSemanticStatus.SUCCESS,
         label = "완료된 운동 요약",
@@ -1922,6 +1923,7 @@ private fun AppWorkoutSessionContent(
     val groupLabels = workoutSessionGroupLabels(orderedExercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
     val isInProgress = session.status == "in_progress"
+    if (interactive) com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, session.recordId, session.startedAt.take(10))
     FitnessHeader(session.title, "${orderedExercises.size}개 종목",
         titleModifier = Modifier.workoutSharedElement(workoutSessionTitleAnchor(session.recordId), "title"))
     FitnessStatusBadge(

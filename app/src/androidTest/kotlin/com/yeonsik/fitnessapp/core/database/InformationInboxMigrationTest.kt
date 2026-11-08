@@ -88,7 +88,7 @@ class InformationInboxMigrationTest {
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             }).build())
         fun open() = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-            .addMigrations(FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59, FitnessRoomMigrations.V59_TO_V60, FitnessRoomMigrations.V60_TO_V61).build()
+            .addMigrations(FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59, FitnessRoomMigrations.V59_TO_V60, FitnessRoomMigrations.V60_TO_V61, FitnessRoomMigrations.V61_TO_V62).build()
         val profile = InformationProfile("owner", "https://project.example")
         try {
             helper.writableDatabase.execSQL("INSERT INTO weight_records(id,user_id,date,weight_kg,created_at,is_backfilled,updated_at,device_id,source_app,scope,metadata) " +
@@ -177,7 +177,7 @@ class InformationInboxMigrationTest {
                 arrayOf("owner", "local", childId, child.fingerprint, "weight", "weight", "{\"mapping\":\"preserved\"}", "applied"))
             val originalWeight = rows(old, "weight_records"); val originalInbox = rows(old, "fitness_information_inbox")
             helper.close()
-            val db = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name).addMigrations(FitnessRoomMigrations.V60_TO_V61).build()
+            val db = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name).addMigrations(FitnessRoomMigrations.V60_TO_V61, FitnessRoomMigrations.V61_TO_V62).build()
             try {
                 assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.openHelper.writableDatabase.version)
                 assertEquals(originalWeight, rows(db.openHelper.readableDatabase, "weight_records"))
