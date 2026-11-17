@@ -20,38 +20,36 @@
 
 [Sideloadly 설치 및 문제 해결](https://sideloadly.io/faq) · [Apple 개발자 모드](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device) · [무료 Apple 계정 제한](https://developer.apple.com/help/account/basics/about-your-developer-account/)
 
-## 기존 SwiftUI와 KMP 검증 호스트
+## 첫 운동과 데이터 보존 확인
 
-This is the M6/M7 proof host, not a production iOS implementation. It imports the static `YeonsikShared` KMP framework and renders values obtained from shared `AccountScope`, `WorkoutPerformanceCalculator`, `CardioActivityType`, `BodyMetricsApplicationService`, `BodyProfile`, and the M7 `IosBodyMetricsRepository`.
+1. **운동 → 루틴 만들기**에서 이름과 종목을 등록한다. 루틴을 열고 **운동 시작**을 누른다.
+2. **세트 추가**에서 중량, kg 또는 lb, 횟수, 선택 사항인 RIR을 입력하고 저장한다. 진행 중 세트를 탭하면 수정할 수 있고, 왼쪽으로 밀면 삭제할 수 있다.
+3. 앱 전환기에서 앱을 종료하고 다시 열어 **진행 중**에서 세트를 확인한다. **운동 완료**를 누른 뒤 **기록**에서 운동 이름, 종목, 세트 값이 보이는지 확인한다.
+4. 같은 Apple 계정과 최종 번들 ID로 Sideloadly에서 덮어 설치한다. 다시 실행해 **기록**에서 위 값을 비교하고, 새 루틴과 세트를 저장해 본다. 무료 프로비저닝 만료 전 갱신과 만료 후 갱신은 실행한 경우에만 각각 확인으로 기록한다.
 
-The intended boundary is:
+데이터는 앱 컨테이너에 남는다. iPhone에서 앱을 삭제하면 운동 데이터도 삭제되며, 번들 ID를 변경하면 새 앱의 빈 저장소가 열린다. 앱 내 백업·복원은 다음 단계다. 설치 오류가 나면 기존 앱을 유지한 상태에서 계정과 번들 ID 설정을 확인한다. [Apple 앱 업그레이드 검증](https://developer.apple.com/library/archive/technotes/tn2319/) · [Sideloadly 자동 갱신](https://sideloadly.io/faq)
 
-```text
-SwiftUI → shared BodyMetricsApplicationService → shared BodyMetricsRepositoryApi → M7 iOS in-memory adapter
-```
+## iOS 구현 범위
 
-The Body screen supports shared-service-backed lookup, add, edit, delete, and profile save. The iOS adapter is explicitly in-memory for M7 functional-parity proof; it is not production persistence and must be replaceable by a durable adapter before a commercial iOS release.
+- SwiftUI에서 루틴 생성·편집, 루틴을 바탕으로 운동 시작, 진행 중 세트 추가·수정·삭제, 완료 이력 상세 조회를 지원한다. 세트에는 원래 입력값·단위, kg 환산값, 횟수, 선택 RIR 0~5를 저장한다. 시작 시 루틴 이름과 종목을 복사하므로 이후 루틴 편집이 완료 기록에 반영되지 않는다.
+- 기존 `iosArm64`와 `iosSimulatorArm64`가 빌드하는 정적 `YeonsikShared` 프레임워크의 `MassUnit`과 `WorkoutPerformanceCalculator`로 중량 환산과 Epley 추정 1RM을 계산한다. Xcode의 기존 `embedAndSignAppleFrameworkForXcode` 단계가 프레임워크를 연결한다.
+- `WorkoutStore`는 `Library/Application Support/FitnessWorkout/workouts.json`에 형식 버전 1로 루틴·진행 중 운동·완료 기록을 저장한다. 파일 작업은 전용 actor에서 처리하고, 쓰기가 성공한 뒤 화면 상태를 갱신한다. 스키마가 다르거나 읽을 수 없는 파일은 유지하며 오류를 표시한다. Android SQLite/Room은 기존 저장 경로를 사용한다.
+- 신체 기록은 종전 Debug 데모에서 확인할 수 있으며 메모리에만 유지된다. 미이식 범위에는 Android 운동 카탈로그와 기록 가져오기, 특수 세트 및 휴식 타이머, 영구 신체 기록, 식사·영양·보충제, GPS·지도·웨어러블, 계정·기기 간 동기화가 있다.
 
-It intentionally contains no Room, Android context, GPS/Maps, Supabase, HealthKit, CoreLocation, MapKit, or production persistence/network adapter.
+## CI 검증 범위
 
-## macOS host verification
+| 확인 항목 | 확인 방법 |
+| --- | --- |
+| iPhone ARM64 바이너리 | `bash scripts/ios/package-device-ipa.sh`가 `iphoneos` Release를 빌드하고 패키지를 검사 |
+| 시뮬레이터 재실행 | `bash scripts/ios/test-workout-simulator.sh`가 루틴과 테스트 세트를 만든 뒤 진행 중·완료 상태에서 앱을 종료하고 재실행 |
+| 시뮬레이터 덮어 설치 | 같은 iOS 시뮬레이터에서 앱을 덮어 설치하고 저장 파일의 SHA-256을 비교 |
+| iPhone 설치, 실행, 재서명 | Windows와 iPhone에서 위 설치 및 데이터 보존 절차를 직접 실행 |
 
-Run these on macOS with Xcode installed from the repository root:
+Android 검증은 동일 워크플로의 Android 단위·빌드 및 에뮬레이터 작업에서 수행한다.
 
-```bash
-./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-find shared/build -name YeonsikShared.h -print
-grep -n "AccountScope\|WorkoutPerformanceCalculator\|CardioActivityType\|BodyMetricsApplicationService\|BodyMetricsRepositoryApi\|IosBodyMetricsRepository\|BodyProfile" "<path-to-YeonsikShared.h>"
+## 다음 이식 순서
 
-open iosApp/iosApp.xcodeproj
-xcodebuild \
-  -project iosApp/iosApp.xcodeproj \
-  -scheme YeonsikIosProof \
-  -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' \
-  build
-```
-
-In Xcode, select an available simulator, run `YeonsikIosProof`, and confirm that the M6 shared-derived values and the Body screen are visible. On the Body screen, verify add → lookup → edit → delete and profile save. The generated Objective-C header is the source of truth for Swift spellings; if it differs from `ContentView.swift` or `BodyView.swift`, update the calls from that header before treating the host proof as verified. Owner A/B isolation must also be checked with the adapter or a small macOS harness; the screen intentionally uses one proof owner.
-
-Xcode's `Build YeonsikShared framework` run-script phase calls Gradle's standard `:shared:embedAndSignAppleFrameworkForXcode` task. It must remain enabled; no CocoaPods or external dependency manager is required.
+1. iPhone의 설치·재서명을 실기기에서 확인한 뒤 iOS 백업·복원과 Android 운동 기록 가져오기를 구현한다. 가져오기는 기존 `yeonsik.workout-transfer` 계약과 중복 방지를 먼저 검증한다.
+2. 운동 카탈로그, 기록 유형, 특수 세트 및 휴식 타이머를 이식한다.
+3. 기존 KMP 신체 기록 서비스에 영구 저장을 연결하고 식사·영양·보충제를 이식한다.
+4. GPS·웨어러블·계정 동기화는 iOS 권한과 무료 서명에서 사용 가능한 기능을 먼저 확인한다.
