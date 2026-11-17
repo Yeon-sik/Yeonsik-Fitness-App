@@ -172,6 +172,7 @@ jobs:
             build/ios-sideload/Yeonsik-Fitness-unsigned.ipa
             build/ios-sideload/Yeonsik-Fitness-unsigned.ipa.sha256
           if-no-files-found: error
+          overwrite: true
           retention-days: 14
 
       - name: List available simulator devices
@@ -196,4 +197,5 @@ jobs:
           name: fitness-ios-simulator-failure
           path: build/ios-sideload/WorkoutSmoke-*.xcresult
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 7

@@ -26,6 +26,8 @@ if not iphones:
 print(max(iphones)[-1])
 ')"
 
+# Boot explicitly so XCTest can reuse an already running device.
+xcrun simctl bootstatus "$simulator" -b
 xcodebuild \
     -project iosApp/iosApp.xcodeproj \
     -scheme YeonsikIosProof \
@@ -39,10 +41,13 @@ xcodebuild \
 
 records_path() {
     local container
-    container="$(xcrun simctl get_app_container "$simulator" "$bundle_id" data)"
+    container="$(xcrun simctl get_app_container "$simulator" "$bundle_id" data)" || return
+    [[ -n "$container" ]] || return 1
     printf '%s/Library/Application Support/FitnessWorkout/workouts.json\n' "$container"
 }
 
+# Xcode can shut down the simulator after testing. Container lookup requires it to be booted.
+xcrun simctl bootstatus "$simulator" -b
 records="$(records_path)"
 python3 - "$records" <<'PY'
 import json
@@ -62,7 +67,8 @@ PY
 
 before="$(shasum -a 256 "$records" | cut -d ' ' -f 1)"
 xcrun simctl install "$simulator" "$app"
-after="$(shasum -a 256 "$(records_path)" | cut -d ' ' -f 1)"
+reinstalled_records="$(records_path)"
+after="$(shasum -a 256 "$reinstalled_records" | cut -d ' ' -f 1)"
 [[ "$before" == "$after" ]]
 xcrun simctl launch "$simulator" "$bundle_id"
 echo 'Workout store preserved byte-for-byte after simulator install over existing app.'
