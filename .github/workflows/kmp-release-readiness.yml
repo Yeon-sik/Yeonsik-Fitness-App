@@ -138,7 +138,7 @@ jobs:
           if-no-files-found: ignore
 
   ios-host:
-    name: iOS framework and Swift host gates
+    name: iPhone IPA and iOS simulator gates
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -158,6 +158,21 @@ jobs:
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Build unsigned iPhone IPA
+        if: github.event_name != 'pull_request'
+        run: bash scripts/ios/package-device-ipa.sh
+
+      - name: Upload unsigned iPhone IPA
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitness-ios-unsigned-ipa
+          path: |
+            build/ios-sideload/Yeonsik-Fitness-unsigned.ipa
+            build/ios-sideload/Yeonsik-Fitness-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
 
       - name: List available simulator devices
         run: xcrun simctl list devices available
