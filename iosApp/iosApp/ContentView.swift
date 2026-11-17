@@ -203,8 +203,8 @@ private struct RoutineEditor: View {
 private struct ActiveWorkoutView: View {
     private struct SetSelection: Identifiable {
         let exercise: LoggedExercise
-        let set: LoggedSet?
-        var id: UUID { set?.id ?? exercise.id }
+        let existingSet: LoggedSet?
+        var id: UUID { existingSet?.id ?? exercise.id }
     }
 
     @EnvironmentObject private var store: WorkoutStore
@@ -225,7 +225,7 @@ private struct ActiveWorkoutView: View {
                 Section(exercise.name) {
                     ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
                         Button {
-                            selection = SetSelection(exercise: exercise, set: set)
+                            selection = SetSelection(exercise: exercise, existingSet: set)
                         } label: {
                             SetRow(number: index + 1, set: set)
                         }
@@ -235,7 +235,7 @@ private struct ActiveWorkoutView: View {
                         }
                     }
                     Button {
-                        selection = SetSelection(exercise: exercise, set: nil)
+                        selection = SetSelection(exercise: exercise, existingSet: nil)
                     } label: {
                         Label("세트 추가", systemImage: "plus")
                     }
@@ -256,7 +256,7 @@ private struct ActiveWorkoutView: View {
             }
         }
         .sheet(item: $selection) { item in
-            SetEditor(workoutID: workout.id, exercise: item.exercise, set: item.set)
+            SetEditor(workoutID: workout.id, exercise: item.exercise, set: item.existingSet)
         }
         .confirmationDialog("진행 중 운동을 삭제할까요?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
             Button("운동 삭제", role: .destructive) { endWorkout(id: workout.id, completed: false) }
