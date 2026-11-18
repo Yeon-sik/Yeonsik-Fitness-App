@@ -10,7 +10,20 @@
 		A11A00010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000002 /* ContentView.swift */; };
 		A11A00010000000000000004 /* BodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000005 /* BodyView.swift */; };
 		A11A00010000000000000003 /* YeonsikShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000003 /* YeonsikShared.framework */; };
+		A11A00010000000000000005 /* WorkoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000006 /* WorkoutStore.swift */; };
+		A11A00010000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000007 /* Assets.xcassets */; };
+		A11A00010000000000000007 /* WorkoutFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000008 /* WorkoutFlowTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A11A00110000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A11A00080000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A11A00050000000000000001;
+			remoteInfo = YeonsikIosProof;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A11A00020000000000000001 /* YeonsikIosProofApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YeonsikIosProofApp.swift; sourceTree = "<group>"; };
@@ -18,6 +31,10 @@
 		A11A00020000000000000005 /* BodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyView.swift; sourceTree = "<group>"; };
 		A11A00020000000000000003 /* YeonsikShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = YeonsikShared.framework; path = YeonsikShared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11A00020000000000000004 /* YeonsikIosProof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YeonsikIosProof.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11A00020000000000000006 /* WorkoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStore.swift; sourceTree = "<group>"; };
+		A11A00020000000000000007 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A11A00020000000000000008 /* WorkoutFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFlowTests.swift; sourceTree = "<group>"; };
+		A11A00020000000000000009 /* YeonsikIosProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YeonsikIosProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,6 +53,7 @@
 			isa = PBXGroup;
 			children = (
 				A11A00040000000000000002 /* iosApp */,
+				A11A00040000000000000005 /* iosAppUITests */,
 				A11A00040000000000000003 /* Frameworks */,
 				A11A00040000000000000004 /* Products */,
 			);
@@ -47,6 +65,8 @@
 				A11A00020000000000000005 /* BodyView.swift */,
 				A11A00020000000000000001 /* YeonsikIosProofApp.swift */,
 				A11A00020000000000000002 /* ContentView.swift */,
+				A11A00020000000000000006 /* WorkoutStore.swift */,
+				A11A00020000000000000007 /* Assets.xcassets */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -63,8 +83,15 @@
 			isa = PBXGroup;
 			children = (
 				A11A00020000000000000004 /* YeonsikIosProof.app */,
+				A11A00020000000000000009 /* YeonsikIosProofUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A11A00040000000000000005 /* iosAppUITests */ = {
+			isa = PBXGroup;
+			children = (A11A00020000000000000008 /* WorkoutFlowTests.swift */,);
+			path = iosAppUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -77,6 +104,7 @@
 				A11A00070000000000000002 /* Build YeonsikShared framework */,
 				A11A00070000000000000001 /* Sources */,
 				A11A00030000000000000001 /* Frameworks */,
+				A11A00070000000000000003 /* Resources */,
 			);
 			buildRules = ();
 			dependencies = ();
@@ -85,12 +113,29 @@
 			productReference = A11A00020000000000000004 /* YeonsikIosProof.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A11A00050000000000000002 /* YeonsikIosProofUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11A00060000000000000003 /* Build configuration list for PBXNativeTarget "YeonsikIosProofUITests" */;
+			buildPhases = (A11A00070000000000000004 /* Sources */,);
+			buildRules = ();
+			dependencies = (A11A00100000000000000001 /* PBXTargetDependency */,);
+			name = YeonsikIosProofUITests;
+			productName = YeonsikIosProofUITests;
+			productReference = A11A00020000000000000009 /* YeonsikIosProofUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		A11A00080000000000000001 /* Project object */ = {
 			isa = PBXProject;
-			attributes = { LastUpgradeCheck = 1600; TargetAttributes = { A11A00050000000000000001 = { CreatedOnToolsVersion = 16.0; }; }; };
+			attributes = {
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A11A00050000000000000001 = { CreatedOnToolsVersion = 16.0; };
+					A11A00050000000000000002 = { CreatedOnToolsVersion = 16.0; TestTargetID = A11A00050000000000000001; };
+				};
+			};
 			buildConfigurationList = A11A00060000000000000002 /* Build configuration list for PBXProject "iosApp" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
@@ -100,9 +145,18 @@
 			productRefGroup = A11A00040000000000000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A11A00050000000000000001 /* YeonsikIosProof */,);
+			targets = (A11A00050000000000000001 /* YeonsikIosProof */, A11A00050000000000000002 /* YeonsikIosProofUITests */,);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A11A00070000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (A11A00010000000000000006 /* Assets.xcassets in Resources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A11A00070000000000000002 /* Build YeonsikShared framework */ = {
@@ -126,10 +180,25 @@
 				A11A00010000000000000004 /* BodyView.swift in Sources */,
 				A11A00010000000000000001 /* YeonsikIosProofApp.swift in Sources */,
 				A11A00010000000000000002 /* ContentView.swift in Sources */,
+				A11A00010000000000000005 /* WorkoutStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A11A00070000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (A11A00010000000000000007 /* WorkoutFlowTests.swift in Sources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A11A00100000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A11A00050000000000000001 /* YeonsikIosProof */;
+			targetProxy = A11A00110000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A11A00090000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_MODULES = YES; }; name = Debug; };
@@ -137,17 +206,22 @@
 		A11A00090000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Yeonsik Fitness";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -156,13 +230,17 @@
 		A11A00090000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Yeonsik Fitness";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -172,11 +250,42 @@
 			};
 			name = Release;
 		};
+		A11A00090000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = YeonsikIosProof;
+			};
+			name = Debug;
+		};
+		A11A00090000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = YeonsikIosProof;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		A11A00060000000000000001 /* Build configuration list for PBXNativeTarget "YeonsikIosProof" */ = {isa = XCConfigurationList; buildConfigurations = (A11A00090000000000000003 /* Debug */, A11A00090000000000000004 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A11A00060000000000000002 /* Build configuration list for PBXProject "iosApp" */ = {isa = XCConfigurationList; buildConfigurations = (A11A00090000000000000001 /* Debug */, A11A00090000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A11A00060000000000000003 /* Build configuration list for PBXNativeTarget "YeonsikIosProofUITests" */ = {isa = XCConfigurationList; buildConfigurations = (A11A00090000000000000005 /* Debug */, A11A00090000000000000006 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = A11A00080000000000000001 /* Project object */;

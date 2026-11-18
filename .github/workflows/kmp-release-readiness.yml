@@ -138,7 +138,7 @@ jobs:
           if-no-files-found: ignore
 
   ios-host:
-    name: iOS framework and Swift host gates
+    name: iPhone IPA and iOS simulator gates
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -159,6 +159,22 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
+      - name: Build unsigned iPhone IPA
+        if: github.event_name != 'pull_request'
+        run: bash scripts/ios/package-device-ipa.sh
+
+      - name: Upload unsigned iPhone IPA
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitness-ios-unsigned-ipa
+          path: |
+            build/ios-sideload/Yeonsik-Fitness-unsigned.ipa
+            build/ios-sideload/Yeonsik-Fitness-unsigned.ipa.sha256
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
       - name: List available simulator devices
         run: xcrun simctl list devices available
 
@@ -171,14 +187,15 @@ jobs:
           :shared:iosSimulatorArm64Test
           :shared:linkDebugFrameworkIosSimulatorArm64
 
-      - name: Verify Xcode project and build the SwiftUI host
-        run: |
-          xcodebuild -list -project iosApp/iosApp.xcodeproj
-          xcodebuild \
-            -project iosApp/iosApp.xcodeproj \
-            -scheme YeonsikIosProof \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+      - name: Run SwiftUI workout flow, relaunch and reinstall checks
+        run: bash scripts/ios/test-workout-simulator.sh
+
+      - name: Keep simulator test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitness-ios-simulator-failure
+          path: build/ios-sideload/WorkoutSmoke-*.xcresult
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
