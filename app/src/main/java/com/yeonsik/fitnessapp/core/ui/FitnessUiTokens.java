@@ -16,26 +16,26 @@ public final class FitnessUiTokens {
     }
 
     // Fixed brand and activity coverage colors are shared across light and dark modes.
-    public static final int COLOR_BRAND_BLUE = 0xFF38BDF8;
+    public static final int COLOR_BRAND_BLUE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_BRAND_BLUE;
     public static final int COLOR_HOME_ACTIVITY_FULL_COVERAGE = 0xFF00FFFF;
 
     // Light semantic tokens
-    public static final int COLOR_BACKGROUND = 0xFFF5F5F7;
-    public static final int COLOR_SURFACE = 0xFFFFFFFF;
-    public static final int COLOR_SUBTLE = 0xFFEEEFF2;
-    public static final int COLOR_TEXT = 0xFF1C1C1E;
-    public static final int COLOR_MUTED = 0xFF686C75;
+    public static final int COLOR_BACKGROUND = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_BACKGROUND;
+    public static final int COLOR_SURFACE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_SURFACE;
+    public static final int COLOR_SUBTLE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_SUBTLE;
+    public static final int COLOR_TEXT = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_TEXT;
+    public static final int COLOR_MUTED = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_MUTED;
     public static final int COLOR_TERTIARY = COLOR_MUTED;
-    public static final int COLOR_BORDER = 0xFFE1E3E8;
+    public static final int COLOR_BORDER = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_BORDER;
     // Retained names are compatibility aliases for the fixed brand color.
     public static final int COLOR_PASTEL_BLUE = COLOR_BRAND_BLUE;
-    public static final int COLOR_BLUE_CONTAINER = 0xFFE0F2FE;
-    public static final int COLOR_BLUE_INK = 0xFF173B55;
+    public static final int COLOR_BLUE_CONTAINER = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_BLUE_CONTAINER;
+    public static final int COLOR_BLUE_INK = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_BLUE_INK;
     public static final int COLOR_PRIMARY = COLOR_BRAND_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
     public static final int COLOR_POSITIVE = 0xFF2E7D5B;
-    public static final int COLOR_NEGATIVE = 0xFFC0453E;
+    public static final int COLOR_NEGATIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_NEGATIVE;
     public static final int COLOR_WARNING = 0xFF8A5A00;
     public static final int COLOR_CHART_CALORIES = 0xFF2F6F9F;
     public static final int COLOR_CHART_CARBS = 0xFF2B7A78;
@@ -51,22 +51,22 @@ public final class FitnessUiTokens {
     public static final int COLOR_INVERSE_LINE = 0x1AFFFFFF;
 
     // Dark semantic tokens
-    public static final int COLOR_D_BACKGROUND = 0xFF090B0E;
-    public static final int COLOR_D_SURFACE = 0xFF1C1E22;
-    public static final int COLOR_D_SUBTLE = 0xFF272A30;
-    public static final int COLOR_D_TEXT = 0xFFF5F5F7;
-    public static final int COLOR_D_MUTED = 0xFFADB0B8;
+    public static final int COLOR_D_BACKGROUND = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_BACKGROUND;
+    public static final int COLOR_D_SURFACE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_SURFACE;
+    public static final int COLOR_D_SUBTLE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_SUBTLE;
+    public static final int COLOR_D_TEXT = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_TEXT;
+    public static final int COLOR_D_MUTED = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_MUTED;
     public static final int COLOR_D_TERTIARY = COLOR_D_MUTED;
-    public static final int COLOR_D_BORDER = 0xFF393D45;
+    public static final int COLOR_D_BORDER = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_BORDER;
     public static final int COLOR_D_PASTEL_BLUE = COLOR_BRAND_BLUE;
-    public static final int COLOR_D_BLUE_CONTAINER = 0xFF12394D;
-    public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
-    public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
+    public static final int COLOR_D_BLUE_CONTAINER = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_BLUE_CONTAINER;
+    public static final int COLOR_D_BLUE_INK = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_BLUE_INK;
+    public static final int COLOR_D_ON_PASTEL_BLUE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_ON_PASTEL_BLUE;
     public static final int COLOR_D_HERO_END = 0xFF214A63;
     public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
     public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
     public static final int COLOR_D_POSITIVE = 0xFF69D39E;
-    public static final int COLOR_D_NEGATIVE = 0xFFFF8A80;
+    public static final int COLOR_D_NEGATIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_NEGATIVE;
     public static final int COLOR_D_WARNING = 0xFFFFCA68;
     public static final int COLOR_D_ACCENT = COLOR_D_PASTEL_BLUE;
     public static final int COLOR_D_ON_ACCENT_MUTED = 0xB80E2938;
@@ -77,12 +77,12 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_BAR_EMPTY = 0x1AF5F8FA;
 
     // Shape/depth tokens
-    public static final int CARD_RADIUS_DP = 20;
+    public static final int CARD_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.CARD_RADIUS_DP;
     public static final int HERO_RADIUS_DP = 24;
-    public static final int INPUT_RADIUS_DP = 14;
+    public static final int INPUT_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.INPUT_RADIUS_DP;
     public static final int BUTTON_RADIUS_DP = 14;
     public static final int CHIP_RADIUS_DP = 999;
-    public static final int SHEET_RADIUS_DP = 24;
+    public static final int SHEET_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.SHEET_RADIUS_DP;
     public static final int DEPTH_FLAT_DP = 0;
     public static final int DEPTH_SURFACE_DP = 1;
     public static final int DEPTH_EMPHASIS_DP = 3;
@@ -95,11 +95,11 @@ public final class FitnessUiTokens {
     public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;
     public static final int SECTION_TOP_SPACING_DP = 26;
     public static final int SECTION_BOTTOM_SPACING_DP = 10;
-    public static final int CARD_GAP_DP = 12;
+    public static final int CARD_GAP_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.CARD_GAP_DP;
     public static final int HERO_PADDING_DP = 24;
     public static final int HOME_ACTION_MIN_HEIGHT_DP = 88;
     public static final int FIELD_LABEL_GAP_DP = 6;
-    public static final int FORM_ITEM_GAP_DP = 8;
+    public static final int FORM_ITEM_GAP_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.FORM_ITEM_GAP_DP;
     public static final int NUTRITION_ROW_MIN_HEIGHT_DP = 56;
     public static final int NUTRITION_ROW_VERTICAL_PADDING_DP = 4;
     public static final int NUTRITION_VALUE_WIDTH_DP = 96;

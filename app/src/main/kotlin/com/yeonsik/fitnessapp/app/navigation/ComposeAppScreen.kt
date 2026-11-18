@@ -92,7 +92,8 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.config.LauncherIconController
 import com.yeonsik.fitnessapp.ui.AppUiActions
-import com.yeonsik.fitnessapp.feature.body.ui.*
+import com.yeonsik.fitness.shared.feature.body.ui.BodyMetricsEditorDialog
+import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
@@ -285,8 +286,6 @@ private fun AppRoot(
         .observeAsState(ManualPastWorkoutUiState.Idle)
     val workoutDeleteConfirmationState by viewModels.getWorkoutSession().deleteConfirmationState
         .observeAsState(WorkoutDeleteConfirmationUiState.Idle)
-    val bodyEditorState by viewModels.getBodyMetrics().editorState
-        .observeAsState(BodyMetricsEditorUiState.Idle)
     val profileEditorState by viewModels.getDevelopment().profileEditorState
         .observeAsState(DevelopmentProfileEditorUiState.Idle)
     val goalEditorState by viewModels.getDevelopment().goalEditorState
@@ -398,10 +397,8 @@ private fun AppRoot(
     }
 
     val mealRecordNotice = (mealState as? MealUiState.Ready)?.notice
-    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealRecordNotice) {
+    LaunchedEffect(workoutAction, workoutTerminalEvent, mealRecordNotice) {
         val recordsChanged = workoutAction != null || workoutTerminalEvent != null ||
-            bodyEditorState is BodyMetricsEditorUiState.Saved ||
-            bodyEditorState is BodyMetricsEditorUiState.Deleted ||
             mealRecordNotice != null
         if (recordsChanged) {
             viewModels.getRecords().markStale()
@@ -821,20 +818,7 @@ private fun AppRoot(
         override fun notify(message: String) = host.toast(message)
     }
 
-    val editorActions = object : BodyMetricsEditorActions, DevelopmentEditorActions {
-        override fun save(
-            recordId: String?,
-            date: String,
-            weightKg: Double,
-            memo: String
-        ) = viewModels.getBodyMetrics().save(
-            AccountScope(ownerId), recordId, date, weightKg, memo
-        )
-
-        override fun delete(recordId: String) = viewModels.getBodyMetrics().delete(
-            AccountScope(ownerId), recordId
-        )
-
+    val editorActions = object : DevelopmentEditorActions {
         override fun saveProfile(
             profile: BodyProfile?,
             weightRecordId: String?,
@@ -863,30 +847,6 @@ private fun AppRoot(
         override fun dismissRecovery() = viewModels.getDevelopment().dismissRecoveryEditor()
 
         override fun notify(message: String) = host.toast(message)
-    }
-
-    LaunchedEffect(bodyEditorState) {
-        when (val state = bodyEditorState) {
-            is BodyMetricsEditorUiState.Saved -> {
-                host.toast("체중 기록을 저장했습니다.")
-                viewModels.getHome().markStale()
-                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
-                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
-                viewModels.getBodyMetrics().dismissEditor()
-            }
-            is BodyMetricsEditorUiState.Deleted -> {
-                host.toast("체중 기록을 삭제했습니다.")
-                viewModels.getHome().markStale()
-                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
-                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
-                viewModels.getBodyMetrics().dismissEditor()
-            }
-            is BodyMetricsEditorUiState.Error -> {
-                if (state.ownerId == ownerId) host.toast(state.message)
-                viewModels.getBodyMetrics().dismissEditor()
-            }
-            else -> Unit
-        }
     }
 
     LaunchedEffect(profileEditorState) {
@@ -1141,7 +1101,27 @@ private fun AppRoot(
                 )
             }
         }
-        BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
+        BodyMetricsEditorDialog(
+            controller = viewModels.getBodyMetrics().editor,
+            account = AccountScope(ownerId),
+            unit = unit,
+            formatInput = MassFormatter::formatInput,
+            onRecordsChanged = {
+                val account = AccountScope(ownerId)
+                viewModels.getRecords().markStale()
+                viewModels.getStatistics().markStale()
+                viewModels.getDevelopment().markStale()
+                if (destinationScreen == FitnessScreen.RECORDS) {
+                    viewModels.getRecords().enterIfNeeded(
+                        account, navigationState.today, navigationState.selectedRecordsDate
+                    )
+                }
+                viewModels.getHome().markStale()
+                viewModels.getHome().enter(account, routeDate)
+                viewModels.getDevelopment().enter(account, navigationState.today)
+            },
+            notify = { host.toast(it) }
+        )
         DevelopmentProfileEditorDialog(profileEditorState, ownerId, unit, editorActions)
         DevelopmentGoalEditorDialog(
             goalEditorState,

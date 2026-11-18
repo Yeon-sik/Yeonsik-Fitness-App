@@ -5,9 +5,16 @@ import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsRepositoryApi
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
 import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
+import com.yeonsik.fitness.shared.feature.body.ui.BodyMetricsEditorController
+import com.yeonsik.fitness.shared.feature.body.ui.BodyMetricsEditorState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class BodyMetricsApplicationServiceTest {
@@ -44,6 +51,32 @@ class BodyMetricsApplicationServiceTest {
         val id = repository.addBodyMetric(ownerB, "2026-09-20", 80.0, "owner b")
         assertEquals("owner b", repository.bodyMetricEntryById(ownerB, id)?.memo)
         assertNull(repository.bodyMetricForDate(AccountScope("owner-a"), "2026-09-20"))
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun dismissPreventsALateOpenAndASaveConsumesItsDraftOnlyOnce() = runTest {
+        val repository = FakeBodyRepository()
+        val scope = AccountScope("owner-a")
+        val date = "2026-09-20"
+        val editor = BodyMetricsEditorController(
+            BodyMetricsApplicationService(repository, scope.ownerId), this,
+            StandardTestDispatcher(testScheduler)
+        )
+
+        editor.open(scope, date, null)
+        editor.dismiss()
+        runCurrent()
+        assertIs<BodyMetricsEditorState.Idle>(editor.state.value)
+
+        editor.open(scope, date, null)
+        runCurrent()
+        val draft = assertIs<BodyMetricsEditorState.Ready>(editor.state.value)
+        editor.save(draft, date, 70.25)
+        editor.save(draft, date, 81.0)
+        runCurrent()
+        assertIs<BodyMetricsEditorState.Finished>(editor.state.value)
+        assertEquals(70.25, repository.bodyMetricForDate(scope, date)?.weightKg)
     }
 
     private class FakeBodyRepository : BodyMetricsRepositoryApi {

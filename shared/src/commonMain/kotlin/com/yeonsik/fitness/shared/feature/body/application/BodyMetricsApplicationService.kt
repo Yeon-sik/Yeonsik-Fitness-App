@@ -3,6 +3,8 @@ package com.yeonsik.fitness.shared.feature.body.application
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsRepositoryApi
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
+import kotlin.concurrent.Volatile
 
 /** Shared editor use cases for Android Room and the iOS adapter. */
 class BodyMetricsApplicationService(
@@ -13,7 +15,7 @@ class BodyMetricsApplicationService(
         requireNotNull(repository) { "체중 저장소가 필요합니다." }
     }
 
-    private var ownerId: String = requireOwner(ownerId)
+    @Volatile private var ownerId: String = requireOwner(ownerId)
 
     fun setOwnerId(ownerId: String) {
         this.ownerId = requireOwner(ownerId)
@@ -48,6 +50,11 @@ class BodyMetricsApplicationService(
     fun delete(scope: AccountScope, recordId: String) {
         requireScope(scope)
         repository.deleteBodyMetric(scope, recordId)
+    }
+
+    fun recentEntries(scope: AccountScope): List<BodyReadEntry> {
+        requireScope(scope)
+        return repository.bodyMetricEntriesForDate(scope, null)
     }
 
     fun loadProfile(scope: AccountScope): BodyProfile {

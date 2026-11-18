@@ -187,7 +187,7 @@ jobs:
           :shared:iosSimulatorArm64Test
           :shared:linkDebugFrameworkIosSimulatorArm64
 
-      - name: Run SwiftUI workout flow, relaunch and reinstall checks
+      - name: Run workout and shared body UI, relaunch and reinstall checks
         run: bash scripts/ios/test-workout-simulator.sh
 
       - name: Keep simulator test results on failure

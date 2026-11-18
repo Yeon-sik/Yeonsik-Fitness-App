@@ -55,6 +55,78 @@ final class WorkoutFlowTests: XCTestCase {
     }
 
     @MainActor
+    func testSharedBodyEditorPersistsAndBackCancels() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let bodyTab = app.tabBars.buttons["체중"]
+        let add = app.descendants(matching: .any)["weight-add"].firstMatch
+        let date = app.descendants(matching: .any)["weight-date"].firstMatch
+        let select = app.descendants(matching: .any)["weight-date-confirm"].firstMatch
+        let input = app.textFields["weight-input"].firstMatch
+        let save = app.descendants(matching: .any)["weight-save"].firstMatch
+        let record = app.descendants(matching: .any)["weight-record"].firstMatch
+
+        tap(bodyTab)
+        tap(add)
+        tap(date)
+        XCTAssertTrue(select.waitForExistence(timeout: 15))
+        swipeBack(app)
+        waitUntilGone(select)
+        XCTAssertTrue(input.exists)
+        swipeBack(app)
+        waitUntilGone(input)
+
+        tap(add)
+        replace("70.5", in: input)
+        tap(save)
+        waitUntilGone(input)
+        XCTAssertTrue(record.waitForExistence(timeout: 15))
+
+        app.terminate()
+        app.launch()
+        tap(bodyTab)
+        tap(record)
+        XCTAssertEqual(input.value as? String, "70.5")
+        replace("72.5", in: input)
+        tap(save)
+        waitUntilGone(input)
+        tap(record)
+        XCTAssertEqual(input.value as? String, "72.5")
+        tap(app.descendants(matching: .any)["weight-delete"].firstMatch)
+        waitUntilGone(record)
+
+        tap(add)
+        replace("72.75", in: input)
+        tap(save)
+        waitUntilGone(input)
+        XCTAssertTrue(record.waitForExistence(timeout: 15))
+        app.terminate()
+    }
+
+    @MainActor
+    private func swipeBack(_ app: XCUIApplication) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.008, dy: 0.50))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.50))
+        start.press(forDuration: 0.04, thenDragTo: end)
+    }
+
+    @MainActor
+    private func waitUntilGone(_ element: XCUIElement) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 15), .completed)
+    }
+
+    @MainActor
+    private func replace(_ text: String, in field: XCUIElement) {
+        tap(field)
+        if let value = field.value as? String, value != field.placeholderValue {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
+        }
+        field.typeText(text)
+    }
+
+    @MainActor
     private func enter(_ text: String, into field: XCUIElement) {
         tap(field)
         field.typeText(text)

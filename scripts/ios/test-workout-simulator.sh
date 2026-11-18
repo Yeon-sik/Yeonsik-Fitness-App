@@ -43,13 +43,14 @@ records_path() {
     local container
     container="$(xcrun simctl get_app_container "$simulator" "$bundle_id" data)" || return
     [[ -n "$container" ]] || return 1
-    printf '%s/Library/Application Support/FitnessWorkout/workouts.json\n' "$container"
+    printf '%s/Library/Application Support/%s\n' "$container" "$1"
 }
 
 # Xcode can shut down the simulator after testing. Container lookup requires it to be booted.
 xcrun simctl bootstatus "$simulator" -b
-records="$(records_path)"
-python3 - "$records" <<'PY'
+records="$(records_path FitnessWorkout/workouts.json)"
+body_records="$(records_path FitnessBody/body-metrics.json)"
+python3 - "$records" "$body_records" <<'PY'
 import json
 import math
 import sys
@@ -63,12 +64,19 @@ assert workout["routineID"] in {routine["id"] for routine in data["routines"]}
 assert logged_set["unit"] == "lb" and logged_set["inputWeight"] == 100
 assert logged_set["reps"] == 10 and logged_set["rir"] == 2
 assert math.isclose(logged_set["weightKg"], 45.359237)
+body = json.loads(Path(sys.argv[2]).read_text())
+assert body["schemaVersion"] == 1
+assert math.isclose(body["owners"]["ios-local"]["entries"][0]["weightKg"], 72.75)
 PY
 
 before="$(shasum -a 256 "$records" | cut -d ' ' -f 1)"
+body_before="$(shasum -a 256 "$body_records" | cut -d ' ' -f 1)"
 xcrun simctl install "$simulator" "$app"
-reinstalled_records="$(records_path)"
+reinstalled_records="$(records_path FitnessWorkout/workouts.json)"
+reinstalled_body_records="$(records_path FitnessBody/body-metrics.json)"
 after="$(shasum -a 256 "$reinstalled_records" | cut -d ' ' -f 1)"
+body_after="$(shasum -a 256 "$reinstalled_body_records" | cut -d ' ' -f 1)"
 [[ "$before" == "$after" ]]
+[[ "$body_before" == "$body_after" ]]
 xcrun simctl launch "$simulator" "$bundle_id"
-echo 'Workout store preserved byte-for-byte after simulator install over existing app.'
+echo 'Workout and body stores preserved byte-for-byte after simulator install over existing app.'

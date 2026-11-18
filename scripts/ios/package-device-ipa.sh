@@ -25,6 +25,7 @@ plist="$app/Info.plist"
 executable="$(plutil -extract CFBundleExecutable raw -o - "$plist")"
 [[ "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" == 'com.yeonsik.fitness.iosproof' ]]
 [[ "$(plutil -extract CFBundleSupportedPlatforms.0 raw -o - "$plist")" == 'iPhoneOS' ]]
+[[ "$(plutil -extract CADisableMinimumFrameDurationOnPhone raw -o - "$plist")" == 'true' ]]
 [[ "$(xcrun lipo -archs "$app/$executable")" == 'arm64' ]]
 build_version="$(xcrun vtool -show-build "$app/$executable")"
 printf '%s\n' "$build_version"

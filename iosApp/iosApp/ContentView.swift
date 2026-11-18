@@ -22,7 +22,7 @@ struct ContentView: View {
 }
 
 private struct WorkoutTabs: View {
-    private enum Tab { case workout, history }
+    private enum Tab { case workout, history, body }
     private enum Route: Hashable { case routine(UUID), active }
 
     @EnvironmentObject private var store: WorkoutStore
@@ -57,11 +57,6 @@ private struct WorkoutTabs: View {
                         }
                     }
 
-                    #if DEBUG
-                    Section("개발용") {
-                        NavigationLink("신체 기록 데모") { BodyView() }
-                    }
-                    #endif
                 }
                 .navigationTitle("운동")
                 .toolbar {
@@ -91,6 +86,10 @@ private struct WorkoutTabs: View {
             NavigationStack { WorkoutHistoryView() }
                 .tabItem { Label("기록", systemImage: "clock") }
                 .tag(Tab.history)
+
+            BodyView()
+                .tabItem { Label("체중", systemImage: "scalemass") }
+                .tag(Tab.body)
         }
     }
 }

@@ -34,7 +34,7 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     private final FitnessRoomDatabase roomDatabase;
     private final BodyRoomDao bodyDao;
     private final BodyMetricsReadApi readApi;
-    private String userId;
+    private volatile String userId;
 
     public BodyMetricsRepository(@NonNull FitnessRoomDatabase roomDatabase, String userId) {
         this.roomDatabase = roomDatabase;
@@ -46,7 +46,7 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     @Override
     public String addBodyMetric(AccountScope scope, String date, double weightKg, String memo) {
         requireScope(scope);
-        return addBodyMetric(date, weightKg, memo);
+        return addForOwner(scope.getOwnerId(), date, weightKg, memo);
     }
 
     public void setUserId(String userId) {
@@ -54,19 +54,23 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     public String addBodyMetric(String date, double weightKg, String memo) {
+        return addForOwner(userId, date, weightKg, memo);
+    }
+
+    private String addForOwner(String ownerId, String date, double weightKg, String memo) {
         String recordDate = requireRecordDate(date);
         double validatedWeight = requireBodyWeight(weightKg);
-        BodyReadEntry existing = bodyMetricForDate(recordDate);
+        BodyReadEntry existing = firstForDate(ownerId, recordDate);
         if (existing != null) {
-            updateBodyMetric(existing.getId(), recordDate, validatedWeight, memo);
+            updateForOwner(ownerId, existing.getId(), recordDate, validatedWeight, memo);
             return existing.getId();
         }
 
         String id = newId();
         String now = now();
-        ensureDevice(now);
+        ensureDevice(ownerId, now);
         bodyDao.insert(new WeightRecordEntity(
-                id, userId, recordDate, validatedWeight, now, false,
+                id, ownerId, recordDate, validatedWeight, now, false,
                 null, null, now, null, DEVICE_ID, "fitness", "fitness",
                 bodyWeightMetadata(memo), 1
         ));
@@ -76,35 +80,47 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     @Override
     public BodyReadEntry bodyMetricForDate(AccountScope scope, String date) {
         requireScope(scope);
-        return bodyMetricForDate(date);
+        return firstForDate(scope.getOwnerId(), date);
     }
 
     public BodyReadEntry bodyMetricForDate(String date) {
-        List<BodyReadEntry> entries = bodyMetricEntriesForDate(date);
+        return firstForDate(userId, date);
+    }
+
+    private BodyReadEntry firstForDate(String ownerId, String date) {
+        List<BodyReadEntry> entries = entriesForOwner(ownerId, date);
         return entries.isEmpty() ? null : entries.get(0);
     }
 
     @Override
     public BodyReadEntry bodyMetricEntryById(AccountScope scope, String id) {
         requireScope(scope);
-        return bodyMetricEntryById(id);
+        return entryForOwner(scope.getOwnerId(), id);
     }
 
     public BodyReadEntry bodyMetricEntryById(String id) {
+        return entryForOwner(userId, id);
+    }
+
+    private BodyReadEntry entryForOwner(String ownerId, String id) {
         String normalized = emptyToNull(id);
-        return normalized == null ? null : toEntry(bodyDao.visibleWeight(normalized, userId));
+        return normalized == null ? null : toEntry(bodyDao.visibleWeight(normalized, ownerId));
     }
 
     @Override
     public List<BodyReadEntry> bodyMetricEntriesForDate(AccountScope scope, String date) {
         requireScope(scope);
-        return bodyMetricEntriesForDate(date);
+        return entriesForOwner(scope.getOwnerId(), date);
     }
 
     public List<BodyReadEntry> bodyMetricEntriesForDate(String date) {
+        return entriesForOwner(userId, date);
+    }
+
+    private List<BodyReadEntry> entriesForOwner(String ownerId, String date) {
         List<WeightRecordEntity> records = date == null
-                ? bodyDao.visibleWeights(userId, 20)
-                : bodyDao.visibleWeightsForDate(userId, emptyToToday(date));
+                ? bodyDao.visibleWeights(ownerId, 20)
+                : bodyDao.visibleWeightsForDate(ownerId, emptyToToday(date));
         List<BodyReadEntry> entries = new ArrayList<>();
         for (WeightRecordEntity record : records) {
             entries.add(toEntry(record));
@@ -117,16 +133,20 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
             AccountScope scope, String id, String date, double weightKg, String memo
     ) {
         requireScope(scope);
-        updateBodyMetric(id, date, weightKg, memo);
+        updateForOwner(scope.getOwnerId(), id, date, weightKg, memo);
     }
 
     public void updateBodyMetric(String id, String date, double weightKg, String memo) {
+        updateForOwner(userId, id, date, weightKg, memo);
+    }
+
+    private void updateForOwner(String ownerId, String id, String date, double weightKg, String memo) {
         if (emptyToNull(id) == null) {
             return;
         }
         bodyDao.updateVisibleWeight(
                 id,
-                userId,
+                ownerId,
                 requireRecordDate(date),
                 requireBodyWeight(weightKg),
                 bodyWeightMetadata(memo),
@@ -137,15 +157,19 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     @Override
     public void deleteBodyMetric(AccountScope scope, String id) {
         requireScope(scope);
-        deleteBodyMetric(id);
+        deleteForOwner(scope.getOwnerId(), id);
     }
 
     public void deleteBodyMetric(String id) {
+        deleteForOwner(userId, id);
+    }
+
+    private void deleteForOwner(String ownerId, String id) {
         if (emptyToNull(id) == null) {
             return;
         }
         String now = now();
-        bodyDao.tombstoneVisibleWeight(id, userId, now, now);
+        bodyDao.tombstoneVisibleWeight(id, ownerId, now, now);
     }
 
     @Override
@@ -256,9 +280,9 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
         );
     }
 
-    private void ensureDevice(String now) {
+    private void ensureDevice(String ownerId, String now) {
         roomDatabase.deviceRoomDao().upsert(new DevicesRoomEntity(
-                DEVICE_ID, userId, "Fitness Android", now, "0.1.0"
+                DEVICE_ID, ownerId, "Fitness Android", now, "0.1.0"
         ));
     }
 
