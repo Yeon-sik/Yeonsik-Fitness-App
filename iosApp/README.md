@@ -2,6 +2,8 @@
 
 This is the M6/M7 proof host, not a production iOS implementation. It imports the static `YeonsikShared` KMP framework and renders values obtained from shared `AccountScope`, `WorkoutPerformanceCalculator`, `CardioActivityType`, `BodyMetricsApplicationService`, `BodyProfile`, and the M7 `IosBodyMetricsRepository`.
 
+For iPhone build 297 and installation, use the [sideload revision](https://github.com/Yeon-sik/Yeonsik-Fitness-App/blob/c2b997b4916c0c22b2d943305173b1b5361537d2/iosApp/README.md). The planned shared screen, state, and storage wiring are defined in the [Android and iOS development standard](../docs/architecture/ANDROID_IOS_DEVELOPMENT.md).
+
 The intended boundary is:
 
 ```text

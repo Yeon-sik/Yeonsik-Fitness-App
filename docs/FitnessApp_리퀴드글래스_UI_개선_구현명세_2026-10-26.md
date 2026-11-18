@@ -1,12 +1,14 @@
 # FitnessApp 리퀴드 글래스 UI 개선 구현 명세
 
+2026-10-26의 Android 디자인 적용안이다. PR-A·B 구현은 [리퀴드 글래스 작업 브랜치@3dfdbb0](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/3dfdbb02703ee8bfbc63e791f6951debb66ea77c)에 있다. 공통 화면 적용은 [Android·iOS 공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)에 따라 현재 main과 호환되는 요소부터 검증한다.
+
 ## 0. 문서 정보
 
 | 항목 | 내용 |
 |---|---|
 | 작성일 | 2026-10-26 |
 | 기준 커밋 | 원격 `main` `f15d22d` |
-| 상태 | **PROPOSED**: 승인된 개선 결정과 구현 절차. 아직 구현하지 않음 |
+| 작성 당시 상태 | **PROPOSED**: 승인된 개선 결정과 구현 절차 |
 | 근거 | 2026-10-26 코드 기반 UI/UX 점검 결과와 소유자 검토 결정 |
 | 미수행 검증 | 빌드·instrumentation·실기기 화면 확인 |
 | 함께 읽을 문서 | `docs/FitnessApp_정돈_리팩터링_규칙.md`(필수), `docs/UI_DESIGN_SYSTEM.md` |

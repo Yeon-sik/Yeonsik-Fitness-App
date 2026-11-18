@@ -2,7 +2,9 @@
 
 ## 작업 원칙
 
-- FitnessApp 구조 리팩터링의 필수 Source of Truth는 `docs/FitnessApp_정돈_리팩터링_규칙.md`다. 관련 작업을 시작하기 전에 문서 전체를 읽고 CURRENT·PROPOSED·TARGET 구분과 단계별 제약을 준수한다.
+- Android 구조·저장소·기록 호환성의 필수 기준은 [정돈 리팩터링 규칙](docs/FitnessApp_정돈_리팩터링_규칙.md)이다. 관련 작업 전에 문서 전체를 읽고 현재 구현과 이행 목표를 구분한다.
+- Android와 iOS가 제공할 화면·동작·저장 계약은 [공통 개발 기준](docs/architecture/ANDROID_IOS_DEVELOPMENT.md)을 적용한다. 공통 UI와 동작은 한 번 구현하고 플랫폼 호스트에서 OS 입력과 저장 구현을 연결한다.
+- 과거 전환 계획, 탐사 보고서와 기기별 결과는 각각의 기준 커밋에 적용한다. 현재 구현은 대상 브랜치의 코드와 검증 결과를 확인한다.
 - 현재 요청의 최소 동작 단위를 먼저 구현하고 검증한다.
 - Android 기록 흐름은 입력 → repository → SQLite 순서로 추적한다.
 - 로컬 기록을 원격 동기화보다 우선하며, 미검증 Supabase 동작을 완료로 표현하지 않는다.
@@ -12,6 +14,7 @@
 ## 프로젝트 경계
 
 - 현재 저장소는 JVM target 17의 Java·Kotlin, Compose·Room과 `shared` KMP 모듈을 함께 사용한다. 실제 구조는 현재 소스와 Gradle 설정을 확인한다.
+- Android `fitness_mvp.db`의 기존 데이터와 지원하는 migration·백업·전송 계약을 보존한다. iOS 호스트와 사이드로드 MVP의 검증 결과는 해당 소스·빌드 범위로 기록한다.
 - Kotlin·Compose·Room 전면 재작성은 명시적 요청과 별도 마이그레이션 계획 없이 진행하지 않는다.
 - 상세 운동·종목·세트는 Fitness App이 소유하고 Personal OS에는 완료 요약만 공유한다.
 - `.understand-anything/`와 생성 그래프 산출물은 제품 코드 근거에서 제외한다.
@@ -33,6 +36,8 @@
 ```
 
 release 완료를 주장하려면 서명, 운영 RLS, 두 계정 격리, 실기기 검증을 별도로 수행한다.
+
+공통 화면 변경은 Android·iOS의 같은 시나리오를 검증한다. iOS Simulator 실행, ARM64 IPA, iPhone 설치·실행, 재실행·덮어 설치 후 기록 보존은 각각 관측한 근거를 남긴다.
 
 Linux 원격 환경 준비와 검증은 `docs/CLOUD_DEVELOPMENT.md` 및 `scripts/cloud/`를 따른다. 클라우드 설정 파일 추가를 실제 Codex Cloud·Claude Cloud 실행 증거로 간주하지 않는다.
 

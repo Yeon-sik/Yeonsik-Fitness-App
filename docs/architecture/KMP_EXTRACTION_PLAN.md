@@ -1,5 +1,7 @@
 # KMP Shared Core Extraction Plan
 
+This document records the original KMP extraction baseline and decisions. For current work, use the [Android and iOS development standard](ANDROID_IOS_DEVELOPMENT.md).
+
 ## 1. CURRENT confirmation
 
 - Baseline was refreshed from origin/main before branching. Both HEAD and origin/main resolve to 6a6107598350d1c6310fcc7bbe067e4c43a1cfc2 (Merge pull request #72).

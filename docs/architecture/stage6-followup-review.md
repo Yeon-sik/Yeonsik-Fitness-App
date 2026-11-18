@@ -1,11 +1,13 @@
 # Stage 6 Follow-up Architecture Decision
 
+이 문서는 2026-09-08 기준 Stage 6 검토 이력이다. 현재 구조 작업은 [정돈 리팩터링 규칙](../FitnessApp_정돈_리팩터링_규칙.md)을 따른다.
+
 ## 1. Verdict
 
 **Stage 6 TARGET 미달. 후속 보완이 필수다.** Room의 DB 관리 인수, 기능 API·ViewModel·Compose 화면 도입, production `FitnessRepository` 제거는 확인됐다. 그러나 업무 SQL의 DAO 우회, 기능 소유권 침범, Activity 중심 화면 조립·업무 실행이 남아 있다. Stage 3~5에서 허용한 이행 구조를 Stage 6 완료로 인정하지 않는다.
 
 - 기준: 2026-09-08 `git fetch origin main`으로 확인한 [`a320f1e9f68a9ffea825ab8af04288e25fd6eed9`](https://github.com/Yeon-sik/Yeonsik-Fitness-App/commit/a320f1e9f68a9ffea825ab8af04288e25fd6eed9). 아래 현재 코드 판단은 이 커밋의 `app/src/main`을 직접 읽은 저장소 검증이다. 생성 그래프와 과거 완료 보고서는 판정 근거에서 제외했다.
-- 상위 기준: [정돈 리팩터링 규칙](../FitnessApp_정돈_리팩터링_규칙.md)의 TARGET 및 §§4, 5, 6, 10.2, 11.3. 이 문서는 그 TARGET을 달성하는 후속 변경의 범위·예외·종료 조건을 확정한다. 아래 수정은 아직 구현되지 않았다.
+- 당시 상위 기준은 [이전 정돈 리팩터링 계획](https://github.com/Yeon-sik/Yeonsik-Fitness-App/blob/b158404165f80b287ca958eca32f2e2c462e1dd5/docs/FitnessApp_%EC%A0%95%EB%8F%88_%EB%A6%AC%ED%8C%A9%ED%84%B0%EB%A7%81_%EA%B7%9C%EC%B9%99.md)의 TARGET 및 §§4, 5, 6, 10.2, 11.3이었다. 아래 범위·예외·종료 조건은 검토 기준 커밋의 판단이다.
 - 반박: **raw SQL 문자열 자체, Java 파일, `Legacy`라는 이름 자체는 결함이 아니다.** Room DAO의 SQL과 DB 생성·migration SQL은 유지한다. `WorkoutRoomStorage`는 기능 전용 저장 경계라는 점은 맞지만 DAO가 아니다. `FitnessDatabaseHelper`는 과거 migration에 실제로 필요하며, production 범용 `FitnessRepository`는 이미 없다.
 - 이번 검증: Windows/JDK 17 대상 `./gradlew.bat testDebugUnitTest assembleDebug` **성공**. 테스트·APK 관련 작업은 `UP-TO-DATE`였으므로 새 테스트 실행으로 표현하지 않는다. instrumentation·실기기·운영 RPC/RLS는 **미수행**이다. 구조 미달 판정과 운영 장애 발생 여부는 별개다.
 

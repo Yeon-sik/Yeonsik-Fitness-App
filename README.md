@@ -2,11 +2,11 @@
 
 Local-first Android fitness logger for workouts, cardio, meals, supplements, and progress review. Detailed workout sessions and meal data are owned by FitnessApp. Personal OS reads a separate completed-workout summary projection; the older Fitness Record Contract v1 sync path remains for compatibility.
 
-Current source description is based on public `main@fdbbc11` (2026-09-23). The M8 verification results below are historical evidence from `feat/kmp-m8-hardening-release-gate` at `main@c922c24727521b375cec1c9a4cf25dd7173810ed` (2026-09-21); they do not cover every later change.
+The source baseline is [main@0b47010c](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/0b47010c3afbca14792dff162ddc46bf1819563b), reviewed on 2026-11-19. Android uses Compose and Room v61. The `:shared` Kotlin Multiplatform module provides common models, business rules, and repository contracts. The iOS host on `main` verifies SwiftUI integration with the shared framework.
 
 ## What the app owns
 
-- Five app areas: `메인`, `피트니스`, `기록`, `발전`, and `설정`. Current navigation uses a Compose root alongside retained Java and Android View code.
+- Four main tabs — `메인`, `피트니스`, `기록`, and `설정` — with progress review inside Records. Current navigation uses a Compose root alongside retained Java and Android View code.
 - Strength routines and free sessions, six record types, six load states, sets, RIR, rest, volume, and completion summaries.
 - Walking, running, and cycling sessions with local distance, time, and route data.
 - Monthly records, body profile, goals, evidence-based development review, and non-prescriptive paper advice states.
@@ -19,19 +19,15 @@ Detailed scope and boundaries are in [docs/Project_Intro.md](docs/Project_Intro.
 
 ## Current verification
 
-M8 local verification executed on Windows on 2026-09-21. These commands were not rerun here for the current `main@fdbbc11`:
+- [Main CI run](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/42347997219) passed Android/shared tests and build, Android emulator instrumentation, shared iOS Simulator tests, and the SwiftUI host build.
+- [iOS build 297 CI](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/44125211520) passed ARM64 IPA packaging and Simulator checks for the workout flow, relaunch, and reinstall. A user confirmed launching build 297, restarting the app, and reinstalling the same IPA over the existing app on an iPhone with the in-progress workout data retained. This is evidence for the separate [sideload revision](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/c2b997b4916c0c22b2d943305173b1b5361537d2).
+- Android device upgrade, iOS shared Compose UI, release signing, production data access, and cross-device sync each require verification in the applicable environment. Earlier KMP evidence is recorded in [M8 release readiness](docs/architecture/KMP_M8_RELEASE_READINESS.md).
 
-```powershell
-.\gradlew.bat --no-daemon :shared:testAndroid :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
-.\gradlew.bat --no-daemon :shared:compileKotlinIosSimulatorArm64 :shared:compileTestKotlinIosSimulatorArm64
-```
+## Android and iOS development
 
-- Shared common/Android host tests, Android unit tests, `assembleDebug`, `assembleDebugAndroidTest`, and `lintDebug` passed.
-- `assembleDebugAndroidTest` proves test APK compilation/packaging only; real-device instrumentation was not run because the installed app has an incompatible signing certificate and its data was preserved.
-- iOS Simulator Kotlin main and test source compilation passed on Windows. [macOS CI run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) also passed `iosSimulatorArm64Test`, `YeonsikShared` framework linking, generated Swift symbol compilation, and `xcodebuild` for the SwiftUI host.
-- [KMP release readiness CI](.github/workflows/kmp-release-readiness.yml) enforces the same Android gates and macOS host gates for each commit. Its per-commit GitHub Actions result is the source of truth for macOS host verification; a compile pass is not an interactive Simulator runtime claim.
+The [shared development standard](docs/architecture/ANDROID_IOS_DEVELOPMENT.md) defines one implementation of shared Compose screens, state, and actions. The platform hosts connect OS events and storage. The first planned test uses the common Body contract with Android Room and durable iOS storage. Shared screens and cross-device record migration are still planned.
 
-A successful local build is not proof of physical-device behavior, interactive iOS Simulator behavior, release signing, Supabase/RLS behavior, or cross-app synchronization.
+Use the [main SwiftUI host instructions](iosApp/README.md) for the KMP integration proof and the [sideload instructions](https://github.com/Yeon-sik/Yeonsik-Fitness-App/blob/c2b997b4916c0c22b2d943305173b1b5361537d2/iosApp/README.md) for the iPhone workout prototype.
 
 ## Build and run
 
@@ -112,6 +108,8 @@ Access and refresh tokens use AES/GCM with Android Keystore and separate aliases
 
 - [Project Intro](docs/Project_Intro.md)
 - [Project Detail](docs/Project_Detail.md)
+- [Android and iOS development standard](docs/architecture/ANDROID_IOS_DEVELOPMENT.md)
+- [Refactoring and data compatibility rules](docs/FitnessApp_정돈_리팩터링_규칙.md)
 - [Supabase migration boundaries](supabase/README.md)
 - [Fitness Record Contract v1](https://github.com/Yeon-sik/Personal-OS/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
 - [Fitness Summary Projection v2](docs/FITNESS_SUMMARY_PROJECTION_V2.md)

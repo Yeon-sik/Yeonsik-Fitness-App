@@ -1,4 +1,7 @@
-Yeonsik Fitness UI Design System — Compact v1
+# Yeonsik Fitness UI Design System — Compact v1
+
+Android와 iOS의 앱 화면이 공유할 시각 기준이다. 현재 Android 화면을 비교 기준으로 삼고, 공통 컴포넌트와 동작의 적용·검증은 [Android·iOS 공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)을 따른다.
+
 1. Product Identity
 
 제품의 시각적 기조는 Refined Performance — 정제된 세련과 멋이다.
