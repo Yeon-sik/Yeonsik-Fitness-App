@@ -38,5 +38,15 @@ mkdir "$staging/Payload"
 ditto "$app" "$staging/Payload/$(basename "$app")"
 ditto -c -k --norsrc --keepParent "$staging/Payload" "$staging/$ipa"
 unzip -tq "$staging/$ipa"
+python3 - "$staging/$ipa" "$(basename "$app")" <<'PY'
+import plistlib
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as ipa:
+    info = plistlib.loads(ipa.read(f"Payload/{sys.argv[2]}/Info.plist"))
+    if info.get("CADisableMinimumFrameDurationOnPhone") is not True:
+        sys.exit("The packaged app is missing the Compose frame-duration setting.")
+PY
 mv "$staging/$ipa" "$output/$ipa"
 (cd "$output" && shasum -a 256 "$ipa" > "$ipa.sha256")

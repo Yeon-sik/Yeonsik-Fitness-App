@@ -157,7 +157,10 @@ private fun BodyMetricsEditorContent(
                 ) { Text("선택") }
             },
             dismissButton = {
-                TextButton(onClick = closeDatePicker) { Text("취소") }
+                TextButton(
+                    onClick = closeDatePicker,
+                    modifier = Modifier.testTag("weight-date-cancel")
+                ) { Text("취소") }
             }
         ) {
             BodyDialogBackGesture(closeDatePicker)
