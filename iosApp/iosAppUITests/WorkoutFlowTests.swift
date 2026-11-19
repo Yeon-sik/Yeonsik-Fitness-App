@@ -60,14 +60,20 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let bodyTab = app.tabBars.buttons["체중"]
-        let add = app.descendants(matching: .any)["weight-add"].firstMatch
-        let date = app.descendants(matching: .any)["weight-date"].firstMatch
-        let select = app.descendants(matching: .any)["weight-date-confirm"].firstMatch
-        let input = app.textFields["weight-input"].firstMatch
-        let save = app.descendants(matching: .any)["weight-save"].firstMatch
-        let record = app.descendants(matching: .any)["weight-record"].firstMatch
+        let add = bodyControl(app, identifier: "weight-add", label: "체중 기록 추가")
+        let date = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "weight-date", "날짜 선택")
+        ).firstMatch
+        let select = bodyControl(app, identifier: "weight-date-confirm", label: "선택")
+        let input = app.textFields.firstMatch
+        let save = bodyControl(app, identifier: "weight-save", label: "저장")
+        let record = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR (label CONTAINS %@ AND label CONTAINS %@)",
+            "weight-record", "kg", "수정"
+        )).firstMatch
 
         tap(bodyTab)
+        XCTAssertTrue(add.waitForExistence(timeout: 15), app.debugDescription)
         tap(add)
         tap(date)
         XCTAssertTrue(select.waitForExistence(timeout: 15))
@@ -93,7 +99,7 @@ final class WorkoutFlowTests: XCTestCase {
         waitUntilGone(input)
         tap(record)
         XCTAssertEqual(input.value as? String, "72.5")
-        tap(app.descendants(matching: .any)["weight-delete"].firstMatch)
+        tap(bodyControl(app, identifier: "weight-delete", label: "이 기록 삭제"))
         waitUntilGone(record)
 
         tap(add)
@@ -102,6 +108,13 @@ final class WorkoutFlowTests: XCTestCase {
         waitUntilGone(input)
         XCTAssertTrue(record.waitForExistence(timeout: 15))
         app.terminate()
+    }
+
+    @MainActor
+    private func bodyControl(_ app: XCUIApplication, identifier: String, label: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ OR label == %@", identifier, label))
+            .firstMatch
     }
 
     @MainActor
