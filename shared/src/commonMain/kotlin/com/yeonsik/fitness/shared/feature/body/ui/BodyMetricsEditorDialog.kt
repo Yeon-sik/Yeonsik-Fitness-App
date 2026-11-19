@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens
 import com.yeonsik.fitness.shared.feature.body.application.BodyMetricsApplicationService
@@ -90,6 +91,10 @@ private fun BodyMetricsEditorContent(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = !showDatePicker,
+            dismissOnClickOutside = !showDatePicker
+        ),
         title = { Text(if (editor.exists()) "체중 수정" else "체중 기록") },
         text = {
             if (!showDatePicker) BodyDialogBackGesture(onDismiss)

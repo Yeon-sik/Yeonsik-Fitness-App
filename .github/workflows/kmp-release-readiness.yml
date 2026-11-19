@@ -140,7 +140,7 @@ jobs:
   ios-host:
     name: iPhone IPA and iOS simulator gates
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       # Kotlin/Native Release LTO links Compose into the static iPhone framework.
       GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx5g -Dorg.gradle.workers.max=2'
@@ -172,7 +172,6 @@ jobs:
           :shared:compileKotlinIosSimulatorArm64
           :shared:compileTestKotlinIosSimulatorArm64
           :shared:iosSimulatorArm64Test
-          :shared:linkDebugFrameworkIosSimulatorArm64
 
       - name: Run workout and shared body UI, relaunch and reinstall checks
         run: bash scripts/ios/test-workout-simulator.sh

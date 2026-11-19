@@ -65,7 +65,7 @@ final class WorkoutFlowTests: XCTestCase {
             NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "weight-date", "날짜 선택")
         ).firstMatch
         let select = bodyControl(app, identifier: "weight-date-confirm", label: "선택")
-        let input = app.textFields.firstMatch
+        let input = app.descendants(matching: .any)["weight-input"].firstMatch
         let save = bodyControl(app, identifier: "weight-save", label: "저장")
         let record = app.descendants(matching: .any).matching(NSPredicate(
             format: "identifier == %@ OR (label CONTAINS %@ AND label CONTAINS %@)",
@@ -79,33 +79,33 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertTrue(select.waitForExistence(timeout: 15))
         swipeBack(app)
         waitUntilGone(select)
-        XCTAssertTrue(input.exists)
+        XCTAssertTrue(date.waitForExistence(timeout: 10), app.debugDescription)
         swipeBack(app)
-        waitUntilGone(input)
+        waitUntilGone(date)
 
         tap(add)
-        replace("70.5", in: input)
+        enterBodyWeight("70.5", into: input, in: app)
         tap(save)
-        waitUntilGone(input)
+        waitUntilGone(date)
         XCTAssertTrue(record.waitForExistence(timeout: 15))
 
         app.terminate()
         app.launch()
         tap(bodyTab)
         tap(record)
-        XCTAssertEqual(input.value as? String, "70.5")
-        replace("72.5", in: input)
+        assertBodyWeight("70.5", in: input)
+        enterBodyWeight("72.5", into: input, in: app, replacing: "70.5")
         tap(save)
-        waitUntilGone(input)
+        waitUntilGone(date)
         tap(record)
-        XCTAssertEqual(input.value as? String, "72.5")
+        assertBodyWeight("72.5", in: input)
         tap(bodyControl(app, identifier: "weight-delete", label: "이 기록 삭제"))
         waitUntilGone(record)
 
         tap(add)
-        replace("72.75", in: input)
+        enterBodyWeight("72.75", into: input, in: app)
         tap(save)
-        waitUntilGone(input)
+        waitUntilGone(date)
         XCTAssertTrue(record.waitForExistence(timeout: 15))
         app.terminate()
     }
@@ -131,12 +131,20 @@ final class WorkoutFlowTests: XCTestCase {
     }
 
     @MainActor
-    private func replace(_ text: String, in field: XCUIElement) {
+    private func assertBodyWeight(_ text: String, in field: XCUIElement) {
+        XCTAssertTrue(field.waitForExistence(timeout: 10), field.debugDescription)
+        XCTAssertTrue(field.label == text || (field.value as? String) == text, field.debugDescription)
+    }
+
+    @MainActor
+    private func enterBodyWeight(
+        _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
+    ) {
         tap(field)
-        if let value = field.value as? String, !value.isEmpty, value != field.placeholderValue {
-            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
+        if !previous.isEmpty {
+            app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count))
         }
-        field.typeText(text)
+        app.typeText(text)
     }
 
     @MainActor
