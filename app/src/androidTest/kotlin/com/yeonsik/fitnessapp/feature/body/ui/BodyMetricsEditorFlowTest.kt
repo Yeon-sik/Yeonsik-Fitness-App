@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.body.ui
 
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,8 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.room.Room
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.application.BodyMetricsApplicationService
 import com.yeonsik.fitness.shared.feature.body.ui.BodyMetricsEditorController
@@ -62,10 +63,10 @@ class BodyMetricsEditorFlowTest {
             compose.onNodeWithTag("weight-input").assertTextContains("70.5")
             compose.onNodeWithTag("weight-date").performClick()
             compose.onNodeWithText("선택").assertExists()
-            pressBack()
+            pressSystemBack()
             compose.onNodeWithText("선택").assertDoesNotExist()
             compose.onNodeWithTag("weight-input").assertExists()
-            pressBack()
+            pressSystemBack()
             compose.onNodeWithTag("weight-input").assertDoesNotExist()
             assertEquals(70.5, repository.bodyMetricEntryById(account, id)?.weightKg ?: -1.0, 0.001)
 
@@ -91,5 +92,10 @@ class BodyMetricsEditorFlowTest {
             compose.onAllNodes(hasTestTag("weight-input"))
                 .fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    private fun pressSystemBack() {
+        compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
     }
 }

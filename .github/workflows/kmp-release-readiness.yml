@@ -141,6 +141,9 @@ jobs:
     name: iPhone IPA and iOS simulator gates
     runs-on: macos-15
     timeout-minutes: 45
+    env:
+      # Kotlin/Native Release LTO links Compose into the static iPhone framework.
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx5g -Dorg.gradle.workers.max=2'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

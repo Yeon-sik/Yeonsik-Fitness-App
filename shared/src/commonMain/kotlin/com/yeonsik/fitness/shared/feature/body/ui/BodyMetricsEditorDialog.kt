@@ -92,7 +92,7 @@ private fun BodyMetricsEditorContent(
         onDismissRequest = onDismiss,
         title = { Text(if (editor.exists()) "체중 수정" else "체중 기록") },
         text = {
-            BodyDialogBackGesture(onDismiss)
+            if (!showDatePicker) BodyDialogBackGesture(onDismiss)
             Column(
                 Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(FitnessComposeTokens.FORM_ITEM_GAP_DP.dp)
