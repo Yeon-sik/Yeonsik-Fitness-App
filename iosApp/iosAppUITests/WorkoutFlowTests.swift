@@ -133,7 +133,7 @@ final class WorkoutFlowTests: XCTestCase {
     @MainActor
     private func replace(_ text: String, in field: XCUIElement) {
         tap(field)
-        if let value = field.value as? String, value != field.placeholderValue {
+        if let value = field.value as? String, !value.isEmpty, value != field.placeholderValue {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
         }
         field.typeText(text)

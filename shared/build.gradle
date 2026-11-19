@@ -21,6 +21,7 @@ kotlin {
         target.binaries.framework {
             baseName = "YeonsikShared"
             isStatic = true
+            freeCompilerArgs += ["-Xpartial-linkage-loglevel=error"]
         }
     }
 
@@ -37,6 +38,8 @@ kotlin {
         }
         iosMain {
             dependencies {
+                // Compose 1.9.3 pairs with Material 3 1.9.0 on Kotlin/Native.
+                implementation "org.jetbrains.compose.material3:material3:1.9.0"
                 implementation "org.jetbrains.compose.ui:ui-backhandler:1.9.3"
                 implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
             }

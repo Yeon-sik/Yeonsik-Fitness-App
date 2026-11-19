@@ -28,7 +28,7 @@ print(max(iphones)[-1])
 
 # Boot explicitly so XCTest can reuse an already running device.
 xcrun simctl bootstatus "$simulator" -b
-xcodebuild \
+if ! xcodebuild \
     -project iosApp/iosApp.xcodeproj \
     -scheme YeonsikIosProof \
     -configuration Debug \
@@ -37,7 +37,12 @@ xcodebuild \
     -resultBundlePath "$output/WorkoutSmoke-$(date +%s).xcresult" \
     -parallel-testing-enabled NO \
     CODE_SIGNING_ALLOWED=NO \
-    test
+    test; then
+    xcrun simctl bootstatus "$simulator" -b || true
+    xcrun simctl spawn "$simulator" log show --last 10m --style compact \
+        --predicate 'process == "YeonsikIosProof" AND eventMessage CONTAINS "Uncaught Kotlin exception"' || true
+    exit 1
+fi
 
 records_path() {
     local container
@@ -80,3 +85,6 @@ body_after="$(shasum -a 256 "$reinstalled_body_records" | cut -d ' ' -f 1)"
 [[ "$body_before" == "$body_after" ]]
 xcrun simctl launch "$simulator" "$bundle_id"
 echo 'Workout and body stores preserved byte-for-byte after simulator install over existing app.'
+if [[ "${GITHUB_ACTIONS:-}" == 'true' ]]; then
+    xcrun simctl shutdown "$simulator"
+fi

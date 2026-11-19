@@ -162,6 +162,21 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
+      - name: List available simulator devices
+        run: xcrun simctl list devices available
+
+      - name: Compile and test shared iOS simulator code
+        run: >-
+          ./gradlew --no-daemon
+          :shared:testAndroid
+          :shared:compileKotlinIosSimulatorArm64
+          :shared:compileTestKotlinIosSimulatorArm64
+          :shared:iosSimulatorArm64Test
+          :shared:linkDebugFrameworkIosSimulatorArm64
+
+      - name: Run workout and shared body UI, relaunch and reinstall checks
+        run: bash scripts/ios/test-workout-simulator.sh
+
       - name: Build unsigned iPhone IPA
         if: github.event_name != 'pull_request'
         run: bash scripts/ios/package-device-ipa.sh
@@ -177,21 +192,6 @@ jobs:
           if-no-files-found: error
           overwrite: true
           retention-days: 14
-
-      - name: List available simulator devices
-        run: xcrun simctl list devices available
-
-      - name: Compile and test shared iOS simulator code
-        run: >-
-          ./gradlew --no-daemon
-          :shared:testAndroid
-          :shared:compileKotlinIosSimulatorArm64
-          :shared:compileTestKotlinIosSimulatorArm64
-          :shared:iosSimulatorArm64Test
-          :shared:linkDebugFrameworkIosSimulatorArm64
-
-      - name: Run workout and shared body UI, relaunch and reinstall checks
-        run: bash scripts/ios/test-workout-simulator.sh
 
       - name: Keep simulator test results on failure
         if: failure()
