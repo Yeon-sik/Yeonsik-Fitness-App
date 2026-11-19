@@ -125,9 +125,11 @@ final class WorkoutFlowTests: XCTestCase {
     }
 
     @MainActor
-    private func waitUntilGone(_ element: XCUIElement) {
+    private func waitUntilGone(
+        _ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+    ) {
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 15), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 15), .completed, element.debugDescription, file: file, line: line)
     }
 
     @MainActor
@@ -141,10 +143,15 @@ final class WorkoutFlowTests: XCTestCase {
         _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
     ) {
         tap(field)
-        if !previous.isEmpty {
-            app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count))
+        // Compose exposes its editor as a text view. Use the keys on its native decimal keyboard.
+        let keys = app.keyboards.firstMatch.keys
+        for _ in previous {
+            tap(keys["Delete"])
         }
-        app.typeText(text)
+        for character in text {
+            tap(keys[String(character)])
+        }
+        assertBodyWeight(text, in: field)
     }
 
     @MainActor

@@ -36,6 +36,7 @@ if ! xcodebuild \
     -derivedDataPath "$derived_data" \
     -resultBundlePath "$output/WorkoutSmoke-$(date +%s).xcresult" \
     -parallel-testing-enabled NO \
+    ARCHS="$(uname -m)" \
     CODE_SIGNING_ALLOWED=NO \
     test; then
     xcrun simctl bootstatus "$simulator" -b || true
