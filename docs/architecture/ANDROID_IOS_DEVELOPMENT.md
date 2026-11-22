@@ -2,7 +2,9 @@
 
 2026-11-19 갱신. 적용 범위는 두 플랫폼에서 제공하는 UI·사용 흐름과 공통 업무 코드다. 기존 Android 저장소와 외부 계약에는 [정돈 리팩터링 규칙](../FitnessApp_정돈_리팩터링_규칙.md)을 함께 적용한다.
 
-## 현재 상태와 목표
+2026-11-23 기준 구현 순서와 완료 조건은 [Android·iOS 공통화 마일스톤](KMP_MILESTONES.md)에 정리했다. 현재 Android 설치본 계열은 Room 62이고 빌드 305의 체중 공통화 브랜치는 Room 61이다. 통합 기준, iOS 전용 탭 바 표현과 공통 이동 상태의 경계는 그 계획을 따른다.
+
+## 2026-11-19 기준 상태와 목표
 
 | 구분 | 근거와 범위 |
 | --- | --- |
@@ -30,7 +32,7 @@
 
 새 공통 화면은 같은 화면과 액션을 두 호스트가 렌더링하는 방식으로 추가한다. 화면별 검증·저장·복귀 정책을 Android와 iOS 호스트에 다시 구현하는 경우에는 공용화가 완료된 것으로 판단할 수 없다.
 
-## 작은 단위로 적용하는 순서
+## 체중 공통화를 시작할 때의 적용 순서
 
 1. **기준 고정.** `main`의 체중 기록 진입점, 폼, 저장 결과를 확인하고 공통 수용 테스트 데이터를 정한다. kg/lb·날짜·정렬·같은 날 재등록과 날짜 충돌·삭제·두 소유자 범위를 기록한다.
 2. **체중 기능 검증.** 기존 [Body 공통 API](../../shared/src/commonMain/kotlin/com/yeonsik/fitness/shared/feature/body/api/BodyMetricsRepositoryApi.kt)와 [서비스](../../shared/src/commonMain/kotlin/com/yeonsik/fitness/shared/feature/body/application/BodyMetricsApplicationService.kt)를 재사용한다. Android의 실제 Room 경로를 연결하고 iOS 영구 저장을 구현한다. 이 기능 하나를 기존 `:shared`에서 공통 Compose 화면으로 검증하는 구성을 먼저 시험한다.
