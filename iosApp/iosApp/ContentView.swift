@@ -372,6 +372,7 @@ private struct SetEditor: View {
 
 private struct WorkoutHistoryView: View {
     @EnvironmentObject private var store: WorkoutStore
+    @State private var showDailyWorkout = false
 
     var body: some View {
         List {
@@ -394,6 +395,14 @@ private struct WorkoutHistoryView: View {
             }
         }
         .navigationTitle("기록")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("하루 운동 기록") { showDailyWorkout = true }
+            }
+        }
+        .sheet(isPresented: $showDailyWorkout) {
+            DailyWorkoutView(history: store.data?.history ?? [])
+        }
     }
 }
 

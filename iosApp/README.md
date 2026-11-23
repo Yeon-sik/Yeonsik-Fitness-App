@@ -35,7 +35,9 @@
 - 기존 `iosArm64`와 `iosSimulatorArm64`가 빌드하는 정적 `YeonsikShared` 프레임워크의 `MassUnit`과 `WorkoutPerformanceCalculator`로 중량 환산과 Epley 추정 1RM을 계산한다. Xcode의 기존 `embedAndSignAppleFrameworkForXcode` 단계가 프레임워크를 연결한다.
 - `WorkoutStore`는 `Library/Application Support/FitnessWorkout/workouts.json`에 형식 버전 1로 루틴·진행 중 운동·완료 기록을 저장한다. 파일 작업은 전용 actor에서 처리하고, 쓰기가 성공한 뒤 화면 상태를 갱신한다. 스키마가 다르거나 읽을 수 없는 파일은 유지하며 오류를 표시한다. Android SQLite/Room은 기존 저장 경로를 사용한다.
 - **체중** 탭은 Android와 같은 Compose 편집창·날짜 선택·기록 카드와 저장·삭제·닫기 동작을 사용한다. iOS 탭에서는 체중을 kg으로 입력하고 최근 기록 20개를 조회한다.
-- Android 운동 카탈로그와 기록 가져오기, 특수 세트 및 휴식 타이머, 식사·영양·보충제, GPS·지도·웨어러블, 계정·기기 간 동기화는 후속 이식 범위다.
+- Android 운동 카탈로그와 운동 전송 파일 가져오기, 특수 세트 및 휴식 타이머, 식사·영양·보충제, GPS·지도, 계정·기기 간 동기화는 후속 이식 범위다.
+
+`기록 → 하루 운동 기록`에서 날짜를 선택하고 FLEEK CSV와 Apple 건강의 운동·심박을 가져올 수 있다. 같은 운동인지 확인한 뒤 `AI용 JSON 저장`을 누르면 그 날짜의 확정 세션과 확인 대기 건수가 포함된 파일을 저장한다. iPhone에서 Apple 건강을 읽으려면 설치된 앱의 서명에 HealthKit 권한이 포함돼야 한다. 사이드로드 검증에서는 설치 뒤 권한 요청과 실제 운동 조회까지 확인한다.
 
 ## 체중 기록과 업데이트 확인
 

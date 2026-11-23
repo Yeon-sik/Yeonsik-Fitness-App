@@ -4,5 +4,7 @@
 <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <key>NSHealthShareUsageDescription</key>
+    <string>선택한 날짜의 운동과 심박을 읽어 피트니스 기록과 연결합니다.</string>
 </dict>
 </plist>
