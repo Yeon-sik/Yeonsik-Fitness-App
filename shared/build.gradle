@@ -33,7 +33,8 @@ kotlin {
                 // The Android variant resolves to the existing Material 3 1.3.1.
                 implementation "org.jetbrains.compose.material3:material3:1.7.3"
                 implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"
-                implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.7.1"
+                api "org.jetbrains.kotlinx:kotlinx-datetime:0.7.1"
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
             }
         }
         iosMain {
@@ -41,7 +42,6 @@ kotlin {
                 // Compose 1.9.3 pairs with Material 3 1.9.0 on Kotlin/Native.
                 implementation "org.jetbrains.compose.material3:material3:1.9.0"
                 implementation "org.jetbrains.compose.ui:ui-backhandler:1.9.3"
-                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
             }
         }
         commonTest {
