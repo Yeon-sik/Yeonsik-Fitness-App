@@ -7,9 +7,17 @@ import java.time.*
 /** Local observations only. No canonical workout writes, sync payloads or source deletions. */
 class WearableWorkoutRepository(private val database: FitnessRoomDatabase) {
     private val dao get() = database.wearableWorkoutDao()
-    fun list(owner: String) = dao.list(owner).map { row ->
+    fun list(owner: String) = dao.list(owner).map(::toWorkout)
+
+    fun startingBetween(owner: String, start: Instant, end: Instant): List<WearableWorkout> {
+        // The DB stores Instant.toString() in UTC. A whole-second prefix sorts before both ".123Z" and "Z".
+        require(start.nano == 0 && end.nano == 0)
+        return dao.startingBetween(owner, start.toString().removeSuffix("Z"), end.toString().removeSuffix("Z")).map(::toWorkout)
+    }
+
+    private fun toWorkout(row: WearableWorkoutEntity): WearableWorkout {
         val json = JSONArray(row.samplesJson)
-        WearableWorkout(row.origin, row.providerId, row.title, Instant.parse(row.startTime), Instant.parse(row.endTime),
+        return WearableWorkout(row.origin, row.providerId, row.title, Instant.parse(row.startTime), Instant.parse(row.endTime),
             row.exerciseType, (0 until json.length()).map { i -> json.getJSONArray(i).let {
                 MeasuredPulse(Instant.parse(it.getString(0)), it.getLong(1))
             } }, row.linkedRecordId, Instant.parse(row.importedAt))

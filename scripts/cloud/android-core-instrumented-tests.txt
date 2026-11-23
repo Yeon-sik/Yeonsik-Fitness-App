@@ -12,6 +12,7 @@ com.yeonsik.fitnessapp.core.database.DiningProposalMigrationTest
 com.yeonsik.fitnessapp.core.database.ManualExerciseLinkMigrationTest
 com.yeonsik.fitnessapp.core.database.PriceTraceBrandMigrationTest
 com.yeonsik.fitnessapp.core.database.WorkoutSetupNoteMigrationTest
+com.yeonsik.fitnessapp.core.database.WearableWorkoutMigrationTest
 
 # Owner isolation, Meal snapshots, LoadState, units and workout identity
 com.yeonsik.fitnessapp.data.BodyMetricsRepositoryFacadeTest

@@ -20,6 +20,9 @@ data class WearableWorkoutEntity(
 interface WearableWorkoutDao {
     @Query("SELECT * FROM wearable_workouts WHERE user_id=:owner ORDER BY start_time DESC")
     fun list(owner: String): List<WearableWorkoutEntity>
+    @Query("SELECT * FROM wearable_workouts WHERE user_id=:owner AND start_time >= :fromUtcSecond " +
+        "AND start_time < :untilUtcSecond ORDER BY start_time, origin, provider_id")
+    fun startingBetween(owner: String, fromUtcSecond: String, untilUtcSecond: String): List<WearableWorkoutEntity>
     @Query("SELECT * FROM wearable_workouts WHERE user_id=:owner AND origin=:origin AND provider_id=:id")
     fun find(owner: String, origin: String, id: String): WearableWorkoutEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -37,14 +37,17 @@ internal class HealthConnectDailyWorkoutReader(private val context: Context) {
             else -> throw IllegalArgumentException("이 기기에서 Health Connect를 사용할 수 없습니다.")
         }
         val client = HealthConnectClient.getOrCreate(context)
-        val available = setOf(readExercise, readHeart, readDistance, readEnergy).toMutableSet()
-        if (client.features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY) ==
-            HealthConnectFeatures.FEATURE_STATUS_AVAILABLE) available.add(HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY)
         val previous = client.permissionController.getGrantedPermissions()
-        val needed = if (readExercise !in previous && readHeart !in previous) available else {
+        val needed = buildSet {
+            if (readExercise !in previous && readHeart !in previous) {
+                addAll(setOf(readExercise, readHeart, readDistance, readEnergy) - previous)
+            }
             val history = HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY
-            if (history in available && history !in previous && day.start.toEpochMilliseconds() <
-                Instant.now().minus(Duration.ofDays(30)).toEpochMilli()) setOf(history) else emptySet()
+            if (history !in previous && day.start.toEpochMilliseconds() < Instant.now().minus(Duration.ofDays(30)).toEpochMilli() &&
+                client.features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY) ==
+                HealthConnectFeatures.FEATURE_STATUS_AVAILABLE) {
+                add(history)
+            }
         }
         val allowed = if (needed.isEmpty()) previous else previous + request(needed)
         require(readExercise in allowed || readHeart in allowed) { "Health Connect에서 운동 또는 심박 읽기를 허용해 주세요." }
@@ -89,7 +92,7 @@ internal class HealthConnectDailyWorkoutReader(private val context: Context) {
     }
 }
 
-private fun Int.toDailyWorkoutKind(): DailyWorkoutKind = when (this) {
+internal fun Int.toDailyWorkoutKind(): DailyWorkoutKind = when (this) {
     ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> DailyWorkoutKind.STRENGTH
     ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> DailyWorkoutKind.RUNNING
     ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> DailyWorkoutKind.WALKING

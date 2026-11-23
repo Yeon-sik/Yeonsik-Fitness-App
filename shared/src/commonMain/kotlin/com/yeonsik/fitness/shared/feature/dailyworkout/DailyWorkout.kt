@@ -113,20 +113,45 @@ fun projectDailyWorkouts(
     workouts: List<DailyWorkoutSource>,
     samples: List<DailyHeartRateSample>,
     decisions: List<DailyWorkoutDecision>
+): DailyWorkoutReport = projectDailyWorkouts(day, workouts, samples, decisions, emptyMap(), emptyMap())
+
+fun projectDailyWorkouts(
+    day: WorkoutDay,
+    workouts: List<DailyWorkoutSource>,
+    samples: List<DailyHeartRateSample>,
+    decisions: List<DailyWorkoutDecision>,
+    linkedWorkoutKeys: Map<String, String>,
+    samplesByWorkout: Map<String, List<DailyHeartRateSample>>
 ): DailyWorkoutReport {
     val sources = workouts.associateBy { it.key }
     val groups = sources.values.map { mutableListOf(it) }.toMutableList()
-    val relevantDecisions = decisions.filter { it.first in sources && it.second in sources }
+    val byKey = groups.associateBy { it.single().key }.toMutableMap()
+    fun join(first: MutableList<DailyWorkoutSource>, second: MutableList<DailyWorkoutSource>) {
+        if (first === second) return
+        first.addAll(second)
+        second.forEach { byKey[it.key] = first }
+        groups.remove(second)
+    }
+    for ((watchKey, targetKey) in linkedWorkoutKeys) {
+        val watch = byKey[watchKey] ?: continue
+        val target = byKey[targetKey] ?: continue
+        join(target, watch)
+    }
+    // A link confirmed in the workout importer belongs to that record and has no daily undo action.
+    val relevantDecisions = decisions.filter { it.first in sources && it.second in sources && byKey[it.first] !== byKey[it.second] }
     val separate = relevantDecisions.filterNot { it.sameWorkout }
+    val applied = relevantDecisions.toMutableList()
     for (link in relevantDecisions.filter { it.sameWorkout }) {
-        val first = groups.first { it.any { source -> source.key == link.first } }
-        val second = groups.first { it.any { source -> source.key == link.second } }
+        val first = byKey.getValue(link.first)
+        val second = byKey.getValue(link.second)
         if (first === second) continue
         val firstKeys = first.map { it.key }
         val secondKeys = second.map { it.key }
-        require(separate.none { it.matches(firstKeys, secondKeys) }) { "먼저 상충하는 연결 결정을 취소해 주세요." }
-        first.addAll(second)
-        groups.remove(second)
+        if (separate.any { it.matches(firstKeys, secondKeys) }) {
+            applied.remove(link)
+        } else {
+            join(first, second)
+        }
     }
 
     val order = compareBy<DailyWorkoutSource>({ it.exercises.isEmpty() }, { it.origin }, { it.key })
@@ -154,14 +179,17 @@ fun projectDailyWorkouts(
     val samplesBySession = mutableMapOf<String, MutableList<DailyHeartRateSample>>()
     val unlinked = mutableListOf<DailyHeartRateSample>()
     val dayEnd = day.end.toEpochMilliseconds()
-    for (sample in samples.distinct().filter { it.bpm.isFinite() && it.bpm > 0 }) {
-        val matching = orderedGroups.filter { group ->
-            group.any { source -> source.interval?.contains(sample.timeMillis) == true }
-        }
-        val matchingWriter = matching.filter { group -> group.any { source ->
-            source.origin.isHealth && source.writer == sample.writer && source.interval?.contains(sample.timeMillis) == true
-        } }
-        val group = matchingWriter.singleOrNull() ?: matching.singleOrNull()
+    val groupBySource = orderedGroups.flatMap { group -> group.map { it.key to group } }.toMap()
+    val stored = samplesByWorkout.filterKeys(groupBySource::containsKey)
+        .flatMap { (source, pulses) -> pulses.map { it to source } }
+    val recordedSources = stored.groupBy({ it.first.writer to it.first.timeMillis }, { it.second })
+    val liveByTime = samples.associateBy { it.writer to it.timeMillis }
+    val observations = stored.map { (pulse, _) -> liveByTime[pulse.writer to pulse.timeMillis] ?: pulse } +
+        samples.filterNot { (it.writer to it.timeMillis) in recordedSources }
+    for (sample in observations.distinct()) {
+        if (!sample.bpm.isFinite() || sample.bpm <= 0) continue
+        val recordedGroup = recordedSources[sample.writer to sample.timeMillis].orEmpty().mapNotNull(groupBySource::get).distinct().singleOrNull()
+        val group = recordedGroup ?: groupForSample(orderedGroups, sample)
         if (group != null && group.first().key !in pending) {
             samplesBySession.getOrPut(group.first().key) { mutableListOf() }.add(sample)
         } else if (sample.timeMillis < dayEnd) {
@@ -172,7 +200,15 @@ fun projectDailyWorkouts(
         val key = group.first().key
         DailyWorkoutSession(group, timing.getValue(key), summarize(samplesBySession[key].orEmpty()).firstOrNull())
     }.sortedWith(compareBy({ it.timing.startMillis ?: Long.MAX_VALUE }, { it.primary.key }))
-    return DailyWorkoutReport(day, sessions, candidates, pending.size, summarize(unlinked), relevantDecisions, sources)
+    return DailyWorkoutReport(day, sessions, candidates, pending.size, summarize(unlinked), applied, sources)
+}
+
+private fun groupForSample(groups: List<List<DailyWorkoutSource>>, sample: DailyHeartRateSample): List<DailyWorkoutSource>? {
+    val matching = groups.filter { group -> group.any { it.interval?.contains(sample.timeMillis) == true } }
+    val matchingWriter = matching.filter { group -> group.any { source ->
+        source.origin.isHealth && source.writer == sample.writer && source.interval?.contains(sample.timeMillis) == true
+    } }
+    return matchingWriter.singleOrNull() ?: matching.singleOrNull()
 }
 
 private fun candidateBetween(left: List<DailyWorkoutSource>, right: List<DailyWorkoutSource>): DailyWorkoutCandidate? {

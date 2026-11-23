@@ -3,6 +3,9 @@ package com.yeonsik.fitnessapp.feature.workout.data
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyHeartRateSample
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutLocalReader
+import com.yeonsik.fitness.shared.feature.dailyworkout.LocalDailyWorkouts
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutExercise
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutKind
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutSet
@@ -11,8 +14,11 @@ import com.yeonsik.fitness.shared.feature.dailyworkout.WorkoutDay
 import com.yeonsik.fitness.shared.feature.dailyworkout.WorkoutOrigin
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
+import com.yeonsik.fitnessapp.feature.dailyworkout.toDailyWorkoutKind
+import com.yeonsik.fitnessapp.integration.wearable.WearableWorkoutRepository
 import org.json.JSONObject
 import java.time.Instant
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -23,12 +29,34 @@ import java.util.concurrent.Callable
 internal class WorkoutDailyReadRepository(
     private val database: FitnessRoomDatabase,
     private val workouts: WorkoutRepositoryApi,
-    private val cardio: CardioRepositoryApi
-) {
-    fun completedWorkouts(scope: AccountScope, day: WorkoutDay): List<DailyWorkoutSource> = database.runInTransaction(Callable {
+    private val cardio: CardioRepositoryApi,
+    private val scope: AccountScope
+) : DailyWorkoutLocalReader {
+    private val wearables = WearableWorkoutRepository(database)
+
+    override fun read(day: WorkoutDay): LocalDailyWorkouts = database.runInTransaction(Callable {
+        val native = completedWorkouts(day)
+        val stored = wearables.startingBetween(scope.ownerId, Instant.ofEpochMilli(day.start.toEpochMilliseconds()),
+            Instant.ofEpochMilli(day.end.toEpochMilliseconds()))
+        val linked = mutableMapOf<String, String>()
+        val samples = mutableMapOf<String, List<DailyHeartRateSample>>()
+        val watch = stored.map { row ->
+            val source = DailyWorkoutSource(
+                origin = WorkoutOrigin.HEALTH_CONNECT, writer = row.origin, id = row.providerId, title = row.title,
+                kind = row.exerciseType.toDailyWorkoutKind(), startMillis = row.start.toEpochMilli(),
+                endMillis = row.end.toEpochMilli(), durationSeconds = Duration.between(row.start, row.end).seconds.toInt()
+            )
+            row.linkedRecordId?.let { native[it] }?.let { linked[source.key] = it.key }
+            samples[source.key] = row.samples.map { DailyHeartRateSample(row.origin, it.time.toEpochMilli(), it.bpm.toDouble()) }
+            source
+        }
+        LocalDailyWorkouts(native.values + watch, samples, linked)
+    })
+
+    private fun completedWorkouts(day: WorkoutDay): Map<String, DailyWorkoutSource> {
         val date = LocalDate.parse(day.date.toString())
         val zone = ZoneId.of(day.zone.id)
-        database.workoutRoomDao().visibleCompletedRecordsBetween(scope.ownerId, date.toString(), date.toString()).mapNotNull { row ->
+        return database.workoutRoomDao().visibleCompletedRecordsBetween(scope.ownerId, date.toString(), date.toString()).mapNotNull { row ->
             val workout = workouts.loadSession(scope, row.id) ?: return@mapNotNull null
             val metadata = runCatching { JSONObject(row.metadata) }.getOrElse { JSONObject() }
             val fleekKey = metadata.optString("fleek_source_key").takeIf { it.isNotBlank() }
@@ -40,7 +68,7 @@ internal class WorkoutDailyReadRepository(
                 if (!metadata.optBoolean("fleek_has_reported_start_time", start != localMidnight)) start = null
             }
             val end = if (fleekKey == null) parseTime(workout.completedAt.orEmpty(), date, zone) else null
-            DailyWorkoutSource(
+            row.id to DailyWorkoutSource(
                 origin = origin,
                 writer = origin.label,
                 id = fleekKey ?: row.id,
@@ -78,8 +106,8 @@ internal class WorkoutDailyReadRepository(
                     })
                 }
             )
-        }
-    })
+        }.toMap()
+    }
 
     private fun parseTime(value: String, date: LocalDate, zone: ZoneId): Long? =
         runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()

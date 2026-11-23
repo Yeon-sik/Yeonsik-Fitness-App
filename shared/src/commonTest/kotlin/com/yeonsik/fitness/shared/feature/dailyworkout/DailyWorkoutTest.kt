@@ -87,6 +87,33 @@ class DailyWorkoutTest {
     }
 
     @Test
+    fun locallyStoredWatchAndConfirmedLinkSurviveRefreshAndReopen() = runTest {
+        val native = source(WorkoutOrigin.FITNESS, "Fitness App", "native", DailyWorkoutKind.RUNNING, 10, 700)
+        val watch = source(WorkoutOrigin.HEALTH_CONNECT, samsung, "watch", DailyWorkoutKind.RUNNING, 10, 600)
+        val pulse = DailyHeartRateSample(samsung, watch.endMillis!!, 110.0)
+        var links = emptyMap<String, String>()
+        val reader = DailyWorkoutLocalReader { LocalDailyWorkouts(listOf(native, watch), mapOf(watch.key to listOf(pulse)), links) }
+        val storage = MemoryStorage()
+        val repo = DailyWorkoutRepository(storage, reader)
+        val pending = repo.load(day)
+        assertEquals(1, pending.pendingCount)
+        assertEquals(2, repo.decide(day, pending.candidates.single(), false).sessions.size)
+        links = mapOf(watch.key to native.key)
+        val linked = repo.load(day)
+        assertEquals(0, linked.pendingCount)
+        assertTrue(linked.decisions.isEmpty())
+        assertEquals(2, linked.sessions.single().sources.size)
+        assertEquals(1, linked.sessions.single().heartRate!!.sampleCount)
+        val live = watch.copy(distanceMeters = 1800.0)
+        val refreshed = repo.saveWearables(day, DailyWearableRecords(listOf(live), listOf(pulse.copy(bpm = 120.0))))
+        assertEquals(1800.0, refreshed.sessions.single().timing.distanceMeters)
+        assertEquals(1, refreshed.sessions.single().heartRate!!.sampleCount)
+        assertEquals(120.0, refreshed.sessions.single().heartRate!!.averageBpm)
+        assertEquals(refreshed.toJson(), DailyWorkoutRepository(storage, reader).load(day).toJson())
+        assertEquals(linked.toJson(), repo.saveWearables(day, DailyWearableRecords()).toJson())
+    }
+
+    @Test
     fun heartRateWithoutWorkoutIsNotCountedAsExercise() = runTest {
         val repo = DailyWorkoutRepository(MemoryStorage()) { emptyList() }
         val sample = DailyHeartRateSample(samsung, day.start.toEpochMilliseconds() + 120_000, 100.0)

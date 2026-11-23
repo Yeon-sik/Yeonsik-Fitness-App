@@ -7,6 +7,15 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.dailyworkout.WorkoutDay
+import com.yeonsik.fitness.shared.feature.dailyworkout.projectDailyWorkouts
+import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutDailyReadRepository
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
+import com.yeonsik.fitnessapp.integration.wearable.WearableWorkoutRepository
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -15,7 +24,7 @@ import java.util.UUID
 class WearableWorkoutMigrationTest {
     @Test fun migrationAndImportPreserveWorkoutsAndEnforceIdentityAndOwner() {
         val context: Context = ApplicationProvider.getApplicationContext()
-        val name = "setup-note-migration-${UUID.randomUUID()}.db"
+        val name = "wearable-migration-${UUID.randomUUID()}.db"
         val schema = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open(
             "com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase/61.json")
             .bufferedReader().use { it.readText() }).getJSONObject("database")
@@ -54,12 +63,12 @@ class WearableWorkoutMigrationTest {
                 tables.associateWith { table -> rows(db, table) }
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-                .addMigrations(FitnessRoomMigrations.V55_TO_V56, FitnessRoomMigrations.V56_TO_V57, FitnessRoomMigrations.V57_TO_V58, FitnessRoomMigrations.V58_TO_V59, FitnessRoomMigrations.V59_TO_V60, FitnessRoomMigrations.V60_TO_V61, FitnessRoomMigrations.V61_TO_V62).build()
+                .addMigrations(*FitnessRoomMigrations.all(context)).build()
             try {
                 val db = room.openHelper.writableDatabase
                 assertEquals(FitnessDatabaseContract.ROOM_VERSION, db.version)
                 for (table in tables) assertEquals(table, before[table], rows(db, table))
-                val repository = com.yeonsik.fitnessapp.integration.wearable.WearableWorkoutRepository(room)
+                val repository = WearableWorkoutRepository(room)
                 val start = java.time.Instant.parse("2000-01-02T00:00:00Z")
                 val row = com.yeonsik.fitnessapp.integration.wearable.WearableWorkout("origin", "provider", "외부 운동",
                     start, start.plusSeconds(60), 70, listOf(com.yeonsik.fitnessapp.integration.wearable.MeasuredPulse(start, 100)))
@@ -75,6 +84,24 @@ class WearableWorkoutMigrationTest {
                 assertTrue(repository.list("other-owner").isEmpty())
                 for (table in tables) assertEquals(table, before[table], rows(db, table))
             } finally { room.close() }
+            val reopened = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name).build()
+            try {
+                for (table in tables) assertEquals(table, before[table], rows(reopened.openHelper.readableDatabase, table))
+                val day = WorkoutDay(LocalDate.parse("2000-01-02"), TimeZone.UTC)
+                fun read(owner: String) = WorkoutDailyReadRepository(reopened, WorkoutRepositoryImplementation(reopened, context),
+                    CardioRepository(reopened, owner), AccountScope(owner)).read(day)
+                val local = read("owner")
+                val report = projectDailyWorkouts(day, local.workouts, emptyList(), emptyList(), local.linkedWorkoutKeys, local.samplesByWorkout)
+                val session = report.sessions.single()
+                assertEquals(0, report.pendingCount)
+                assertEquals(2, session.sources.size)
+                assertTrue(report.decisions.isEmpty())
+                val set = session.details!!.exercises.single().sets.single()
+                assertEquals(12.5, set.weightKg!!, 0.001)
+                assertEquals(10, set.reps)
+                assertEquals(100.0, session.heartRate!!.averageBpm, 0.001)
+                assertTrue(read("other-owner").workouts.isEmpty())
+            } finally { reopened.close() }
         } finally { helper.close(); context.deleteDatabase(name) }
     }
 

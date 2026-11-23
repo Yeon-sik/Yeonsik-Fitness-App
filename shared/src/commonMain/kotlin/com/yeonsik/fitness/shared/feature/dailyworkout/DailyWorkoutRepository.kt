@@ -12,10 +12,23 @@ interface DailyWorkoutStorage {
     fun write(name: String, text: String)
 }
 
+data class LocalDailyWorkouts(
+    val workouts: List<DailyWorkoutSource>,
+    val samplesByWorkout: Map<String, List<DailyHeartRateSample>> = emptyMap(),
+    val linkedWorkoutKeys: Map<String, String> = emptyMap()
+)
+
+fun interface DailyWorkoutLocalReader {
+    fun read(day: WorkoutDay): LocalDailyWorkouts
+}
+
 class DailyWorkoutRepository(
     private val storage: DailyWorkoutStorage,
-    private val localWorkouts: (WorkoutDay) -> List<DailyWorkoutSource>
+    private val localRecords: DailyWorkoutLocalReader
 ) {
+    constructor(storage: DailyWorkoutStorage, localWorkouts: (WorkoutDay) -> List<DailyWorkoutSource>) :
+        this(storage, DailyWorkoutLocalReader { day -> LocalDailyWorkouts(localWorkouts(day)) })
+
     suspend fun load(day: WorkoutDay): DailyWorkoutReport = access { report(day, readDay(day)) }
 
     suspend fun importFleek(day: WorkoutDay, csv: String): DailyWorkoutReport = access {
@@ -60,7 +73,8 @@ class DailyWorkoutRepository(
     }
 
     private fun report(day: WorkoutDay, saved: SavedDay, fleek: List<FleekDailyWorkout> = readFleek()): DailyWorkoutReport {
-        val inputs = localWorkouts(day).associateBy { it.key }.toMutableMap()
+        val local = localRecords.read(day)
+        val inputs = local.workouts.associateBy { it.key }.toMutableMap()
         for (fileWorkout in fleek.asSequence().filter { it.date == day.date.toString() }.map { it.workout }) {
             val storedWorkout = inputs[fileWorkout.key]
             inputs[fileWorkout.key] = storedWorkout?.copy(
@@ -72,7 +86,8 @@ class DailyWorkoutRepository(
         }
         val wearable = saved.wearables.takeIf { saved.zone == day.zone.id } ?: DailyWearableRecords()
         return projectDailyWorkouts(
-            day, inputs.values + wearable.workouts, wearable.heartRateSamples, saved.decisions
+            day, inputs.values + wearable.workouts, wearable.heartRateSamples, saved.decisions,
+            local.linkedWorkoutKeys, local.samplesByWorkout
         )
     }
 
