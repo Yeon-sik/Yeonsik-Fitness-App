@@ -5,7 +5,8 @@ Implemented on `feat/health-connect-workout-import-20261109`.
 ## User flow
 
 - Fitness tab → **밴드 운동·심박 가져오기** → read permissions → date → query → select → confirm save.
-- Active or completed strength workout → **이 운동의 밴드 기록 가져오기·확인** → select a same-day measurement → confirm link.
+- Open a completed strength workout or **하루 운동 기록** to see time-based suggestions for watch workouts already saved in Fitness or loaded for that day. Each suggestion explains how the times match. Choose **같은 운동으로 연결** or **별개 운동으로 집계**. Either screen can undo a decision made here.
+- A linked strength workout shows the watch interval, measured mean and peak heart rate, and recorded heart-rate points alongside the sets. **다른 워치 기록 가져오기** opens the importer. An active workout or a completed workout without a match still offers **이 운동의 밴드 기록 가져오기·확인** for an explicit import.
 - Saved external workouts remain available on the import screen after process restart. Linked measurements are shown when opened from that Fitness workout.
 - This reads measurements already delivered to Health Connect. It is not a live Fit3 sensor connection. The Samsung export utility is still needed on the tested device until its native export works.
 - Existing canonical workouts, sets, manual averages and duration stay intact. External workouts are stored separately and do not automatically create completed workouts, add volume or alter statistics. The import screen labels the average as the measured-sample mean; provider summaries can use different calculation rules.

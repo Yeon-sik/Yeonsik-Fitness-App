@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -20,6 +22,17 @@ data class LocalDailyWorkouts(
 
 fun interface DailyWorkoutLocalReader {
     fun read(day: WorkoutDay): LocalDailyWorkouts
+    fun findRecord(recordId: String): LocalWorkoutReference? = null
+}
+
+data class LocalWorkoutReference(val date: String, val origin: WorkoutOrigin, val id: String)
+
+data class DailyWorkoutRecordReview(val sourceKey: String, val report: DailyWorkoutReport) {
+    val entry: DailyWorkoutEntry? get() = report.entries.firstNotNullOfOrNull { it.forSource(sourceKey) }
+    val decisions: List<DailyWorkoutDecision> get() = report.decisions.filter {
+        (it.first == sourceKey && report.sources[it.second]?.origin?.isHealth == true) ||
+            (it.second == sourceKey && report.sources[it.first]?.origin?.isHealth == true)
+    }
 }
 
 class DailyWorkoutRepository(
@@ -30,6 +43,12 @@ class DailyWorkoutRepository(
         this(storage, DailyWorkoutLocalReader { day -> LocalDailyWorkouts(localWorkouts(day)) })
 
     suspend fun load(day: WorkoutDay): DailyWorkoutReport = access { report(day, readDay(day)) }
+
+    suspend fun loadForRecord(recordId: String, zone: TimeZone): DailyWorkoutRecordReview? = access {
+        val ref = localRecords.findRecord(recordId) ?: return@access null
+        val day = WorkoutDay(LocalDate.parse(ref.date), zone)
+        DailyWorkoutRecordReview(ref.origin.sourceKey(ref.origin.label, ref.id), report(day, readDay(day)))
+    }
 
     suspend fun importFleek(day: WorkoutDay, csv: String): DailyWorkoutReport = access {
         val incoming = parseFleekDailyWorkouts(csv)

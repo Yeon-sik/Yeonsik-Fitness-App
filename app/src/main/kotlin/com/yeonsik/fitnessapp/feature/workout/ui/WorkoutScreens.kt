@@ -209,13 +209,16 @@ internal fun WorkoutSessionScreen(
     ownerId: String,
     unit: MassUnit,
     onSaveCondition: (String, String, (Boolean) -> Unit) -> Unit = { _, _, result -> result(false) },
+    recordWatch: @Composable (WorkoutSessionSnapshot) -> Unit = {
+        com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, it.recordId, it.startedAt.take(10))
+    },
     onExercise: (String) -> Unit
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     if (ready == null || ready.ownerId != ownerId) {
         LocalWorkoutSessionPreview.current?.let { snapshot ->
             // Keep the exercise anchors on screen while completion/refresh is pending.
-            AppWorkoutSessionContent(snapshot, ownerId, unit, onSaveCondition, onExercise, interactive = false)
+            AppWorkoutSessionContent(snapshot, ownerId, unit, onSaveCondition, onExercise, recordWatch, interactive = false)
             Text("저장된 기록을 확인하는 중입니다.", style = MaterialTheme.typography.bodySmall)
             return
         }
@@ -235,7 +238,7 @@ internal fun WorkoutSessionScreen(
         )
         return
     }
-    AppWorkoutSessionContent(ready.session, ownerId, unit, onSaveCondition, onExercise)
+    AppWorkoutSessionContent(ready.session, ownerId, unit, onSaveCondition, onExercise, recordWatch)
 }
 
 @Composable
@@ -1651,6 +1654,9 @@ internal fun WorkoutSummaryScreen(
     onBack: () -> Unit,
     onExercise: (String) -> Unit,
     onRecords: () -> Unit = {},
+    recordWatch: @Composable (WorkoutSessionSnapshot) -> Unit = {
+        com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, it.recordId, it.startedAt.take(10))
+    },
     onSaveAsRoutine: (String, List<WorkoutSessionExercise>) -> Unit = { _, _ -> }
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
@@ -1696,7 +1702,7 @@ internal fun WorkoutSummaryScreen(
     }
 
     Text(session.title, fontWeight = FontWeight.Bold)
-    com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, session.recordId, session.startedAt.take(10))
+    recordWatch(session)
     FitnessStatusBadge(
         status = FitnessSemanticStatus.SUCCESS,
         label = "완료된 운동 요약",
@@ -1917,15 +1923,16 @@ private fun AppWorkoutSessionContent(
     unit: MassUnit,
     onSaveCondition: (String, String, (Boolean) -> Unit) -> Unit,
     onExercise: (String) -> Unit,
+    recordWatch: @Composable (WorkoutSessionSnapshot) -> Unit,
     interactive: Boolean = true
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
     val groupLabels = workoutSessionGroupLabels(orderedExercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
     val isInProgress = session.status == "in_progress"
-    if (interactive) com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId, session.recordId, session.startedAt.take(10))
     FitnessHeader(session.title, "${orderedExercises.size}개 종목",
         titleModifier = Modifier.workoutSharedElement(workoutSessionTitleAnchor(session.recordId), "title"))
+    if (interactive) recordWatch(session)
     FitnessStatusBadge(
         status = when (session.status) {
             "completed" -> FitnessSemanticStatus.SUCCESS

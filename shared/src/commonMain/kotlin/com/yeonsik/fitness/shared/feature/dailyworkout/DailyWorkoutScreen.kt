@@ -15,7 +15,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,7 +39,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
-import kotlin.math.roundToInt
 import kotlin.time.Instant
 
 interface DailyWorkoutDeviceAccess {
@@ -158,7 +156,7 @@ private fun DailyWorkoutContent(
     val report = state.report
     Scaffold { insets ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(insets),
+            Modifier.fillMaxSize().padding(insets).testTag("daily-workout-list"),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -184,30 +182,11 @@ private fun DailyWorkoutContent(
                 }
             }
             if (report != null) {
-                items(report.candidates) { candidate ->
-                    OutlinedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("같은 운동인지 확인", style = MaterialTheme.typography.titleMedium)
-                            Text(candidate.first.summary(state.day.zone))
-                            Text(candidate.second.summary(state.day.zone))
-                            TextButton({ onDecision(candidate, true) }, enabled = !state.busy) { Text("같은 운동으로 연결") }
-                            TextButton({ onDecision(candidate, false) }, enabled = !state.busy) { Text("별개 운동으로 집계") }
-                        }
-                    }
+                items(report.entries, key = { it.sessions.first().primary.key }) { entry ->
+                    DailyWorkoutEntryCard(entry, state.day.zone, state.busy, onDecision, Modifier.fillMaxWidth())
                 }
-                items(report.sessions, key = { it.primary.key }) { session ->
-                    OutlinedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(session.primary.title, style = MaterialTheme.typography.titleMedium)
-                            Text(session.timing.summary(state.day.zone))
-                            if (session.sources.size > 1) Text(session.sources.joinToString(" · ") { it.writerLabel() })
-                            session.details?.let { details -> Text("${details.exercises.size}종목 · ${details.exercises.sumOf { it.sets.size }}세트") }
-                            session.heartRate?.let { Text("평균 ${it.averageBpm.roundToInt()} bpm · ${it.sampleCount}개 측정") }
-                        }
-                    }
-                }
-                if (report.unlinkedHeartRate.isNotEmpty()) item {
-                    Text("운동에 연결되지 않은 심박 · ${report.unlinkedHeartRate.sumOf { it.sampleCount }}개 측정")
+                if (report.heartRateOutsideWorkouts.isNotEmpty()) item {
+                    Text("연결할 운동을 찾지 못한 심박 · ${report.heartRateOutsideWorkouts.sumOf { it.sampleCount }}개 측정")
                 }
                 items(report.decisions) { decision ->
                     val first = report.sources.getValue(decision.first)
@@ -233,16 +212,4 @@ private fun DailyWorkoutContent(
             dismissButton = { TextButton({ selectDate = false }) { Text("취소") } }
         ) { DatePicker(picker) }
     }
-}
-
-private fun DailyWorkoutSource.summary(zone: TimeZone): String {
-    val time = startMillis?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(zone).time.toString().take(5) }
-    return "$title · ${writerLabel()} · ${time ?: "시각 미상"}"
-}
-
-private fun DailyWorkoutSource.writerLabel(): String = when {
-    writer == "com.sec.android.app.shealth" -> "Samsung Health"
-    writer.contains("fleek", ignoreCase = true) -> "FLEEK"
-    origin == WorkoutOrigin.HEALTH_KIT && writer.startsWith("com.apple.") -> "Apple 건강"
-    else -> writer
 }

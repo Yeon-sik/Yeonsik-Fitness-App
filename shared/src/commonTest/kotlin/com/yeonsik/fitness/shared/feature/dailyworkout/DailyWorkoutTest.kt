@@ -145,6 +145,64 @@ class DailyWorkoutTest {
         assertEquals(5000.0, external.distanceMeters)
     }
 
+    @Test
+    fun ranksOverlappingStrengthSessionsAndShowsWatchSamplesOnceInTheirReviewCard() = runTest {
+        val exercises = listOf(DailyWorkoutExercise("테스트 종목", listOf(DailyWorkoutSet(reps = 8))))
+        val early = source(WorkoutOrigin.FITNESS, "Fitness App", "early", DailyWorkoutKind.STRENGTH, 8, 3600)
+            .copy(exercises = exercises)
+        val start = early.startMillis!! + 25 * 60_000
+        val close = early.copy(id = "later", startMillis = start, endMillis = start + 1800_000, durationSeconds = 1800)
+        val watch = close.copy(origin = WorkoutOrigin.HEALTH_CONNECT, writer = samsung, id = "watch", exercises = emptyList())
+        val evening = source(WorkoutOrigin.FITNESS, "Fitness App", "evening", DailyWorkoutKind.STRENGTH, 19, 1200)
+        val pulse = DailyHeartRateSample(samsung, watch.endMillis!!, 117.0)
+        val outside = pulse.copy(timeMillis = day.start.toEpochMilliseconds() + 1000)
+        val local = listOf(early, close, evening, watch)
+        val reader = object : DailyWorkoutLocalReader {
+            override fun read(day: WorkoutDay) = LocalDailyWorkouts(local, mapOf(watch.key to listOf(pulse)))
+            override fun findRecord(recordId: String) = local.firstOrNull { it.origin == WorkoutOrigin.FITNESS && it.id == recordId }
+                ?.let { LocalWorkoutReference(day.date.toString(), it.origin, it.id) }
+        }
+        val storage = MemoryStorage()
+        val repo = DailyWorkoutRepository(storage, reader)
+        val report = repo.saveWearables(day, DailyWearableRecords(heartRateSamples = listOf(outside)))
+        val card = report.entries.single { it.candidates.isNotEmpty() }
+        assertEquals(listOf(close.key, early.key), card.candidates.map { it.first.key })
+        assertEquals(WorkoutMatchBasis.OVERLAP, card.candidates.first().basis)
+        assertEquals(1800_000L, card.candidates.first().overlapMillis)
+        assertEquals(3, card.sessions.size)
+        assertEquals(1, card.sessions.mapNotNull { it.heartRate }.single().sampleCount)
+        assertEquals(1, report.heartRateOutsideWorkouts.single().sampleCount)
+        assertEquals(2, report.unlinkedHeartRate.single().sampleCount)
+        val detail = assertNotNull(repo.loadForRecord(close.id, day.zone)?.entry)
+        assertEquals(listOf(close.key, watch.key), detail.sessions.map { it.primary.key })
+        assertNull(repo.loadForRecord(evening.id, day.zone)?.entry)
+        val confirmed = repo.decide(day, detail.candidates.single(), true)
+        assertTrue(confirmed.candidates.isEmpty())
+        val reopened = DailyWorkoutRepository(storage, reader)
+        assertEquals(1, reopened.loadForRecord(close.id, day.zone)?.entry?.sessions?.single()?.heartRate?.sampleCount)
+        val undone = repo.undo(day, confirmed.decisions.single())
+        val separate = repo.decide(day, undone.candidates.first(), false)
+        assertFalse(separate.candidates.any { it.first.key == close.key && it.second.key == watch.key })
+    }
+
+    @Test
+    fun distinguishesMissingTimesNearbyStartsAndBackToBackWorkouts() {
+        val watch = source(WorkoutOrigin.HEALTH_CONNECT, samsung, "watch", DailyWorkoutKind.STRENGTH, 9, 1800)
+        val native = watch.copy(origin = WorkoutOrigin.FITNESS, writer = "Fitness App", id = "native")
+        fun candidates(vararg local: DailyWorkoutSource) = projectDailyWorkouts(day, local.toList() + watch, emptyList(), emptyList()).candidates
+        val dateOnly = native.copy(startMillis = null, endMillis = null, durationSeconds = null)
+        assertEquals(WorkoutMatchBasis.DATE_ONLY, candidates(dateOnly).single().basis)
+        assertTrue(candidates(dateOnly, dateOnly.copy(id = "other")).isEmpty())
+        assertEquals(listOf(WorkoutMatchBasis.OVERLAP), candidates(dateOnly.copy(id = "other"), native).map { it.basis })
+        val watchStart = watch.startMillis!!
+        val startOnly = native.copy(startMillis = watchStart - 9 * 60_000, endMillis = null, durationSeconds = null)
+        assertEquals(WorkoutMatchBasis.NEAR_START, candidates(startOnly).single().basis)
+        assertTrue(candidates(startOnly.copy(startMillis = watchStart - 11 * 60_000)).isEmpty())
+        assertEquals(WorkoutMatchBasis.START_IN_INTERVAL, candidates(startOnly.copy(startMillis = watchStart + 15 * 60_000)).single().basis)
+        assertTrue(candidates(native.copy(startMillis = watch.endMillis, endMillis = null)).isEmpty())
+        assertTrue(candidates(native.copy(kind = DailyWorkoutKind.CYCLING)).isEmpty())
+    }
+
     private fun source(origin: WorkoutOrigin, writer: String, id: String, kind: DailyWorkoutKind, hour: Int, duration: Int): DailyWorkoutSource {
         val start = day.start.toEpochMilliseconds() + hour * 3_600_000L
         return DailyWorkoutSource(origin, writer, id, kind.label, kind, start, start + duration * 1000L, duration)

@@ -88,9 +88,12 @@ class WearableWorkoutMigrationTest {
             try {
                 for (table in tables) assertEquals(table, before[table], rows(reopened.openHelper.readableDatabase, table))
                 val day = WorkoutDay(LocalDate.parse("2000-01-02"), TimeZone.UTC)
-                fun read(owner: String) = WorkoutDailyReadRepository(reopened, WorkoutRepositoryImplementation(reopened, context),
-                    CardioRepository(reopened, owner), AccountScope(owner)).read(day)
-                val local = read("owner")
+                fun reader(owner: String) = WorkoutDailyReadRepository(reopened, WorkoutRepositoryImplementation(reopened, context),
+                    CardioRepository(reopened, owner), AccountScope(owner))
+                val ownReader = reader("owner")
+                val local = ownReader.read(day)
+                assertEquals(day.date.toString(), ownReader.findRecord("record")?.date)
+                assertNull(reader("other-owner").findRecord("record"))
                 val report = projectDailyWorkouts(day, local.workouts, emptyList(), emptyList(), local.linkedWorkoutKeys, local.samplesByWorkout)
                 val session = report.sessions.single()
                 assertEquals(0, report.pendingCount)
@@ -100,7 +103,7 @@ class WearableWorkoutMigrationTest {
                 assertEquals(12.5, set.weightKg!!, 0.001)
                 assertEquals(10, set.reps)
                 assertEquals(100.0, session.heartRate!!.averageBpm, 0.001)
-                assertTrue(read("other-owner").workouts.isEmpty())
+                assertTrue(reader("other-owner").read(day).workouts.isEmpty())
             } finally { reopened.close() }
         } finally { helper.close(); context.deleteDatabase(name) }
     }

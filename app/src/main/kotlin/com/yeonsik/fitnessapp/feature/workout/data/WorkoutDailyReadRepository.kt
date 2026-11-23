@@ -6,6 +6,7 @@ import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyHeartRateSample
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutLocalReader
 import com.yeonsik.fitness.shared.feature.dailyworkout.LocalDailyWorkouts
+import com.yeonsik.fitness.shared.feature.dailyworkout.LocalWorkoutReference
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutExercise
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutKind
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutSet
@@ -34,6 +35,19 @@ internal class WorkoutDailyReadRepository(
 ) : DailyWorkoutLocalReader {
     private val wearables = WearableWorkoutRepository(database)
 
+    override fun findRecord(recordId: String): LocalWorkoutReference? {
+        val row = database.workoutRoomDao().visibleRecord(recordId, scope.ownerId) ?: return null
+        return reference(row.date, row.id, metadata(row.metadata))
+    }
+
+    private fun metadata(json: String?) = runCatching { JSONObject(json.orEmpty()) }.getOrElse { JSONObject() }
+
+    private fun reference(date: String, id: String, metadata: JSONObject): LocalWorkoutReference {
+        val fleek = metadata.optString("fleek_source_key").takeIf { it.isNotBlank() }
+        return if (fleek == null) LocalWorkoutReference(date, WorkoutOrigin.FITNESS, id)
+            else LocalWorkoutReference(date, WorkoutOrigin.FLEEK, fleek)
+    }
+
     override fun read(day: WorkoutDay): LocalDailyWorkouts = database.runInTransaction(Callable {
         val native = completedWorkouts(day)
         val stored = wearables.startingBetween(scope.ownerId, Instant.ofEpochMilli(day.start.toEpochMilliseconds()),
@@ -58,20 +72,20 @@ internal class WorkoutDailyReadRepository(
         val zone = ZoneId.of(day.zone.id)
         return database.workoutRoomDao().visibleCompletedRecordsBetween(scope.ownerId, date.toString(), date.toString()).mapNotNull { row ->
             val workout = workouts.loadSession(scope, row.id) ?: return@mapNotNull null
-            val metadata = runCatching { JSONObject(row.metadata) }.getOrElse { JSONObject() }
-            val fleekKey = metadata.optString("fleek_source_key").takeIf { it.isNotBlank() }
-            val origin = if (fleekKey != null) WorkoutOrigin.FLEEK else WorkoutOrigin.FITNESS
+            val metadata = metadata(row.metadata)
+            val ref = reference(row.date, row.id, metadata)
+            val isFleek = ref.origin == WorkoutOrigin.FLEEK
             val cardioSession = if (row.workoutType == "cardio") cardio.loadSession(scope, row.id) else null
             var start = cardioSession?.startedAtEpochMillis ?: parseTime(workout.startedAt, date, zone)
-            if (fleekKey != null) {
+            if (isFleek) {
                 val localMidnight = date.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
                 if (!metadata.optBoolean("fleek_has_reported_start_time", start != localMidnight)) start = null
             }
-            val end = if (fleekKey == null) parseTime(workout.completedAt.orEmpty(), date, zone) else null
+            val end = if (isFleek) null else parseTime(workout.completedAt.orEmpty(), date, zone)
             row.id to DailyWorkoutSource(
-                origin = origin,
-                writer = origin.label,
-                id = fleekKey ?: row.id,
+                origin = ref.origin,
+                writer = ref.origin.label,
+                id = ref.id,
                 title = workout.title.ifBlank { "운동 기록" },
                 kind = when (row.workoutType) {
                     "strength" -> DailyWorkoutKind.STRENGTH
@@ -85,7 +99,7 @@ internal class WorkoutDailyReadRepository(
                 },
                 startMillis = start,
                 endMillis = end?.takeIf { start != null && it > start },
-                durationSeconds = workout.durationSeconds.takeIf { it > 0 && fleekKey == null },
+                durationSeconds = workout.durationSeconds.takeIf { it > 0 && !isFleek },
                 distanceMeters = cardioSession?.recordedDistanceMeters?.takeIf { it.isFinite() && it > 0 },
                 manualHeartRateBpm = row.averageHeartRate?.takeIf { it.isFinite() && it > 0 },
                 exercises = workout.exercises.filter { it.completedSets.isNotEmpty() }.map { entry ->

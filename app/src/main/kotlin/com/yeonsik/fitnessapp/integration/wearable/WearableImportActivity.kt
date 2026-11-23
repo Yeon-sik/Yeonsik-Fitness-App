@@ -14,9 +14,10 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyHeartRateSample
+import com.yeonsik.fitness.shared.feature.dailyworkout.WorkoutHeartRatePlot
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import java.time.*
 import java.time.format.DateTimeFormatter
@@ -43,12 +44,19 @@ class WearableImportActivity : ComponentActivity() {
 /** Route wrapper owns Android navigation; the entry itself never opens a database. */
 @Composable
 fun WearableImportEntry(ownerId: String, recordId: String? = null, date: String? = null) {
+    WearableImportAction(ownerId, recordId, date) { open ->
+        OutlinedButton(onClick = open, modifier = Modifier.fillMaxWidth()) {
+            Text(if (recordId == null) "밴드 운동·심박 가져오기" else "이 운동의 밴드 기록 가져오기·확인")
+        }
+    }
+}
+
+@Composable
+internal fun WearableImportAction(ownerId: String, recordId: String?, date: String?, content: @Composable (() -> Unit) -> Unit) {
     val context = LocalContext.current
-    OutlinedButton(onClick = {
+    content {
         context.startActivity(Intent(context, WearableImportActivity::class.java)
             .putExtra("owner", ownerId).putExtra("record", recordId).putExtra("date", date))
-    }, modifier = Modifier.fillMaxWidth()) {
-        Text(if (recordId == null) "밴드 운동·심박 가져오기" else "이 운동의 밴드 기록 가져오기·확인")
     }
 }
 
@@ -115,25 +123,11 @@ private fun WearableWorkoutCard(row: WearableWorkout, actions: @Composable () ->
             Text("운동 ${seconds / 60}분 ${seconds % 60}초 · 심박 ${row.samples.size}개")
             if (row.samples.isNotEmpty()) {
                 Text("측정 표본 평균 ${"%.1f".format(row.samples.map { it.bpm }.average())} · 최대 ${row.samples.maxOf { it.bpm }} bpm")
-                PulsePlot(row)
+                val samples = remember(row) { row.samples.map { DailyHeartRateSample(row.origin, it.time.toEpochMilli(), it.bpm.toDouble()) } }
+                WorkoutHeartRatePlot(samples, row.start.toEpochMilli(), row.end.toEpochMilli(), Modifier.fillMaxWidth().height(100.dp))
             } else Text("이 출처에서 같은 구간의 심박은 조회되지 않았습니다.")
             Text("출처: ${row.origin}", style = MaterialTheme.typography.bodySmall)
             actions()
-        }
-    }
-}
-
-@Composable
-private fun PulsePlot(row: WearableWorkout) {
-    val color = MaterialTheme.colorScheme.primary
-    Canvas(Modifier.fillMaxWidth().height(100.dp)) {
-        val span = Duration.between(row.start, row.end).toMillis().coerceAtLeast(1).toFloat()
-        val low = row.samples.minOf { it.bpm } - 5
-        val high = row.samples.maxOf { it.bpm } + 5
-        // Points only: do not draw invented continuous observations across missing intervals.
-        row.samples.forEach { pulse ->
-            drawCircle(color, 2.dp.toPx(), Offset(Duration.between(row.start, pulse.time).toMillis() / span * size.width,
-                size.height * (1f - (pulse.bpm - low).toFloat() / (high - low))))
         }
     }
 }

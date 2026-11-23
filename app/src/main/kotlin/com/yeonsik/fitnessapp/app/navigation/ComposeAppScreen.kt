@@ -89,6 +89,8 @@ import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitnessapp.feature.dailyworkout.WorkoutRecordWatchSection
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.config.LauncherIconController
 import com.yeonsik.fitnessapp.ui.AppUiActions
@@ -1706,6 +1708,12 @@ private fun AppDestination(
     entranceToken: Long?,
     isActualActive: Boolean
 ) {
+    val recordWatch: @Composable (WorkoutSessionSnapshot) -> Unit = { session ->
+        val repository = if (isActualActive && session.status == "completed") {
+            remember(ownerId, host) { host.dailyWorkoutRepository(ownerId) }
+        } else null
+        WorkoutRecordWatchSection(repository, ownerId, session)
+    }
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val recordsState by viewModels.getRecords().uiState
         .observeAsState(RecordsUiState.Idle)
@@ -2295,6 +2303,7 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
+                recordWatch = recordWatch,
                 onSaveCondition = { recordId, note, onResult ->
                     viewModels.getWorkoutSession().updateConditionNote(AccountScope(ownerId), recordId, note,
                         java.util.function.Consumer { onResult(it) })
@@ -2432,12 +2441,13 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
-                { navigation.back() },
-                { exerciseId ->
+                onBack = { navigation.back() },
+                onExercise = { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                 },
                 onRecords = { navigation.navigate(FitnessScreen.RECORDS) },
+                recordWatch = recordWatch,
                 onSaveAsRoutine = { name, exercises ->
                     viewModels.getRoutineEntry().saveWorkoutAsRoutine(
                         AccountScope(ownerId),

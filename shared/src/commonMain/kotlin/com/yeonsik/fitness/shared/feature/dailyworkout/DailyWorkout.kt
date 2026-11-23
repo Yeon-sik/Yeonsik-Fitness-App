@@ -6,7 +6,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.serialization.Serializable
-import kotlin.math.abs
 import kotlin.time.Instant
 
 data class WorkoutDay(val date: LocalDate, val zone: TimeZone) {
@@ -30,6 +29,7 @@ enum class WorkoutOrigin(val label: String) {
     FITNESS("Fitness App"), FLEEK("FLEEK"), HEALTH_CONNECT("Health Connect"), HEALTH_KIT("Apple 건강");
 
     internal val isHealth get() = this == HEALTH_CONNECT || this == HEALTH_KIT
+    internal fun sourceKey(writer: String, id: String) = "${name}:${writer.length}:$writer$id"
 }
 
 @Serializable
@@ -62,7 +62,7 @@ data class DailyWorkoutSource(
     val manualHeartRateBpm: Double? = null,
     val exercises: List<DailyWorkoutExercise> = emptyList()
 ) {
-    val key: String get() = "${origin.name}:${writer.length}:$writer$id"
+    val key: String get() = origin.sourceKey(writer, id)
 
     internal val interval: LongRange?
         get() = if (startMillis != null && endMillis != null && endMillis > startMillis) {
@@ -85,14 +85,13 @@ data class DailyWorkoutDecision(val first: String, val second: String, val sameW
         (first in firstKeys && second in secondKeys) || (second in firstKeys && first in secondKeys)
 }
 
-data class DailyWorkoutCandidate(val first: DailyWorkoutSource, val second: DailyWorkoutSource)
-
 data class DailyHeartRateSummary(val writer: String, val averageBpm: Double, val maxBpm: Double, val sampleCount: Int)
 
 data class DailyWorkoutSession(
     val sources: List<DailyWorkoutSource>,
     val timing: DailyWorkoutSource,
-    val heartRate: DailyHeartRateSummary?
+    val heartRate: DailyHeartRateSummary?,
+    val measuredSamples: List<DailyHeartRateSample> = emptyList()
 ) {
     val primary: DailyWorkoutSource get() = sources.first()
     val details: DailyWorkoutSource? get() = sources.firstOrNull { it.exercises.isNotEmpty() }
@@ -105,7 +104,9 @@ data class DailyWorkoutReport(
     val pendingCount: Int,
     val unlinkedHeartRate: List<DailyHeartRateSummary>,
     val decisions: List<DailyWorkoutDecision>,
-    val sources: Map<String, DailyWorkoutSource>
+    val sources: Map<String, DailyWorkoutSource>,
+    val entries: List<DailyWorkoutEntry>,
+    val heartRateOutsideWorkouts: List<DailyHeartRateSummary>
 )
 
 fun projectDailyWorkouts(
@@ -156,17 +157,9 @@ fun projectDailyWorkouts(
 
     val order = compareBy<DailyWorkoutSource>({ it.exercises.isEmpty() }, { it.origin }, { it.key })
     val orderedGroups = groups.map { it.sortedWith(order) }.sortedWith { a, b -> order.compare(a.first(), b.first()) }
-    val pending = mutableSetOf<String>()
-    val candidates = mutableListOf<DailyWorkoutCandidate>()
-    for ((index, left) in orderedGroups.withIndex()) {
-        val leftKeys = left.map { it.key }
-        for (right in orderedGroups.drop(index + 1)) {
-            if (separate.any { it.matches(leftKeys, right.map { source -> source.key }) }) continue
-            val pair = candidateBetween(left, right) ?: continue
-            candidates.add(pair)
-            pending.add(right.first().key)
-        }
-    }
+    val candidates = findDailyWorkoutCandidates(orderedGroups, separate)
+    val primaryBySource = orderedGroups.flatMap { group -> group.map { it.key to group.first().key } }.toMap()
+    val pending = candidates.mapTo(mutableSetOf()) { primaryBySource.getValue(it.second.key) }
 
     val timing = orderedGroups.associate { group ->
         group.first().key to (group.firstOrNull { it.origin.isHealth && it.interval != null &&
@@ -190,17 +183,23 @@ fun projectDailyWorkouts(
         if (!sample.bpm.isFinite() || sample.bpm <= 0) continue
         val recordedGroup = recordedSources[sample.writer to sample.timeMillis].orEmpty().mapNotNull(groupBySource::get).distinct().singleOrNull()
         val group = recordedGroup ?: groupForSample(orderedGroups, sample)
-        if (group != null && group.first().key !in pending) {
+        if (group != null) {
             samplesBySession.getOrPut(group.first().key) { mutableListOf() }.add(sample)
         } else if (sample.timeMillis < dayEnd) {
             unlinked.add(sample)
         }
     }
-    val sessions = orderedGroups.filterNot { it.first().key in pending }.map { group ->
+    val allSessions = orderedGroups.map { group ->
         val key = group.first().key
-        DailyWorkoutSession(group, timing.getValue(key), summarize(samplesBySession[key].orEmpty()).firstOrNull())
+        val readings = samplesBySession[key].orEmpty()
+        val heart = summarize(readings).firstOrNull()
+        DailyWorkoutSession(group, timing.getValue(key), heart, readings.filter { it.writer == heart?.writer })
     }.sortedWith(compareBy({ it.timing.startMillis ?: Long.MAX_VALUE }, { it.primary.key }))
-    return DailyWorkoutReport(day, sessions, candidates, pending.size, summarize(unlinked), applied, sources)
+    val sessions = allSessions.filterNot { it.primary.key in pending }
+    // The v1 export keeps pending samples outside confirmed sessions. The screen can show their watch of origin.
+    val awaitingReview = pending.flatMap { samplesBySession[it].orEmpty() }.filter { it.timeMillis < dayEnd }
+    return DailyWorkoutReport(day, sessions, candidates, pending.size, summarize(unlinked + awaitingReview), applied,
+        sources, dailyWorkoutEntries(allSessions, candidates), summarize(unlinked))
 }
 
 private fun groupForSample(groups: List<List<DailyWorkoutSource>>, sample: DailyHeartRateSample): List<DailyWorkoutSource>? {
@@ -209,32 +208,6 @@ private fun groupForSample(groups: List<List<DailyWorkoutSource>>, sample: Daily
         source.origin.isHealth && source.writer == sample.writer && source.interval?.contains(sample.timeMillis) == true
     } }
     return matchingWriter.singleOrNull() ?: matching.singleOrNull()
-}
-
-private fun candidateBetween(left: List<DailyWorkoutSource>, right: List<DailyWorkoutSource>): DailyWorkoutCandidate? {
-    for (first in left) {
-        for (second in right) {
-            if (first.kind.matches(second.kind) && canBeSameWorkout(first, second)) {
-                return DailyWorkoutCandidate(first, second)
-            }
-        }
-    }
-    return null
-}
-
-private fun canBeSameWorkout(first: DailyWorkoutSource, second: DailyWorkoutSource): Boolean {
-    val firstInterval = first.interval
-    val secondInterval = second.interval
-    if (first.origin == second.origin && first.writer == second.writer) {
-        return first.origin.isHealth && firstInterval != null && firstInterval == secondInterval
-    }
-    if (firstInterval != null && secondInterval != null) {
-        return firstInterval.first <= secondInterval.last && secondInterval.first <= firstInterval.last
-    }
-    val firstStart = first.startMillis ?: return true
-    val secondStart = second.startMillis ?: return true
-    return firstInterval?.contains(secondStart) == true || secondInterval?.contains(firstStart) == true ||
-        abs(firstStart - secondStart) <= 10 * 60 * 1000
 }
 
 private fun summarize(samples: List<DailyHeartRateSample>): List<DailyHeartRateSummary> = samples.groupBy { it.writer }
