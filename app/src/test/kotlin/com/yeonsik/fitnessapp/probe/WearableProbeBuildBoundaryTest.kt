@@ -19,12 +19,13 @@ class WearableProbeBuildBoundaryTest {
     @Test
     fun mainManifestDeclaresReadOnlyWorkoutPermissionsAndRationale() {
         val manifest = text("src/main/AndroidManifest.xml")
-        assertEquals(setOf("READ_EXERCISE", "READ_HEART_RATE", "READ_DISTANCE", "READ_ACTIVE_CALORIES_BURNED",
-            "READ_HEALTH_DATA_HISTORY"), Regex("android\\.permission\\.health\\.([A-Z_]+)")
-            .findAll(manifest).map { it.groupValues[1] }.toSet())
+        val permissions = Regex("android\\.permission\\.health\\.([A-Z_]+)").findAll(manifest).map { it.groupValues[1] }.toList()
+        assertEquals(listOf("READ_EXERCISE", "READ_HEART_RATE", "READ_DISTANCE", "READ_ACTIVE_CALORIES_BURNED",
+            "READ_HEALTH_DATA_HISTORY").sorted(), permissions.sorted())
         assertTrue(manifest.contains("HEALTH_PERMISSIONS"))
-        assertTrue(manifest.contains("ACTION_SHOW_PERMISSIONS_RATIONALE"))
-        assertTrue(manifest.contains("android.intent.action.VIEW_PERMISSION_USAGE"))
+        assertEquals(1, Regex("ACTION_SHOW_PERMISSIONS_RATIONALE").findAll(manifest).count())
+        assertEquals(1, Regex("android\\.intent\\.action\\.VIEW_PERMISSION_USAGE").findAll(manifest).count())
+        assertTrue(manifest.contains(".integration.wearable.WearableImportActivity"))
         assertTrue(manifest.contains("android.permission.START_VIEW_PERMISSION_USAGE"))
         assertFalse(manifest.contains("probe.wearable"))
     }

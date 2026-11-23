@@ -2268,6 +2268,7 @@ interface NutritionRoomDao {
 
 @Database(
     entities = [
+        WearableWorkoutEntity::class,
         InformationInboxEntity::class,
         InformationDraftEntity::class,
         HealthExportReceiptEntity::class,
@@ -2319,6 +2320,7 @@ interface NutritionRoomDao {
     exportSchema = true
 )
 abstract class FitnessRoomDatabase : RoomDatabase() {
+    abstract fun wearableWorkoutDao(): WearableWorkoutDao
     abstract fun informationInboxDao(): InformationInboxDao
     abstract fun informationProjectionDao(): InformationProjectionDao
     abstract fun healthExportReceiptDao(): HealthExportReceiptDao

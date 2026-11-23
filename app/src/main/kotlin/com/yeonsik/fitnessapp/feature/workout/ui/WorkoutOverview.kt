@@ -58,6 +58,7 @@ internal fun WorkoutOverview(
     TopLevelEntranceContent(entrance, order++) {
         Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
             WorkoutOverviewHeading("운동 기록")
+            com.yeonsik.fitnessapp.integration.wearable.WearableImportEntry(ownerId = ownerId)
             WorkoutOverviewAction(
                 "무산소 운동",
                 if (strengthInProgress) "진행 중 · 이어하기" else "루틴 선택 · 자유 운동",

@@ -89,6 +89,11 @@ import java.util.concurrent.Executors
  * navigation and platform callbacks without constructing repositories or integration adapters.
  */
 class AppContainer(context: Context) : SettingsSessionCoordinator {
+    companion object {
+        fun wearableWorkoutRepository(context: Context) =
+            com.yeonsik.fitnessapp.integration.wearable.WearableWorkoutRepository(FitnessRoomDatabaseProvider.get(context))
+    }
+
     private val appContext = context.applicationContext
     private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     val massUnitPreferences = MassUnitPreferences(appContext)

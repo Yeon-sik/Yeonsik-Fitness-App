@@ -29,6 +29,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
+        <activity android:name=".integration.wearable.WearableImportActivity" android:exported="false" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
@@ -53,7 +54,16 @@
             </intent-filter>
         </activity>
         <activity-alias
+            android:name=".integration.wearable.WearablePrivacyActivity"
+            android:exported="true"
+            android:targetActivity=".feature.dailyworkout.DailyWorkoutPermissionsActivity" />
+        <activity-alias
             android:name=".DailyWorkoutPermissionUsage"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".feature.dailyworkout.DailyWorkoutPermissionsActivity" />
+        <activity-alias
+            android:name=".WearablePermissionUsage"
             android:exported="true"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
             android:targetActivity=".feature.dailyworkout.DailyWorkoutPermissionsActivity">
