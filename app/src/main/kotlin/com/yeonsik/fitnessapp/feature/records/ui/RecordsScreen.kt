@@ -58,6 +58,7 @@ import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitnessapp.data.MassFormatter
+import com.yeonsik.fitness.shared.feature.body.ui.BodyWeightRecordCard
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
 import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
@@ -410,23 +411,11 @@ private fun RecordsDayDetailSection(
         }
         detail.bodyMetrics.forEach { metric ->
             TopLevelEntranceContent(entrance, order++) {
-                AppCard(Modifier.fillMaxWidth().testTag("$tagPrefix-body-${metric.id}")
-                    .clickable(role = Role.Button, onClickLabel = "체중 기록 수정") {
-                    actions.showBodyMetric(metric.date, metric.id)
-                }) {
-                    Row(
-                        Modifier.padding(AppSpacing.card),
-                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp, lineHeight = 26.sp)
-                        }
-                        Text("수정", fontSize = 14.sp, lineHeight = 22.sp,
-                            color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
+                BodyWeightRecordCard(
+                    weightLabel = MassFormatter.withUnit(metric.weightKg, unit),
+                    onEdit = { actions.showBodyMetric(metric.date, metric.id) },
+                    modifier = Modifier.fillMaxWidth().testTag("$tagPrefix-body-${metric.id}")
+                )
             }
         }
     }

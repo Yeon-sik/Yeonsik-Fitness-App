@@ -1,5 +1,7 @@
 # Fitness App Claude Handoff — Revised Model Skeleton
 
+Personal OS에 포함됐던 초기 Fitness 모델을 설명하는 이력이다. 현재 저장·소유권과 구현 기준은 [정돈 리팩터링 규칙](FitnessApp_정돈_리팩터링_규칙.md)과 [공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)을 따른다.
+
 ## 0. 문서 목적
 
 이 문서는 Personal OS 안의 Fitness App을 Claude Code가 오해 없이 정리하도록 전달하는 기준 문서다.

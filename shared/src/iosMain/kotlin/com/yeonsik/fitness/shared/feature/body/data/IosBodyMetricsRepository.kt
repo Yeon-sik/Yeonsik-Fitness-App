@@ -5,177 +5,213 @@ import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsRepositoryApi
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
 import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.datetime.LocalDate
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import platform.Foundation.NSApplicationSupportDirectory
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSLock
+import platform.Foundation.NSString
+import platform.Foundation.NSURL
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUserDomainMask
+import platform.Foundation.NSUUID
+import platform.Foundation.create
+import platform.Foundation.writeToURL
 
-/**
- * M7 functional-parity adapter for iOS.
- *
- * This is deliberately in-memory and is not production persistence.  The owner-scoped API is
- * the replacement boundary for a durable adapter before a commercial iOS release.
- */
-class IosBodyMetricsRepository : BodyMetricsRepositoryApi {
-    private val entriesByOwner = mutableMapOf<String, MutableList<BodyReadEntry>>()
-    private val profilesByOwner = mutableMapOf<String, BodyProfile>()
-    private var nextId: Long = 1
+/** Device-local body records. A mutation publishes its result only after the atomic file write. */
+@OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
+class IosBodyMetricsRepository internal constructor(private val file: NSURL) : BodyMetricsRepositoryApi {
+    constructor() : this(bodyStoreUrl())
 
     override fun addBodyMetric(
-        scope: AccountScope,
-        date: String,
-        weightKg: Double,
-        memo: String
-    ): String {
-        val ownerId = owner(scope)
+        scope: AccountScope, date: String, weightKg: Double, memo: String
+    ): String = withStorage {
+        val stored = load()
+        val owner = stored.owner(scope)
         val recordDate = requireRecordDate(date)
-        val validatedWeight = requireBodyWeight(weightKg)
-        val entries = entriesByOwner.getOrPut(ownerId) { mutableListOf() }
-        val existing = entries.firstOrNull { it.date == recordDate }
-        if (existing != null) {
-            val index = entries.indexOfFirst { it.id == existing.id }
-            entries[index] = existing.copy(weightKg = validatedWeight, memo = memo.trim())
-            return existing.id
-        }
-        val id = "ios-body-${nextId++}"
-        entries += BodyReadEntry(id, recordDate, validatedWeight, memo.trim())
-        return id
+        val weight = requireBodyWeight(weightKg)
+        val existing = owner.entries.sortedWith(newestFirst).firstOrNull { it.date == recordDate }
+        val id = existing?.id ?: NSUUID().UUIDString
+        val nextOrder = stored.writeOrder + 1
+        val entry = StoredEntry(id, recordDate, weight, memo.trim(), nextOrder)
+        val updated = owner.copy(entries = owner.entries.filterNot { it.id == id } + entry)
+        save(stored.withOwner(scope, updated, nextOrder))
+        id
     }
 
-    override fun bodyMetricEntryById(scope: AccountScope, id: String): BodyReadEntry? =
-        entriesByOwner[owner(scope)]?.firstOrNull { it.id == id.trim() }
+    override fun bodyMetricEntryById(scope: AccountScope, id: String): BodyReadEntry? = withStorage {
+        load().owner(scope).entries.firstOrNull { it.id == id.trim() }?.toEntry()
+    }
 
-    override fun bodyMetricEntriesForDate(
-        scope: AccountScope,
-        date: String?
-    ): List<BodyReadEntry> {
-        val entries = entriesByOwner[owner(scope)].orEmpty()
-        return if (date == null) {
-            entries.sortedWith(compareByDescending<BodyReadEntry> { it.date }.thenByDescending { it.id })
-                .take(20)
-        } else {
-            val recordDate = requireRecordDate(date)
-            entries.filter { it.date == recordDate }
-                .sortedByDescending { it.id }
-        }
+    override fun bodyMetricEntriesForDate(scope: AccountScope, date: String?): List<BodyReadEntry> = withStorage {
+        val requested = date?.let(::requireRecordDate)
+        load().owner(scope).entries
+            .filter { requested == null || it.date == requested }
+            .sortedWith(newestFirst)
+            .take(20)
+            .map(StoredEntry::toEntry)
     }
 
     override fun updateBodyMetric(
-        scope: AccountScope,
-        id: String,
-        date: String,
-        weightKg: Double,
-        memo: String
-    ) {
-        val entries = entriesByOwner[owner(scope)] ?: return
-        val index = entries.indexOfFirst { it.id == id.trim() }
-        if (index < 0) return
-        entries[index] = BodyReadEntry(
-            id.trim(),
-            requireRecordDate(date),
-            requireBodyWeight(weightKg),
-            memo.trim()
+        scope: AccountScope, id: String, date: String, weightKg: Double, memo: String
+    ) = withStorage {
+        val stored = load()
+        val owner = stored.owner(scope)
+        val current = owner.entries.firstOrNull { it.id == id.trim() } ?: return@withStorage
+        val nextOrder = stored.writeOrder + 1
+        val entry = current.copy(
+            date = requireRecordDate(date), weightKg = requireBodyWeight(weightKg),
+            memo = memo.trim(), writeOrder = nextOrder
         )
+        val updated = owner.copy(entries = owner.entries.map { if (it.id == current.id) entry else it })
+        save(stored.withOwner(scope, updated, nextOrder))
     }
 
-    override fun deleteBodyMetric(scope: AccountScope, id: String) {
-        entriesByOwner[owner(scope)]?.removeAll { it.id == id.trim() }
+    override fun deleteBodyMetric(scope: AccountScope, id: String) = withStorage {
+        val stored = load()
+        val owner = stored.owner(scope)
+        val entries = owner.entries.filterNot { it.id == id.trim() }
+        if (entries.size != owner.entries.size) save(stored.withOwner(scope, owner.copy(entries = entries)))
     }
 
-    override fun bodyProfile(scope: AccountScope): BodyProfile =
-        profilesByOwner[owner(scope)] ?: BodyProfile.empty()
+    override fun bodyProfile(scope: AccountScope): BodyProfile = withStorage {
+        val profile = load().owner(scope).profile
+        if (profile == null) BodyProfile.empty() else
+            BodyProfile(profile.heightCm, profile.createdAt, profile.updatedAt)
+    }
 
-    override fun saveBodyProfile(scope: AccountScope, profile: BodyProfile) {
-        val ownerId = owner(scope)
-        if (profile.isConfigured()) {
-            profilesByOwner[ownerId] = profile
-        } else {
-            profilesByOwner.remove(ownerId)
-        }
+    override fun saveBodyProfile(scope: AccountScope, profile: BodyProfile) = withStorage {
+        val stored = load()
+        val owner = stored.owner(scope)
+        val persisted = profile.heightCm?.let { StoredProfile(it, profile.createdAt, profile.updatedAt) }
+        save(stored.withOwner(scope, owner.copy(profile = persisted)))
     }
 
     override fun bodyMetrics(scope: AccountScope, date: String): List<BodyReadEntry> =
         bodyMetricEntriesForDate(scope, date)
 
-    override fun latestBodyMetricOnOrBefore(
-        scope: AccountScope,
-        date: String
-    ): BodyReadEntry? {
+    override fun latestBodyMetricOnOrBefore(scope: AccountScope, date: String): BodyReadEntry? = withStorage {
         val requested = requireRecordDate(date)
-        return entriesByOwner[owner(scope)].orEmpty()
-            .filter { it.date <= requested }
-            .maxWithOrNull(compareBy<BodyReadEntry> { it.date }.thenBy { it.id })
+        load().owner(scope).entries.filter { it.date <= requested }
+            .minWithOrNull(newestFirst)?.toEntry()
     }
 
     override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
         dates(scope, startDate, endDate).size
 
-    override fun earliestRecordedDate(scope: AccountScope): String? =
-        entriesByOwner[owner(scope)].orEmpty().minOfOrNull { it.date }
+    override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
+        weightEntries(scope, startDate, endDate).map { it.date }.distinct()
 
-    override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> {
+    override fun earliestRecordedDate(scope: AccountScope): String? = withStorage {
+        load().owner(scope).entries.minOfOrNull { it.date }
+    }
+
+    override fun weightWindow(scope: AccountScope, startDate: String, endDate: String): BodyWeightWindow {
+        val entries = weightEntries(scope, startDate, endDate)
+        return BodyWeightWindow(
+            entries.takeIf { it.isNotEmpty() }?.map { it.weightKg }?.average(),
+            entries.distinctBy { it.date }.size
+        )
+    }
+
+    override fun weightEntries(scope: AccountScope, startDate: String, endDate: String): List<BodyReadEntry> = withStorage {
         val start = requireRecordDate(startDate)
         val end = requireRecordDate(endDate)
-        require(start <= end) { "날짜 범위가 올바르지 않습니다." }
-        return entriesByOwner[owner(scope)].orEmpty()
-            .asSequence()
-            .map { it.date }
-            .filter { it in start..end }
-            .toSet()
-            .sorted()
+        load().owner(scope).entries.filter { it.date in start..end }
+            .sortedWith(compareBy<StoredEntry> { it.date }.thenByDescending { it.writeOrder })
+            .map(StoredEntry::toEntry)
     }
 
-    override fun weightWindow(
-        scope: AccountScope,
-        startDate: String,
-        endDate: String
-    ): BodyWeightWindow {
-        val rows = entriesByOwner[owner(scope)].orEmpty()
-            .filter { it.date in dates(scope, startDate, endDate) }
-        if (rows.isEmpty()) return BodyWeightWindow(null, 0)
-        val dailyAverages = rows.groupBy { it.date }.values.map { day ->
-            day.map { it.weightKg }.average()
+    private fun load(): BodyStore {
+        val path = checkNotNull(file.path)
+        if (!NSFileManager.defaultManager.fileExistsAtPath(path)) return BodyStore(FORMAT_VERSION)
+        val contents = NSString.create(contentsOfURL = file, encoding = NSUTF8StringEncoding, error = null)
+        checkNotNull(contents) { "체중 기록 파일을 읽지 못했습니다." }
+        val stored = try {
+            json.decodeFromString<BodyStore>(contents.toString())
+        } catch (failure: IllegalArgumentException) {
+            throw IllegalStateException("체중 기록 파일 형식을 확인할 수 없습니다.", failure)
         }
-        return BodyWeightWindow(dailyAverages.average(), dailyAverages.size)
+        check(stored.schemaVersion == FORMAT_VERSION) { "지원하지 않는 체중 기록 파일 버전입니다." }
+        return stored
     }
 
-    override fun weightEntries(
-        scope: AccountScope,
-        startDate: String,
-        endDate: String
-    ): List<BodyReadEntry> {
-        val start = requireRecordDate(startDate)
-        val end = requireRecordDate(endDate)
-        require(start <= end) { "날짜 범위가 올바르지 않습니다." }
-        return entriesByOwner[owner(scope)].orEmpty()
-            .filter { it.date in start..end }
-            .sortedWith(compareBy<BodyReadEntry> { it.date }.thenByDescending { it.id })
+    private fun save(store: BodyStore) {
+        val directory = checkNotNull(file.URLByDeletingLastPathComponent)
+        check(NSFileManager.defaultManager.createDirectoryAtURL(
+            url = directory, withIntermediateDirectories = true, attributes = null, error = null
+        )) { "체중 기록 폴더를 열지 못했습니다." }
+        val encoded = NSString.create(string = json.encodeToString(BodyStore.serializer(), store))
+        check(encoded.writeToURL(file, atomically = true, encoding = NSUTF8StringEncoding, error = null)) {
+            "체중 기록을 저장하지 못했습니다."
+        }
     }
 
-    private fun owner(scope: AccountScope): String = scope.ownerId
-
-    private fun requireRecordDate(value: String): String {
-        val normalized = value.trim()
-        require(normalized.matches(DATE_PATTERN)) {
-            "날짜를 YYYY-MM-DD 형식으로 입력하세요."
+    private inline fun <T> withStorage(block: () -> T): T {
+        storageLock.lock()
+        return try {
+            block()
+        } finally {
+            storageLock.unlock()
         }
-        val year = normalized.substring(0, 4).toInt()
-        val month = normalized.substring(5, 7).toInt()
-        val day = normalized.substring(8, 10).toInt()
-        val daysInMonth = when (month) {
-            2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
-            4, 6, 9, 11 -> 30
-            in 1..12 -> 31
-            else -> 0
-        }
-        require(month in 1..12 && day in 1..daysInMonth) {
-            "날짜를 YYYY-MM-DD 형식으로 입력하세요."
-        }
-        return normalized
-    }
-
-    private fun requireBodyWeight(value: Double): Double {
-        require(value.isFinite() && value > 0) { "체중은 0보다 큰 숫자여야 합니다." }
-        return value
     }
 
     private companion object {
-        val DATE_PATTERN = Regex("\\d{4}-\\d{2}-\\d{2}")
+        const val FORMAT_VERSION = 1
+        val json = Json { encodeDefaults = true }
+        val storageLock = NSLock()
+        val newestFirst = compareByDescending<StoredEntry> { it.date }.thenByDescending { it.writeOrder }
+
+        fun bodyStoreUrl(): NSURL {
+            val base = NSFileManager.defaultManager
+                .URLsForDirectory(NSApplicationSupportDirectory, NSUserDomainMask).firstOrNull() as? NSURL
+            return checkNotNull(base?.URLByAppendingPathComponent("FitnessBody", isDirectory = true)
+                ?.URLByAppendingPathComponent("body-metrics.json")) { "체중 기록 저장 위치가 없습니다." }
+        }
+
+        fun requireRecordDate(value: String): String =
+            runCatching { LocalDate.parse(value.trim()).toString() }.getOrElse {
+                throw IllegalArgumentException("날짜를 YYYY-MM-DD 형식으로 입력하세요.")
+            }
+
+        fun requireBodyWeight(value: Double): Double {
+            require(value.isFinite() && value > 0) { "체중은 0보다 큰 숫자여야 합니다." }
+            return value
+        }
     }
 }
+
+@Serializable
+private data class BodyStore(
+    val schemaVersion: Int,
+    val writeOrder: Long = 0,
+    val owners: Map<String, StoredOwner> = emptyMap()
+) {
+    fun owner(scope: AccountScope): StoredOwner = owners[scope.ownerId] ?: StoredOwner()
+
+    fun withOwner(scope: AccountScope, owner: StoredOwner, order: Long = writeOrder): BodyStore =
+        copy(writeOrder = order, owners = owners + (scope.ownerId to owner))
+}
+
+@Serializable
+private data class StoredOwner(
+    val entries: List<StoredEntry> = emptyList(),
+    val profile: StoredProfile? = null
+)
+
+@Serializable
+private data class StoredEntry(
+    val id: String,
+    val date: String,
+    val weightKg: Double,
+    val memo: String,
+    val writeOrder: Long
+) {
+    fun toEntry() = BodyReadEntry(id, date, weightKg, memo)
+}
+
+@Serializable
+private data class StoredProfile(val heightCm: Int, val createdAt: String, val updatedAt: String)

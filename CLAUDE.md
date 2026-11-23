@@ -1,6 +1,8 @@
 # FitnessApp
 
 Read `AGENTS.md` for repository rules and `docs/CLOUD_DEVELOPMENT.md` for cloud setup.
+Follow the [Android and iOS development standard](docs/architecture/ANDROID_IOS_DEVELOPMENT.md)
+when a feature shares screens or behavior across platforms.
 Use a feature branch. Preserve local SQLite/Room records, IDs, ownership, snapshots,
 and migration history. Android and Nutrition use separate authentication domains.
 

@@ -1,5 +1,7 @@
 # Fitness App UI 재설계 지시문 (Codex 구현용)
 
+2026-07-09 Java·View 단계의 작업 지시문 이력이다. 새 화면 작업은 [디자인 시스템](UI_DESIGN_SYSTEM.md)과 [Android·iOS 공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)을 따른다.
+
 작성: 2026-07-09, UI/UX 관제탑 문서. 이 문서는 구현물이 아니라 Codex에게 줄 작업 지시문이다.
 
 전제 제약 (절대 위반 금지):

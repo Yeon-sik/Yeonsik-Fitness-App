@@ -4,16 +4,16 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 문서 갱신 | 2026-10-30 (Asia/Seoul) |
-| 기준 소스 | [main@9d05980](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/9d05980b243552c4503743bb2306d510cea03ca7) |
+| 문서 갱신 | 2026-11-19 (Asia/Seoul) |
+| 기준 소스 | [main@0b47010c](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/0b47010c3afbca14792dff162ddc46bf1819563b) |
 | 저장소 | [Yeon-sik/Yeonsik-Fitness-App](https://github.com/Yeon-sik/Yeonsik-Fitness-App) |
-| 범위 | 2026-10-30 감사 시점에 병합된 main source와 저장소에 남은 검증 근거. 개발 branch·미커밋 작업은 제외. |
+| 범위 | 기준 커밋에 병합된 구현과 검증 근거. iPhone 시험판은 별도 브랜치의 검증 행에 기록한다. |
 
 ## 1. 30초 요약
 
 근력, 실내·야외 유산소, 식사와 발전 기록을 로컬에서 관리하는 Android 앱이다. 상세 기록은 계정 범위의 로컬 DB가 우선하며 Personal OS에는 완료 운동 요약만 공유하고 Nutrition·PriceTrace와는 명시적 계약으로 연결한다.
 
-- 10월 이후 main에는 Room schema 54~57, 운동 catalog·검수 자산 확대, 운동별 메모·휴식·세트 구조와 기록/홈/통계 UX 보강이 반영됐다.
+- Android는 Room v61을 사용하며 v50→v51 인수 경로를 유지한다. 운동 catalog·검수 자산, 운동별 메모·휴식·세트와 기록·통계 조회를 제공한다.
 - 식사 영역에는 restaurant component·dining proposal·수동 음식/브랜드·영양 publication 흐름과 PriceTrace 브랜드 identity 연결이 추가됐다.
 - Personal OS 완료 운동 summary의 incremental publication, 설정·인증·수동 sync 경계, 클라우드 개발/검증 준비가 보강됐다.
 
@@ -38,15 +38,17 @@
 
 | 항목 | 상태 | 근거와 한계 |
 | --- | --- | --- |
-| 최신 main source | 저장소 검증 | `main@9d05980`과 10월 이후 migration·Room schema·테스트·CI 설정을 대조했다. 코드·테스트 존재는 runtime 성공과 동일하지 않다. |
-| 이전 KMP CI 기록 | 통과 기록 | [KMP release readiness](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/37213991994): Android/shared tests·APK/test APK·lint와 macOS Simulator tests·framework·SwiftUI host build. 최신 HEAD 전체를 새로 실행한 증거로 확대하지 않는다. |
-| 실사용 환경 | 미검증 | 최신 HEAD의 실기기 instrumentation, interactive iOS 화면, release 서명·운영 RLS·교차 앱 수렴은 이번 문서 갱신에서 실행하지 않았다. |
+| main 소스 | 저장소 검증 | `main@0b47010c`의 Compose 진입점, Room 버전, KMP 타깃과 SwiftUI framework 호스트를 대조했다. |
+| main CI | 통과 | Android·공통 테스트 및 빌드, Android 에뮬레이터 instrumentation, iOS Simulator 공통 테스트 및 SwiftUI 호스트 컴파일. [실행 결과](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/42347997219) |
+| iPhone 시험판 | CI 통과 및 사용자 확인 | 별도 브랜치 빌드 297의 ARM64 IPA·Simulator 운동 흐름을 CI에서 확인했다. 사용자가 iPhone에서 실제 실행, 앱 재실행과 같은 IPA 덮어 설치 후 진행 중 운동 데이터 보존을 확인했다. [실행 결과](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/44125211520) |
+| 제품 검증 | 추가 확인 필요 | Android 기존 사용자 DB의 실기기 업그레이드, 공통 Compose 실기기 실행, 출시 서명, 운영 데이터 접근·동기화. |
 
 ## 5. 현재 한계와 다음 단계
 
 - Room schema와 migration 파일 존재는 실제 사용자 DB 업그레이드 성공을 자동으로 증명하지 않는다.
 - Shared/Nutrition/PriceTrace 운영 RPC·RLS와 여러 계정·기기 수렴은 프로젝트별 실환경 증거가 필요하다.
 - 다음 우선 검증은 호환 서명 APK로 기존 DB를 유지한 채 운동 기록·식사/영양·브랜드 identity·알림·Personal OS 요약 publication을 실기기에서 확인하는 것이다.
+- Android와 iOS의 공통 화면은 체중 등록·조회·편집·삭제와 영구 저장부터 검증한다. 이후 루틴과 운동 기록 흐름으로 확장한다. [공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)
 
 ## 6. 관련 문서
 

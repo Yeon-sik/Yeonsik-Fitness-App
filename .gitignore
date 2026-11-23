@@ -25,6 +25,9 @@ local.properties
 *.pfx
 *.pem
 *.key
+*.mobileprovision
+*.ipa
+xcuserdata/
 /.serena/
 /supabase/nutrition/integration/node_modules/
 /.cloud-env.sh

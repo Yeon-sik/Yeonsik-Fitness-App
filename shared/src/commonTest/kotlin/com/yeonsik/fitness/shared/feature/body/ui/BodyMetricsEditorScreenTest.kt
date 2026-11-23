@@ -1,8 +1,8 @@
-package com.yeonsik.fitnessapp.feature.body.ui
+package com.yeonsik.fitness.shared.feature.body.ui
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class BodyMetricsEditorScreenTest {
     @Test

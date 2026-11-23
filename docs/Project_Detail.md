@@ -1,6 +1,6 @@
 # Yeonsik-Fitness-App | Project Detail
 
-2026-10-30 (Asia/Seoul) 갱신. Primary source boundary는 [main@9d05980](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/9d05980b243552c4503743bb2306d510cea03ca7)이다. source 설명과 실제 검증 결과를 구분한다. [빠른 소개](./Project_Intro.md)를 참고한다.
+2026-11-19 (Asia/Seoul) 갱신. 구현 기준은 [main@0b47010c](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/0b47010c3afbca14792dff162ddc46bf1819563b)다. [빠른 소개](./Project_Intro.md)를 참고한다.
 
 ## 1. 문서 목적과 범위
 
@@ -8,18 +8,18 @@
 
 상세 기록을 계정 범위의 로컬 DB에 먼저 저장한다. 화면·application·repository를 분리하고 Personal OS에는 완료 운동 요약만 공유하며 Nutrition·PriceTrace를 명시적 계약으로 연결한다.
 
-2026-10-05 기준 이후 main에는 Room schema 54~57, exercise catalog·검수 자산 확대, 운동별 메모·휴식·세트 구조, 식사/외식 component와 영양 publication, PriceTrace 브랜드 identity, Personal OS incremental summary publication, 설정·인증·수동 sync와 cloud readiness가 반영됐다.
+Android는 메인·피트니스·기록·설정과 기록 탭 안의 발전 분석을 제공한다. Room은 같은 `fitness_mvp.db`에서 v50→v51 인수와 v61까지의 migration을 관리한다. 기존 exercise catalog·검수 자산, 운동별 메모·휴식·세트, 식사/외식 component, 영양 publication과 외부 identity 계약을 유지한다.
 
-미병합 branch, 사용자 미커밋 작업과 명시하지 않은 운영 검증은 기능 완료 근거에 포함하지 않는다.
+iPhone 시험판의 구현과 검증 결과는 별도 브랜치에 해당한다. [공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)에 브랜치와 첫 구현 범위를 기록한다.
 
 ## 2. 시스템 아키텍처
 
 ```text
 MainActivity / AppContainer -> ComposeAppScreen
   -> feature ViewModel / state / action
-  -> application·repository adapters -> FitnessRoomDatabase (SQLite, schema 57)
+  -> application·repository adapters -> FitnessRoomDatabase (SQLite, schema 61)
 shared/commonMain -> account scope / models / APIs / 순수 계산
-iosApp -> SwiftUI host + shared framework
+iosApp (main) -> SwiftUI 검증 호스트 + shared framework + 인메모리 Body 어댑터
 Shared Supabase -> legacy sync + completed-workout summary v2
 Nutrition Supabase -> Nutrition catalog / canonical provenance / publication
 PriceTrace -> product / brand / restaurant / menu identity
@@ -40,7 +40,7 @@ Fitness-Image export -> reviewed generated Android assets + fallback
 ## 4. 핵심 기술 의사결정
 
 ### 결정 1. 점진적 플랫폼 분리
-공통 모델·계산·API는 shared에, Android 저장·위치·인증과 iOS host는 adapter에 둔다.
+공통 모델·계산·API는 `:shared`에 둔다. 공통 UI의 목표는 Compose 화면과 상태·이동 동작을 한 번 작성하고 Android·iOS 호스트에서 호출하는 것이다. 양쪽의 저장소, 권한·위치와 기타 OS 입력은 플랫폼 연결부가 제공한다. 체중 기록에서 기존 Room과 iOS 영구 저장을 연결해 검증한 뒤 루틴·운동으로 확장한다.
 
 ### 결정 2. 로컬 상세 기록 우선
 Compose는 상태를 표현하고 ViewModel/application/repository가 owner 범위, migration, 쓰기와 복구를 관리한다.
@@ -55,9 +55,10 @@ Fitness는 상세 기록을, Nutrition은 영양 provenance/publication을, Pric
 
 | 검사 | 결과 | 근거·환경과 한계 |
 | --- | --- | --- |
-| 최신 main source 감사 | 저장소 검증 | `main@9d05980`까지 source, Room schema/migration, unit·instrumented test와 CI 설정을 확인했다. 실행 검증은 아니다. |
-| 이전 KMP CI | 통과 기록 | [KMP release readiness](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/37213991994). 최신 HEAD의 모든 변경을 재실행한 증거로 사용하지 않는다. |
-| 실사용 환경 | 미검증 | 최신 HEAD의 실기기 DB upgrade, instrumentation, interactive iOS, release 서명, 운영 RLS, Nutrition·PriceTrace·Personal OS 교차 앱 수렴은 별도 검증이 필요하다. |
+| main 소스 | 저장소 검증 | `main@0b47010c`의 Compose 내비게이션, Room schema와 migration 경계, KMP 타깃, Xcode 호스트와 CI 설정을 확인했다. |
+| main CI | 통과 | Android·공통 테스트와 패키징, Android 에뮬레이터 instrumentation, iOS Simulator 공통 테스트 및 SwiftUI 호스트 빌드. [실행 결과](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/42347997219) |
+| iPhone 빌드 297 | CI 통과 및 사용자 확인 | [사이드로드 브랜치@c2b997b4](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/c2b997b4916c0c22b2d943305173b1b5361537d2)의 IPA와 Simulator 운동 흐름·재실행·덮어 설치 CI가 통과했다. 사용자가 iPhone 실행과 진행 중 운동의 재실행·동일 IPA 덮어 설치 후 기록 보존을 확인했다. [실행 결과](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/44125211520) |
+| 제품 검증 | 추가 확인 필요 | Android 실기기 DB 업그레이드, 공통 Compose 실기기 실행, 무료 서명 만료 뒤 갱신, 출시 서명, 운영 RLS 및 기기 간 기록 동기화. |
 
 문서 변경 검증 경로는 저장소의 `project-docs.config.json`과 `.github/project-docs` 정책을 따른다. validator·render-only 결과가 실제 기기나 운영 backend 검증을 대신하지 않는다.
 
@@ -72,16 +73,17 @@ Fitness는 상세 기록을, Nutrition은 영양 provenance/publication을, Pric
 
 ## 7. 한계, 기술 부채, 다음 단계
 
-- 최신 schema 57까지의 migration은 저장소에서 관측했지만 실제 장기 사용자 DB upgrade는 이번 작업에서 미검증이다.
+- Room v61까지의 migration은 소스 기준이다. 장기 사용자의 기존 DB 업그레이드는 호환 서명과 실제 데이터 보존을 검증한 뒤 결과를 기록한다.
 - Shared/Nutrition/PriceTrace 운영 RPC·RLS와 여러 계정·기기 수렴은 별도 실환경 검증이 필요하다.
 - 다음 우선 작업은 호환 서명 APK에서 기존 DB 보존 upgrade, 운동 기록·식사/영양·브랜드 identity·알림·Personal OS summary publication을 종단 확인하는 것이다.
 
 ## 8. 근거와 관련 문서
 
-- [기준 source revision](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/9d05980b243552c4503743bb2306d510cea03ca7)
+- [기준 소스 커밋](https://github.com/Yeon-sik/Yeonsik-Fitness-App/tree/0b47010c3afbca14792dff162ddc46bf1819563b)
 - [Project Intro](./Project_Intro.md)
 - [README](../README.md)
-- [KMP readiness](architecture/KMP_M8_RELEASE_READINESS.md)
+- [Android·iOS 공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)
+- [KMP M8 검증 이력](architecture/KMP_M8_RELEASE_READINESS.md)
 - [완료 운동 summary v2](FITNESS_SUMMARY_PROJECTION_V2.md)
 - [Supabase 경계](../supabase/README.md)
 - [Room source](../app/src/main/kotlin/com/yeonsik/fitnessapp/core/database/FitnessRoomDatabase.kt)

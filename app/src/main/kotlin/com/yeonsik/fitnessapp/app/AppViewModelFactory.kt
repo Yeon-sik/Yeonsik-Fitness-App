@@ -56,7 +56,7 @@ class AppViewModelFactory(
                     container,
                 )
             modelClass.isAssignableFrom(BodyMetricsViewModel::class.java) ->
-                BodyMetricsViewModel(handle, container.bodyMetricsApplicationService)
+                BodyMetricsViewModel(container.bodyMetricsApplicationService)
             modelClass.isAssignableFrom(WorkoutSessionViewModel::class.java) ->
                 WorkoutSessionViewModel(
                     handle,

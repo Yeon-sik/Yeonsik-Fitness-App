@@ -1,5 +1,8 @@
 apply plugin: "org.jetbrains.kotlin.multiplatform"
 apply plugin: "com.android.kotlin.multiplatform.library"
+apply plugin: "org.jetbrains.kotlin.plugin.compose"
+apply plugin: "org.jetbrains.kotlin.plugin.serialization"
+apply plugin: "org.jetbrains.compose"
 
 kotlin {
     androidLibrary {
@@ -18,13 +21,33 @@ kotlin {
         target.binaries.framework {
             baseName = "YeonsikShared"
             isStatic = true
+            freeCompilerArgs += ["-Xpartial-linkage-loglevel=error"]
         }
     }
 
     sourceSets {
+        commonMain {
+            dependencies {
+                implementation compose.runtime
+                implementation compose.foundation
+                // The Android variant resolves to the existing Material 3 1.3.1.
+                implementation "org.jetbrains.compose.material3:material3:1.7.3"
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"
+                implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.7.1"
+            }
+        }
+        iosMain {
+            dependencies {
+                // Compose 1.9.3 pairs with Material 3 1.9.0 on Kotlin/Native.
+                implementation "org.jetbrains.compose.material3:material3:1.9.0"
+                implementation "org.jetbrains.compose.ui:ui-backhandler:1.9.3"
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
+            }
+        }
         commonTest {
             dependencies {
                 implementation kotlin("test")
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0"
             }
         }
     }

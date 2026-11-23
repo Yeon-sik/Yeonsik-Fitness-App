@@ -1,5 +1,7 @@
 # Fitness App Model Skeleton
 
+Personal OS 내부 Fitness의 초기 설계 이력이다. 현재 앱 구조는 [정돈 리팩터링 규칙](FitnessApp_정돈_리팩터링_규칙.md)과 [공통 개발 기준](architecture/ANDROID_IOS_DEVELOPMENT.md)을 따른다.
+
 ## 0. Purpose
 
 이 문서는 Personal OS 안의 Fitness App 구조를 다시 정리하기 위한 설계 문서다.
