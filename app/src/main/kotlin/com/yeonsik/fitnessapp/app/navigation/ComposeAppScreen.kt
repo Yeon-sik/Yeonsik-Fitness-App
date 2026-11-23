@@ -2191,15 +2191,20 @@ private fun AppDestination(
                 onBack = navigation::returnToWorkoutSelection,
                 starting = cardioStarting
             )
-            FitnessScreen.RECORDS -> RecordsScreen(
-                recordsState,
-                ownerId,
-                navigation.uiState.value?.today ?: today,
-                unit,
-                navigation.uiState.value?.selectedRecordsDate ?: today,
-                recordsActions,
-                entranceState, entranceToken, isActualActive
-            )
+            FitnessScreen.RECORDS -> {
+                var dailyDate by androidx.compose.runtime.saveable.rememberSaveable(ownerId) { mutableStateOf<String?>(null) }
+                RecordsScreen(
+                    recordsState, ownerId, recordsToday, unit, recordsSelectedDate, recordsActions,
+                    entranceState, entranceToken, isActualActive,
+                    onDailyWorkout = { dailyDate = recordsSelectedDate }
+                )
+                if (isActualActive) dailyDate?.let { date ->
+                    val repository = remember(ownerId, host) { host.dailyWorkoutRepository(ownerId) }
+                    if (repository != null) {
+                        com.yeonsik.fitnessapp.feature.dailyworkout.AndroidDailyWorkoutDialog(date, repository) { dailyDate = null }
+                    }
+                }
+            }
             FitnessScreen.STATISTICS -> StatisticsScreen(
                 statisticsState,
                 ownerId,

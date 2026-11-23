@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutRepository;
 
 /**
  * 화면 렌더러가 MainActivity에 접근하는 유일한 통로.
@@ -9,6 +10,10 @@ import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
 public interface AppUiActions {
     /** Owner id used to reject stale ViewModel work after an account switch. */
     String currentOwnerId();
+
+    default DailyWorkoutRepository dailyWorkoutRepository(String ownerId) {
+        return null;
+    }
 
     void toast(String message);
 

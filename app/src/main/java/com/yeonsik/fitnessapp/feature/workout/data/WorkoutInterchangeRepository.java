@@ -878,6 +878,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
                     .put("memo", "FLEEK CSV에서 가져옴")
                     .put("import_source", "fleek_csv")
                     .put("fleek_source_key", session.sourceKey)
+                    .put("fleek_has_reported_start_time", session.hasReportedStartTime)
                     .toString();
         } catch (Exception error) {
             throw new IllegalStateException("FLEEK 운동 메타데이터를 만들지 못했습니다.", error);

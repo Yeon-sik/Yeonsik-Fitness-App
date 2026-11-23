@@ -659,6 +659,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return appContainer.getSupabaseConfig().effectiveUserId();
     }
 
+    @Override
+    public com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutRepository dailyWorkoutRepository(String ownerId) {
+        return appContainer.dailyWorkoutRepository(ownerId);
+    }
+
     public String today() {
         return LocalDate.now().toString();
     }

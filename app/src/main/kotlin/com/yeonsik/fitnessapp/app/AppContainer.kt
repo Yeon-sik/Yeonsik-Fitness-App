@@ -1,5 +1,10 @@
 package com.yeonsik.fitnessapp.app
 
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutRepository
+import com.yeonsik.fitnessapp.feature.dailyworkout.AndroidDailyWorkoutStorage
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutDailyReadRepository
+
 import android.content.Context
 import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
@@ -216,6 +221,13 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     val recordsRepository: RecordsReadApi = RecordsReadRepository(
         workoutReadRepository, bodyMetricsReadRepository, mealReadRepository
     )
+    fun dailyWorkoutRepository(ownerId: String): DailyWorkoutRepository {
+        check(ownerId == supabaseConfig.effectiveUserId())
+        val account = AccountScope(ownerId)
+        val records = WorkoutDailyReadRepository(roomDatabase, workoutRepository, cardioRepositoryApi)
+        val storage = AndroidDailyWorkoutStorage(appContext, ownerId, supabaseConfig.supabaseUrl)
+        return DailyWorkoutRepository(storage) { records.completedWorkouts(account, it) }
+    }
     val statisticsRepository: StatisticsReadApi = StatisticsReadRepository(
         workoutReadRepository, bodyMetricsReadRepository, mealReadRepository
     )

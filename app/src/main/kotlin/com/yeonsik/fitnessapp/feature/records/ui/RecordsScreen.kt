@@ -92,7 +92,8 @@ internal fun RecordsScreen(
     actions: RecordsScreenActions,
     entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("RECORDS"),
     entranceToken: Long? = null,
-    isActualActive: Boolean = true
+    isActualActive: Boolean = true,
+    onDailyWorkout: (() -> Unit)? = null
 ) {
     var selectedMealId by rememberSaveable(ownerId, selectedDate, isActualActive) {
         mutableStateOf<String?>(null)
@@ -143,6 +144,9 @@ internal fun RecordsScreen(
     }
     snapshot.dayDetailsByDate[selectedDate]?.let { detail ->
         RecordsSelectedDaySummary(detail, onOpenDetails = { if (isActualActive) showDaySheet = true })
+        if (onDailyWorkout != null && isActualActive) {
+            AppOutlinedButton(onClick = onDailyWorkout, modifier = Modifier.fillMaxWidth()) { Text("하루 운동 기록") }
+        }
     }
     TopLevelEntranceContent(entrance, order = 0) { RecordsCalendarLegend() }
     TopLevelEntranceContent(entrance, order = 1) {

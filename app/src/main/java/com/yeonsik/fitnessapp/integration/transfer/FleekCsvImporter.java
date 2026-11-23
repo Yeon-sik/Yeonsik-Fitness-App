@@ -1,12 +1,12 @@
 package com.yeonsik.fitnessapp.integration.transfer;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitness.shared.feature.dailyworkout.FleekDailyCsvKt;
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart;
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 
 import java.io.IOException;
-import java.io.PushbackReader;
 import java.io.Reader;
 import java.text.Normalizer;
 import java.time.Instant;
@@ -35,7 +35,7 @@ public final class FleekCsvImporter {
     }
 
     public static ImportPlan parse(Reader reader, List<WeightExercise> masterExercises) throws IOException {
-        List<List<String>> rows = readCsv(reader);
+        List<List<String>> rows = FleekDailyCsvKt.readFleekCsvRows(kotlin.io.TextStreamsKt.readText(reader));
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("CSV 파일이 비어 있습니다.");
         }
@@ -289,30 +289,31 @@ public final class FleekCsvImporter {
         }
         try {
             Instant instant = OffsetDateTime.parse(trimmed).toInstant();
-            return timestamp(instant);
+            return timestamp(instant, true);
         } catch (DateTimeParseException ignored) {
             // Offset이 없는 내보내기 형식은 한국 로컬 시각으로 해석한다.
         }
         try {
             Instant instant = LocalDateTime.parse(trimmed).atZone(KOREA_ZONE).toInstant();
-            return timestamp(instant);
+            return timestamp(instant, true);
         } catch (DateTimeParseException ignored) {
             // 날짜만 있는 CSV도 세션 시작 시각 00:00으로 가져온다.
         }
         try {
             Instant instant = LocalDate.parse(trimmed).atStartOfDay(KOREA_ZONE).toInstant();
-            return timestamp(instant);
+            return timestamp(instant, false);
         } catch (DateTimeParseException error) {
             throw new IllegalArgumentException("운동 날짜 형식을 읽지 못했습니다.", error);
         }
     }
 
-    private static ParsedTimestamp timestamp(Instant instant) {
+    private static ParsedTimestamp timestamp(Instant instant, boolean hasReportedStartTime) {
         String sourceTimestamp = instant.atOffset(ZoneOffset.UTC).toString();
         return new ParsedTimestamp(
                 instant.toString(),
                 sourceTimestamp,
-                instant.atZone(KOREA_ZONE).toLocalDate().toString()
+                instant.atZone(KOREA_ZONE).toLocalDate().toString(),
+                hasReportedStartTime
         );
     }
 
@@ -390,63 +391,6 @@ public final class FleekCsvImporter {
         return true;
     }
 
-    private static List<List<String>> readCsv(Reader source) throws IOException {
-        PushbackReader reader = new PushbackReader(source, 1);
-        List<List<String>> rows = new ArrayList<>();
-        List<String> row = new ArrayList<>();
-        StringBuilder field = new StringBuilder();
-        boolean quoted = false;
-        boolean fieldStarted = false;
-        int current;
-        while ((current = reader.read()) != -1) {
-            char value = (char) current;
-            if (quoted) {
-                if (value == '"') {
-                    int next = reader.read();
-                    if (next == '"') {
-                        field.append('"');
-                    } else {
-                        quoted = false;
-                        if (next != -1) reader.unread(next);
-                    }
-                } else {
-                    field.append(value);
-                }
-                continue;
-            }
-
-            if (value == '"' && !fieldStarted) {
-                quoted = true;
-                fieldStarted = true;
-            } else if (value == ',') {
-                row.add(field.toString());
-                field.setLength(0);
-                fieldStarted = false;
-            } else if (value == '\n' || value == '\r') {
-                if (value == '\r') {
-                    int next = reader.read();
-                    if (next != '\n' && next != -1) reader.unread(next);
-                }
-                row.add(field.toString());
-                rows.add(row);
-                row = new ArrayList<>();
-                field.setLength(0);
-                fieldStarted = false;
-            } else {
-                field.append(value);
-                fieldStarted = true;
-            }
-        }
-        if (quoted) {
-            throw new IllegalArgumentException("닫히지 않은 CSV 따옴표가 있습니다.");
-        }
-        if (field.length() > 0 || fieldStarted || !row.isEmpty()) {
-            row.add(field.toString());
-            rows.add(row);
-        }
-        return rows;
-    }
-
     public static final class ImportPlan {
         public final int sourceRows;
         public final int skippedRows;
@@ -474,6 +418,7 @@ public final class FleekCsvImporter {
     public static final class SessionData {
         public final String sourceKey;
         public final String sourceTimestamp;
+        public final boolean hasReportedStartTime;
         public final String date;
         public final String title;
         public final int durationSeconds;
@@ -482,6 +427,7 @@ public final class FleekCsvImporter {
         private SessionData(
                 String sourceKey,
                 String sourceTimestamp,
+                boolean hasReportedStartTime,
                 String date,
                 String title,
                 int durationSeconds,
@@ -489,6 +435,7 @@ public final class FleekCsvImporter {
         ) {
             this.sourceKey = sourceKey;
             this.sourceTimestamp = sourceTimestamp;
+            this.hasReportedStartTime = hasReportedStartTime;
             this.date = date;
             this.title = title;
             this.durationSeconds = durationSeconds;
@@ -585,11 +532,13 @@ public final class FleekCsvImporter {
         final String sourceKey;
         final String sourceTimestamp;
         final String date;
+        final boolean hasReportedStartTime;
 
-        ParsedTimestamp(String sourceKey, String sourceTimestamp, String date) {
+        ParsedTimestamp(String sourceKey, String sourceTimestamp, String date, boolean hasReportedStartTime) {
             this.sourceKey = sourceKey;
             this.sourceTimestamp = sourceTimestamp;
             this.date = date;
+            this.hasReportedStartTime = hasReportedStartTime;
         }
     }
 
@@ -671,6 +620,7 @@ public final class FleekCsvImporter {
             return new SessionData(
                     timestamp.sourceKey,
                     timestamp.sourceTimestamp,
+                    timestamp.hasReportedStartTime,
                     timestamp.date,
                     title,
                     durationSeconds,

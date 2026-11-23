@@ -6,12 +6,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
 
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="false" />
     <queries>
         <package android:name="com.yeonsik.health.health_observation_app" />
+        <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
     <application
@@ -39,6 +45,23 @@
         <activity
             android:name=".integration.healthtrace.HealthHandoffActivity"
             android:exported="false" />
+        <activity
+            android:name=".feature.dailyworkout.DailyWorkoutPermissionsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name=".DailyWorkoutPermissionUsage"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".feature.dailyworkout.DailyWorkoutPermissionsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
         <activity-alias
             android:name=".DarkLauncher"
             android:enabled="${FITNESS_MAIN_ACTIVITY_ENABLED}"
