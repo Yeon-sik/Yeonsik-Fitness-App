@@ -373,7 +373,7 @@ class WorkoutSetRecordingUiTest {
         compose.onNodeWithContentDescription("${exercises[1].name} 운동 이미지").assertExists()
     }
 
-    @Test fun completedSessionShowsSquareMetricsBetweenWatchAndExerciseCards() {
+    @Test fun completedSessionShowsCompactMetricsBetweenWatchAndExerciseCards() {
         val exercise = WorkoutSessionExercise(
             "recorded-exercise", "manual", 0, "테스트 운동 종목", "등", "",
             "weight_reps", "중량 · 반복", null, 1, 1,
@@ -406,7 +406,10 @@ class WorkoutSetRecordingUiTest {
         }
         val bounds = cards.map { it.fetchSemanticsNode().boundsInRoot }
         val (time, exercises, sets, volume) = bounds
-        for (card in bounds) assertEquals(card.width, card.height, 1f)
+        val maxCardHeight = with(compose.density) { 80.dp.toPx() }
+        assertTrue(bounds.all { it.height < maxCardHeight })
+        assertEquals(time.height, exercises.height, 1f)
+        assertEquals(sets.height, volume.height, 1f)
         assertEquals(time.top, exercises.top, 1f)
         assertEquals(sets.top, volume.top, 1f)
         assertEquals(time.left, sets.left, 1f)
