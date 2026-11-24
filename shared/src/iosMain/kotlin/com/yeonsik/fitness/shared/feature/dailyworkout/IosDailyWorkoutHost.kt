@@ -25,6 +25,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 interface IosDailyWorkoutPlatform {
+    fun cloudAccount(): WorkoutCloudAccount?
+    fun cloudRpc(owner: String, host: String, function: String, body: String, reply: IosDailyWorkoutFileReply)
     fun readHealth(startMillis: Long, endMillis: Long, reply: IosDailyWorkoutHealthReply)
     fun pickFleekCsv(reply: IosDailyWorkoutFileReply)
     fun saveJson(name: String, json: String, reply: IosDailyWorkoutFileReply)
@@ -73,19 +75,28 @@ fun makeDailyWorkoutViewController(
                 override suspend fun exportJson(name: String, json: String): Boolean = awaitFile { platform.saveJson(name, json, it) } != null
             }
         }
-        DailyWorkoutScreen(initialDate, repository, access, platform::close)
+        val cloud = remember(platform) {
+            object : WorkoutCloudAccess {
+                override fun account() = platform.cloudAccount()
+                override suspend fun rpc(account: WorkoutCloudAccount, function: String, body: String): String =
+                    checkNotNull(awaitFile { platform.cloudRpc(account.owner, account.host, function, body, it) })
+            }
+        }
+        DailyWorkoutScreen(initialDate, repository, access, platform::close, cloud)
     }
 }
 
 fun makeIosFitnessWorkout(
-    id: String, title: String, startMillis: Long, endMillis: Long, exercises: List<DailyWorkoutExercise>
+    id: String, title: String, startMillis: Long, endMillis: Long, exercises: List<DailyWorkoutExercise>, volumeKg: Double
 ) = DailyWorkoutSource(
     WorkoutOrigin.FITNESS, WorkoutOrigin.FITNESS.label, id, title, DailyWorkoutKind.STRENGTH,
-    startMillis, endMillis, ((endMillis - startMillis) / 1000).toInt().takeIf { it > 0 }, exercises = exercises
+    startMillis, endMillis, ((endMillis - startMillis) / 1000).toInt().takeIf { it > 0 }, exercises = exercises,
+    totalVolumeKg = volumeKg
 )
 
-fun makeIosWorkoutSet(weightKg: Double, reps: Int, rir: Int) = DailyWorkoutSet(
-    weightKg.takeIf { it.isFinite() && it >= 0 }, reps.takeIf { it > 0 }, rir.takeIf { it >= 0 }
+fun makeIosWorkoutSet(id: String, weightKg: Double, reps: Int, rir: Int, inputLoad: Double, unit: String) = DailyWorkoutSet(
+    weightKg.takeIf { it.isFinite() && it >= 0 }, reps.takeIf { it > 0 }, rir.takeIf { it >= 0 },
+    id = id, inputLoad = inputLoad, inputUnit = unit, loadState = "external_load", setType = "normal"
 )
 
 fun makeAppleHealthWorkout(

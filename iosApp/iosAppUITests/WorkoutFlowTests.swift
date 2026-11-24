@@ -6,6 +6,23 @@ final class WorkoutFlowTests: XCTestCase {
     }
 
     @MainActor
+    func testWorkoutSyncShowsAccountAndSignedOutState() {
+        let app = XCUIApplication()
+        app.launch()
+        tap(app.tabBars.buttons["기록"])
+        tap(app.buttons["동기화 계정"])
+        XCTAssertTrue(app.textFields["프로젝트 HTTPS 주소"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["로그인"].isEnabled)
+        tap(app.buttons["닫기"])
+        tap(app.buttons["하루 운동 기록"])
+        let openSync = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "완료 운동 기기 간 동기화")).firstMatch
+        tap(openSync)
+        let signInInstructions = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "같은 Fitness 계정")).firstMatch
+        XCTAssertTrue(signInInstructions.waitForExistence(timeout: 15))
+        app.terminate()
+    }
+
+    @MainActor
     func testWorkoutRemainsAfterRelaunch() {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]

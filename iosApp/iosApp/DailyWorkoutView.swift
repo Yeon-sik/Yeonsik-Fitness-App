@@ -16,14 +16,16 @@ struct DailyWorkoutView: UIViewControllerRepresentable {
         formatter.dateFormat = "yyyy-MM-dd"
         let workouts = history.compactMap { workout -> DailyWorkoutSource? in
             guard let end = workout.completedAt else { return nil }
-            let exercises = workout.exercises.filter { !$0.sets.isEmpty }.map { exercise in
+            let exercises = workout.exercises.map { exercise in
                 DailyWorkoutExercise(name: exercise.name, sets: exercise.sets.map { set in
-                    IosDailyWorkoutHostKt.makeIosWorkoutSet(weightKg: set.weightKg, reps: set.reps, rir: Int32(set.rir ?? -1))
-                })
+                    IosDailyWorkoutHostKt.makeIosWorkoutSet(id: set.id.uuidString.lowercased(), weightKg: set.weightKg,
+                        reps: set.reps, rir: Int32(set.rir ?? -1), inputLoad: set.inputWeight, unit: set.unit.rawValue)
+                }, id: exercise.id.uuidString.lowercased())
             }
             return IosDailyWorkoutHostKt.makeIosFitnessWorkout(
                 id: workout.id.uuidString, title: workout.title,
-                startMillis: workout.startedAt.milliseconds, endMillis: end.milliseconds, exercises: exercises
+                startMillis: workout.startedAt.milliseconds, endMillis: end.milliseconds, exercises: exercises,
+                volumeKg: workout.exercises.flatMap(\.sets).reduce(0) { $0 + $1.weightKg * Double($1.reps) }
             )
         }
         let controller = IosDailyWorkoutHostKt.makeDailyWorkoutViewController(
@@ -50,6 +52,20 @@ struct DailyWorkoutView: UIViewControllerRepresentable {
         init(close: @escaping () -> Void) { closeScreen = close }
 
         nonisolated func close() { Task { @MainActor in closeScreen() } }
+
+        nonisolated func cloudAccount() -> WorkoutCloudAccount? {
+            guard let current = WorkoutCloudSession.current() else { return nil }
+            return WorkoutCloudAccount(host: current.host, owner: current.owner, label: current.email, localProfile: "이 iPhone의 운동 기록")
+        }
+
+        nonisolated func cloudRpc(owner: String, host: String, function: String, body: String, reply: IosDailyWorkoutFileReply) {
+            Task {
+                do {
+                    let result = try await WorkoutCloudSession.shared.rpc(owner: owner, host: host, function: function, body: body)
+                    reply.complete(text: result)
+                } catch { reply.fail(message: error.localizedDescription) }
+            }
+        }
 
         nonisolated func readHealth(startMillis: Int64, endMillis: Int64, reply: IosDailyWorkoutHealthReply) {
             Task { @MainActor in

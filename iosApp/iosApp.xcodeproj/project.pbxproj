@@ -14,6 +14,7 @@
 		A11A00010000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000007 /* Assets.xcassets */; };
 		A11A00010000000000000007 /* WorkoutFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000008 /* WorkoutFlowTests.swift */; };
 		A11A00010000000000000008 /* DailyWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000010 /* DailyWorkoutView.swift */; };
+		A11A00010000000000000009 /* WorkoutCloudSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000012 /* WorkoutCloudSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +38,7 @@
 		A11A00020000000000000008 /* WorkoutFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFlowTests.swift; sourceTree = "<group>"; };
 		A11A00020000000000000009 /* YeonsikIosProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YeonsikIosProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11A00020000000000000010 /* DailyWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyWorkoutView.swift; sourceTree = "<group>"; };
+		A11A00020000000000000012 /* WorkoutCloudSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCloudSession.swift; sourceTree = "<group>"; };
 		A11A00020000000000000011 /* HealthKit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HealthKit.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -70,6 +72,7 @@
 				A11A00020000000000000002 /* ContentView.swift */,
 				A11A00020000000000000006 /* WorkoutStore.swift */,
 				A11A00020000000000000010 /* DailyWorkoutView.swift */,
+				A11A00020000000000000012 /* WorkoutCloudSession.swift */,
 				A11A00020000000000000011 /* HealthKit.entitlements */,
 				A11A00020000000000000007 /* Assets.xcassets */,
 			);
@@ -187,6 +190,7 @@
 				A11A00010000000000000002 /* ContentView.swift in Sources */,
 				A11A00010000000000000005 /* WorkoutStore.swift in Sources */,
 				A11A00010000000000000008 /* DailyWorkoutView.swift in Sources */,
+				A11A00010000000000000009 /* WorkoutCloudSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

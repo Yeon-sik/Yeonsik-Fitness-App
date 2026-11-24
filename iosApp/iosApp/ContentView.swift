@@ -373,6 +373,7 @@ private struct SetEditor: View {
 private struct WorkoutHistoryView: View {
     @EnvironmentObject private var store: WorkoutStore
     @State private var showDailyWorkout = false
+    @State private var showSyncAccount = false
 
     var body: some View {
         List {
@@ -396,6 +397,9 @@ private struct WorkoutHistoryView: View {
         }
         .navigationTitle("기록")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("동기화 계정") { showSyncAccount = true }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button("하루 운동 기록") { showDailyWorkout = true }
             }
@@ -403,6 +407,7 @@ private struct WorkoutHistoryView: View {
         .sheet(isPresented: $showDailyWorkout) {
             DailyWorkoutView(history: store.data?.history ?? [])
         }
+        .sheet(isPresented: $showSyncAccount) { WorkoutCloudAccountView() }
     }
 }
 

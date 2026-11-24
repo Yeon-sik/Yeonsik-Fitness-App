@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SwiftUI
 import YeonsikShared
@@ -51,8 +52,22 @@ struct LoggedSet: Codable, Identifiable, Sendable {
 
 struct LoggedExercise: Codable, Identifiable, Sendable {
     let id: UUID
+    let routineExerciseID: UUID?
     let name: String
     var sets: [LoggedSet] = []
+
+    // Version 1 reused the routine exercise UUID every time its routine was performed.
+    // UUIDv5 gives copies of the same historical session the same occurrence ID.
+    func migratingRoutineID(in sessionID: UUID) -> LoggedExercise {
+        var namespace = sessionID.uuid
+        var bytes = withUnsafeBytes(of: &namespace) { Data($0) }
+        bytes.append(contentsOf: id.uuidString.lowercased().utf8)
+        var digest = Array(Insecure.SHA1.hash(data: bytes).prefix(16))
+        digest[6] = (digest[6] & 0x0f) | 0x50
+        digest[8] = (digest[8] & 0x3f) | 0x80
+        let occurrenceID = NSUUID(uuidBytes: digest) as UUID
+        return LoggedExercise(id: occurrenceID, routineExerciseID: id, name: name, sets: sets)
+    }
 }
 
 struct LoggedWorkout: Codable, Identifiable, Sendable {
@@ -67,11 +82,22 @@ struct LoggedWorkout: Codable, Identifiable, Sendable {
 }
 
 struct WorkoutData: Codable, Sendable {
-    static let currentVersion = 1
+    static let currentVersion = 2
     var schemaVersion = currentVersion
     var routines: [WorkoutRoutine] = []
     var inProgress: LoggedWorkout?
     var history: [LoggedWorkout] = []
+
+    mutating func migrateVersionOne() {
+        func migrated(_ original: LoggedWorkout) -> LoggedWorkout {
+            var workout = original
+            workout.exercises = original.exercises.map { $0.migratingRoutineID(in: original.id) }
+            return workout
+        }
+        inProgress = inProgress.map(migrated)
+        history = history.map(migrated)
+        schemaVersion = Self.currentVersion
+    }
 }
 
 enum WorkoutError: LocalizedError {
@@ -109,8 +135,12 @@ actor WorkoutFileRepository {
 
         let decoder = JSONDecoder()
         guard let header = try? decoder.decode(Header.self, from: raw) else { throw WorkoutError.unreadableData }
-        guard header.schemaVersion == WorkoutData.currentVersion else { throw WorkoutError.incompatibleData }
-        guard let data = try? decoder.decode(WorkoutData.self, from: raw) else { throw WorkoutError.unreadableData }
+        guard [1, WorkoutData.currentVersion].contains(header.schemaVersion) else { throw WorkoutError.incompatibleData }
+        guard var data = try? decoder.decode(WorkoutData.self, from: raw) else { throw WorkoutError.unreadableData }
+        if header.schemaVersion == 1 {
+            data.migrateVersionOne()
+            try save(data)
+        }
         return data
     }
 
@@ -174,7 +204,7 @@ final class WorkoutStore: ObservableObject {
             }
             data.inProgress = LoggedWorkout(
                 id: UUID(), routineID: routine.id, title: routine.name, startedAt: Date(), completedAt: nil,
-                exercises: routine.exercises.map { LoggedExercise(id: $0.id, name: $0.name) }
+                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name) }
             )
         }
     }

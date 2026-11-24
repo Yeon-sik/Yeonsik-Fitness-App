@@ -65,7 +65,9 @@ from pathlib import Path
 data = json.loads(Path(sys.argv[1]).read_text())
 workout = data["history"][0]
 logged_set = workout["exercises"][0]["sets"][0]
-assert data["schemaVersion"] == 1 and data.get("inProgress") is None
+assert data["schemaVersion"] == 2 and data.get("inProgress") is None
+exercise = workout["exercises"][0]
+assert exercise["id"] != exercise["routineExerciseID"]
 assert workout["routineID"] in {routine["id"] for routine in data["routines"]}
 assert logged_set["unit"] == "lb" and logged_set["inputWeight"] == 100
 assert logged_set["reps"] == 10 and logged_set["rir"] == 2
@@ -85,6 +87,7 @@ body_after="$(shasum -a 256 "$reinstalled_body_records" | cut -d ' ' -f 1)"
 [[ "$before" == "$after" ]]
 [[ "$body_before" == "$body_after" ]]
 xcrun simctl launch "$simulator" "$bundle_id"
+python3 scripts/ios/test-workout-store-migration.py "$simulator" "$bundle_id" "$reinstalled_records"
 echo 'Workout and body stores preserved byte-for-byte after simulator install over existing app.'
 if [[ "${GITHUB_ACTIONS:-}" == 'true' ]]; then
     xcrun simctl shutdown "$simulator"
