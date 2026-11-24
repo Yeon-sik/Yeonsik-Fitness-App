@@ -5,6 +5,8 @@ on:
     paths:
       - 'supabase/nutrition/supabase/migrations/**'
       - 'supabase/nutrition/integration/**'
+      - 'supabase/shared/supabase/functions/fitness-ai-summary/**'
+      - 'scripts/tests/fitness-ai-summary.test.mjs'
       - 'contracts/fitness-external-reference.v1.json'
       - '.github/workflows/nutrition-db-replay.yml'
   push:
@@ -13,6 +15,8 @@ on:
     paths:
       - 'supabase/nutrition/supabase/migrations/**'
       - 'supabase/nutrition/integration/**'
+      - 'supabase/shared/supabase/functions/fitness-ai-summary/**'
+      - 'scripts/tests/fitness-ai-summary.test.mjs'
       - 'contracts/fitness-external-reference.v1.json'
       - '.github/workflows/nutrition-db-replay.yml'
   workflow_dispatch:
@@ -43,6 +47,9 @@ jobs:
 
       - name: Verify Brand consumer SQL and legacy read contracts
         run: npm run test:brand --prefix supabase/nutrition/integration
+
+      - name: Verify completed workout synchronization, account isolation and AI summary scope
+        run: node --test supabase/nutrition/integration/completed-workout-sync.test.mjs scripts/tests/fitness-ai-summary.test.mjs
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v3.0.1

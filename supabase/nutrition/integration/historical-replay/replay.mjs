@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,7 +25,8 @@ const relationGuardsVersion = '20261013065001';
 const canonicalV2EvidenceFixVersion = '20261013072000';
 const productAmountProjectionVersion = '20261029060700';
 const informationInboxVersion = '20261106135251';
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111', productAmountProjectionVersion, informationInboxVersion];
+const completedWorkoutSyncVersion = '20261124130719';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion, '20261023121311', '20261023143111', productAmountProjectionVersion, informationInboxVersion, completedWorkoutSyncVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -155,8 +156,10 @@ function assertTemp(pathname) {
 function stage(version, destination) {
   const source = migration(version);
   const target = path.join(destination, path.basename(source));
-  copyFileSync(source, target);
-  if (!readFileSync(source).equals(readFileSync(target))) {
+  // Historical pg_get_functiondef repairs match the LF text recorded in Git.
+  const sql = Buffer.from(readFileSync(source, 'utf8').replaceAll('\r\n', '\n'));
+  writeFileSync(target, sql);
+  if (!sql.equals(readFileSync(target))) {
     throw new Error('Staged migration differs from source SQL: ' + path.basename(source));
   }
 }
@@ -345,6 +348,15 @@ async function replay(label, final, kaguriId) {
     end $$;
     select 'PASS Fitness information inbox migration and fail-closed validation';`);
 
+    stage(completedWorkoutSyncVersion, project.migrationsDir);
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, `do $$ begin
+      if not (select relrowsecurity from pg_class where oid='fitness_workout_private.completed_workouts'::regclass)
+        or has_function_privilege('anon','public.fitness_completed_workouts_v1(uuid,date,uuid)','execute') then
+        raise exception 'Completed workouts must remain owner private';
+      end if;
+    end $$;`);
+    await canonicalIntegration(project, status, 'completed-workout-sync');
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {

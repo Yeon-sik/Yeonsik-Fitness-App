@@ -1390,7 +1390,17 @@ async function run() {
     );
   }
 
+  const workoutMode = process.env.NUTRITION_INTEGRATION_MODE === 'completed-workout-sync';
+  if (workoutMode && !['127.0.0.1', 'localhost'].includes(new URL(baseUrl).hostname)) {
+    throw new ConfigurationError('The two-device workout fixture requires a disposable local project.');
+  }
   const { ownerA, ownerB } = await resolveOwners();
+  if (workoutMode) {
+    const { checkCompletedWorkoutRoundTrip } = await import('./completed-workout-auth.mjs');
+    await checkCompletedWorkoutRoundTrip(ownerA, ownerB, (user, name, body) => request('workout fixture',
+      '/rest/v1/rpc/' + name, { method: 'POST', headers: authHeaders(user?.accessToken), body: JSON.stringify(body) }));
+    return;
+  }
   if (process.env.NUTRITION_INTEGRATION_MODE === 'nutrition-relation-guards') {
     await runNutritionRelationGuards(ownerA, ownerB);
     return;
