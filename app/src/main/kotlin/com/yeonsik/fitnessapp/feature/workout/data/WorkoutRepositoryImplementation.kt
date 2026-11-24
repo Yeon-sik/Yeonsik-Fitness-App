@@ -119,7 +119,8 @@ class WorkoutRepositoryImplementation(
             }),
             completedAt = info.completedAt.takeIf { it.isNotBlank() },
             routineTotals = workoutRoutineTotals(mappedExercises),
-            conditionNote = storage.conditionNote(scope, recordId)
+            conditionNote = storage.conditionNote(scope, recordId),
+            recordedStartAt = info.recordedStartAt
         )
     }
 

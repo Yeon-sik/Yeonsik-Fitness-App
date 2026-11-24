@@ -119,7 +119,9 @@ data class WorkoutSessionSnapshot(
     val completedAt: String? = null,
     val routineTotals: WorkoutRoutineTotals? = null,
     /** Private local session note; not part of the legacy shared payload. */
-    val conditionNote: String = ""
+    val conditionNote: String = "",
+    /** Start date and time recorded by the source, or the record date for a date-only entry. */
+    val recordedStartAt: String = startedAt
 )
 
 data class WorkoutRoutineComparison(

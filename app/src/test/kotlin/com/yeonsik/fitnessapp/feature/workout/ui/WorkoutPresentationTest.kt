@@ -7,8 +7,18 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
+import java.time.ZoneId
 
 class WorkoutPresentationTest {
+    @Test
+    fun sessionCardUsesLocalStartMinutesAndPreservesDateOnlyRecords() {
+        val zone = ZoneId.of("Asia/Seoul")
+        assertEquals("2001-05-15:00:06", formatWorkoutStartDateTime("2001-05-14T15:06:59Z", zone))
+        assertEquals("2001-05-15:07:03", formatWorkoutStartDateTime("2001-05-15T07:03:18", zone))
+        assertEquals("2001-05-15\n시각 미기록", formatWorkoutStartDateTime("2001-05-15", zone))
+        assertEquals("시각 미기록", formatWorkoutStartDateTime("", zone))
+    }
+
     @Test
     fun sessionExercisesUseStableOrderAndCurrentExerciseIsFirstIncomplete() {
         val first = sessionExercise(id = "z", order = 2, completed = 1, total = 1)

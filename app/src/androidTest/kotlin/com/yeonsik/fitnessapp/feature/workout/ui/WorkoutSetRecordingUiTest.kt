@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -370,6 +371,61 @@ class WorkoutSetRecordingUiTest {
         compose.onNodeWithText("운동 이미지 없음").assertExists()
         compose.onNodeWithContentDescription("${exercises[0].name} 운동 이미지").assertDoesNotExist()
         compose.onNodeWithContentDescription("${exercises[1].name} 운동 이미지").assertExists()
+    }
+
+    @Test fun completedSessionShowsSquareMetricsBetweenWatchAndExerciseCards() {
+        val exercise = WorkoutSessionExercise(
+            "recorded-exercise", "manual", 0, "테스트 운동 종목", "등", "",
+            "weight_reps", "중량 · 반복", null, 1, 1,
+            completedSets = listOf(set("recorded-set", 1, null).copy(isCompleted = true))
+        )
+        val session = WorkoutSessionSnapshot(
+            "record", "테스트 세션", "completed", "2001-05-15T10:04:56", 1800, 1234.5, 1,
+            listOf(exercise), emptyList()
+        )
+        val fontScale = mutableStateOf(1f)
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale.value)) {
+                    Column(Modifier.width(310.dp).verticalScroll(rememberScrollState())) {
+                        WorkoutSessionScreen(
+                            WorkoutSessionUiState.Ready("owner", session), "owner", MassUnit.LB,
+                            recordWatch = { Text("테스트 밴드 기록") },
+                            onExercise = {}
+                        )
+                    }
+                }
+            }
+        }
+        val grid = compose.onNodeWithTag("workout-session-metrics")
+        val inGrid = hasAnyAncestor(hasTestTag("workout-session-metrics"))
+        val labels = listOf("운동 시각", "운동 종목", "진행 세트", "총 볼륨")
+        val values = listOf("2001-05-15:10:04", "1개", "1세트", "1,234.5 kg")
+        val cards = labels.zip(values).map { (label, value) ->
+            compose.onNode(hasText(label) and hasText(value) and inGrid).assertIsDisplayed()
+        }
+        val bounds = cards.map { it.fetchSemanticsNode().boundsInRoot }
+        val (time, exercises, sets, volume) = bounds
+        for (card in bounds) assertEquals(card.width, card.height, 1f)
+        assertEquals(time.top, exercises.top, 1f)
+        assertEquals(sets.top, volume.top, 1f)
+        assertEquals(time.left, sets.left, 1f)
+        assertEquals(exercises.left, volume.left, 1f)
+        assertTrue(time.right < exercises.left && time.bottom < sets.top)
+        val watch = compose.onNodeWithText("테스트 밴드 기록").fetchSemanticsNode().boundsInRoot
+        val exerciseCard = compose.onNodeWithTag("workout-session-exercise-${exercise.id}")
+        assertTrue(watch.bottom <= grid.fetchSemanticsNode().boundsInRoot.top)
+        assertTrue(grid.fetchSemanticsNode().boundsInRoot.bottom <= exerciseCard.fetchSemanticsNode().boundsInRoot.top)
+
+        compose.runOnIdle { fontScale.value = 2f }
+        for (value in values) {
+            val layout = mutableListOf<TextLayoutResult>()
+            compose.onNode(hasText(value) and inGrid, useUnmergedTree = true).performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layout) }
+            val text = layout.single()
+            assertFalse("Clipped metric $value at ${text.size} (${text.layoutInput.constraints})",
+                text.hasVisualOverflow)
+        }
     }
 
     @Test fun everySetControlFitsOneRowAndCompletionPersistsWithoutSeparateSaveButtons() {

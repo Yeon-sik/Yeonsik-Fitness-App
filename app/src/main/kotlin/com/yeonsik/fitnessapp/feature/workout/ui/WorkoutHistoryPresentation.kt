@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -15,20 +16,26 @@ import java.util.Locale
 
 internal const val WORKOUT_HISTORY_SET_COLUMNS = 7
 private val workoutCompletionDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT)
+private val workoutStartDateTimeFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd:HH:mm", Locale.ROOT)
 
 internal fun formatWorkoutCompletionDateTime(
     value: String?,
     zoneId: ZoneId = ZoneId.systemDefault()
-): String? {
+): String? = workoutLocalDateTime(value, zoneId)?.format(workoutCompletionDateTimeFormatter)
+
+internal fun formatWorkoutStartDateTime(value: String, zoneId: ZoneId = ZoneId.systemDefault()): String =
+    workoutLocalDateTime(value, zoneId)?.format(workoutStartDateTimeFormatter)
+        ?: runCatching { LocalDate.parse(value).toString() + "\n시각 미기록" }.getOrDefault("시각 미기록")
+
+private fun workoutLocalDateTime(value: String?, zoneId: ZoneId): LocalDateTime? {
     val timestamp = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val localDateTime = runCatching {
+    return runCatching {
         OffsetDateTime.parse(timestamp).toInstant().atZone(zoneId).toLocalDateTime()
     }.getOrElse {
         runCatching { Instant.parse(timestamp).atZone(zoneId).toLocalDateTime() }.getOrElse {
             runCatching { LocalDateTime.parse(timestamp) }.getOrNull()
         }
-    } ?: return null
-    return workoutCompletionDateTimeFormatter.format(localDateTime)
+    }
 }
 
 internal fun workoutCompletionStatusLabel(completedAt: String?): String =

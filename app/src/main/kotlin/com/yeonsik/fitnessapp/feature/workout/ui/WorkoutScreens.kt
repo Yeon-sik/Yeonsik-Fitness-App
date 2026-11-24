@@ -1928,25 +1928,21 @@ private fun AppWorkoutSessionContent(
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
     val groupLabels = workoutSessionGroupLabels(orderedExercises)
-    val sessionProgress = workoutSessionProgress(orderedExercises)
     val isInProgress = session.status == "in_progress"
-    FitnessHeader(session.title, "${orderedExercises.size}개 종목",
+    val isCompleted = session.status == "completed"
+    FitnessHeader(session.title, if (isCompleted) null else "${orderedExercises.size}개 종목",
         titleModifier = Modifier.workoutSharedElement(workoutSessionTitleAnchor(session.recordId), "title"))
     if (interactive) recordWatch(session)
-    FitnessStatusBadge(
-        status = when (session.status) {
-            "completed" -> FitnessSemanticStatus.SUCCESS
-            "in_progress" -> FitnessSemanticStatus.INFO
-            else -> FitnessSemanticStatus.UNKNOWN
-        },
-        label = when (session.status) {
-            "completed" -> workoutCompletionStatusLabel(session.completedAt)
-            "in_progress" -> "진행 중"
-            else -> "상태 미상"
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-    FitnessProgressBar(sessionProgress, title = "세션 세트 진행")
+    if (isCompleted) {
+        WorkoutSessionMetrics(session, Modifier.fillMaxWidth())
+    } else {
+        FitnessStatusBadge(
+            status = if (isInProgress) FitnessSemanticStatus.INFO else FitnessSemanticStatus.UNKNOWN,
+            label = if (isInProgress) "진행 중" else "상태 미상",
+            modifier = Modifier.fillMaxWidth()
+        )
+        FitnessProgressBar(workoutSessionProgress(orderedExercises), title = "세션 세트 진행")
+    }
     FitnessSection("운동 종목") {
         if (orderedExercises.isEmpty()) {
             FitnessStatusMessage(
@@ -1995,10 +1991,15 @@ private fun AppWorkoutSessionContent(
             }
         }
     }
-    FitnessFactRow(
-        first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
-        second = { WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds) }
-    )
+    if (isCompleted) {
+        FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds),
+            workoutCompletionStatusLabel(session.completedAt))
+    } else {
+        FitnessFactRow(
+            first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
+            second = { WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds) }
+        )
+    }
     WorkoutRoutineComparisonCard(session, unit)
     WorkoutNoteField(
         identity = "$ownerId:${session.recordId}:condition", title = "오늘 컨디션", value = session.conditionNote,
@@ -2007,8 +2008,10 @@ private fun AppWorkoutSessionContent(
         onSave = { note, result -> onSaveCondition(session.recordId, note, result) },
         modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
     )
-    FitnessFactCard("총 볼륨", MassFormatter.withUnit(session.totalVolumeKg, unit),
-        "저장 기준 kg · 표시 ${unit.symbol()}")
+    if (!isCompleted) {
+        FitnessFactCard("총 볼륨", MassFormatter.withUnit(session.totalVolumeKg, unit),
+            "저장 기준 kg · 표시 ${unit.symbol()}")
+    }
     if (session.recentVolumes.isNotEmpty()) {
         FitnessSection("이전 운동 볼륨") {
             FitnessTrendChart(

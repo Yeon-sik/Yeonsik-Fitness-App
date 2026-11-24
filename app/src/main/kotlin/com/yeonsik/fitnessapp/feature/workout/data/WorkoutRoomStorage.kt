@@ -72,7 +72,8 @@ class WorkoutRoomStorage(
         val status: String,
         val durationSeconds: Int,
         val workoutType: String,
-        val routineId: String? = null
+        val routineId: String? = null,
+        val recordedStartAt: String = startedAt
     )
 
     data class ExerciseRow(
@@ -609,10 +610,11 @@ class WorkoutRoomStorage(
     fun sessionInfo(scope: AccountScope, recordId: String): SessionInfo? {
         val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return null
         val metadata = record.metadata
+        val startedAt = metadataValue(metadata, "started_at").trim()
         return SessionInfo(
                 record.exerciseName,
                 record.date,
-                metadataValue(metadata, "started_at"),
+                startedAt,
                 metadataValue(metadata, "ended_at"),
                 metadataValue(metadata, "status"),
                 resolvedDurationSeconds(
@@ -621,7 +623,13 @@ class WorkoutRoomStorage(
                     metadata
                 ),
                 record.workoutType,
-                metadataValue(metadata, "routine_id").trim().takeIf { it.isNotEmpty() }
+                metadataValue(metadata, "routine_id").trim().takeIf { it.isNotEmpty() },
+                recordedStartAt = WorkoutReadSemantics.recordedStartAt(
+                    date = record.date,
+                    startedAt = startedAt,
+                    fleek = metadataValue(metadata, "fleek_source_key").isNotBlank(),
+                    reportedTime = metadataValue(metadata, "fleek_has_reported_start_time").toBooleanStrictOrNull()
+                )
             )
     }
 
@@ -983,10 +991,8 @@ class WorkoutRoomStorage(
     private fun progressOrderTime(startedAt: String, date: String, createdAt: String): String =
         runCatching { OffsetDateTime.parse(startedAt).toInstant().toString() }.getOrNull()
             ?: runCatching { LocalDateTime.parse(startedAt).toString() }.getOrNull()
-            ?: runCatching {
-                LocalDate.parse(date).atTime(LocalTime.parse(startedAt,
-                    DateTimeFormatter.ofPattern("H:mm[:ss]"))).toString()
-            }.getOrNull() ?: createdAt
+            ?: WorkoutReadSemantics.legacyLocalStart(date, startedAt)?.toString()
+            ?: createdAt
 
     fun recentSessionVolumes(scope: AccountScope, currentRecordId: String, limit: Int): List<VolumePoint> {
         if (limit <= 0) return emptyList()
