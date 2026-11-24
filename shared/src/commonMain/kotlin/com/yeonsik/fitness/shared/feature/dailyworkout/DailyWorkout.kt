@@ -41,11 +41,14 @@ data class DailyWorkoutSet(
     val durationSeconds: Int? = null,
     val distanceMeters: Double? = null,
     val loadState: String? = null,
-    val setType: String? = null
+    val setType: String? = null,
+    val id: String? = null,
+    val inputLoad: Double? = null,
+    val inputUnit: String? = null
 )
 
 @Serializable
-data class DailyWorkoutExercise(val name: String, val sets: List<DailyWorkoutSet>)
+data class DailyWorkoutExercise(val name: String, val sets: List<DailyWorkoutSet>, val id: String? = null)
 
 @Serializable
 data class DailyWorkoutSource(
@@ -60,7 +63,9 @@ data class DailyWorkoutSource(
     val distanceMeters: Double? = null,
     val energyKcal: Double? = null,
     val manualHeartRateBpm: Double? = null,
-    val exercises: List<DailyWorkoutExercise> = emptyList()
+    val exercises: List<DailyWorkoutExercise> = emptyList(),
+    val totalVolumeKg: Double? = null,
+    val nativeSessionId: String? = null
 ) {
     val key: String get() = origin.sourceKey(writer, id)
 

@@ -48,23 +48,32 @@ interface DailyWorkoutDeviceAccess {
 }
 
 @Composable
+fun DailyWorkoutScreen(initialDate: String, repository: DailyWorkoutRepository, device: DailyWorkoutDeviceAccess, onClose: () -> Unit) {
+    DailyWorkoutScreen(initialDate, repository, device, onClose, null)
+}
+
+@Composable
 fun DailyWorkoutScreen(
     initialDate: String,
     repository: DailyWorkoutRepository,
     device: DailyWorkoutDeviceAccess,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    cloud: WorkoutCloudAccess?
 ) {
+    val account = cloud?.account()
+    val sync = remember(repository, cloud, account) { if (cloud != null && account != null) repository.syncFor(cloud, account) else null }
+    val display = remember(repository, sync) { sync?.let(repository::withSyncedWorkouts) ?: repository }
     val zone = remember { TimeZone.currentSystemDefault() }
     var date by rememberSaveable(initialDate) { mutableStateOf(initialDate) }
     val day = remember(date, zone) { WorkoutDay(LocalDate.parse(date), zone) }
     val scope = rememberCoroutineScope()
-    var report by remember(day, repository) { mutableStateOf<DailyWorkoutReport?>(null) }
+    var report by remember(day, display) { mutableStateOf<DailyWorkoutReport?>(null) }
     var busy by remember(day, repository) { mutableStateOf(true) }
     var message by remember(day, repository) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(day, repository) {
+    LaunchedEffect(day, display) {
         try {
-            report = repository.load(day)
+            report = display.load(day)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -101,7 +110,7 @@ fun DailyWorkoutScreen(
             runOperation("워치 기록을 읽지 못했습니다. 건강 앱 권한과 기록을 확인해 주세요.") {
                 val records = device.readWearables(day)
                 if (records != null) {
-                    report = repository.saveWearables(day, records)
+                    report = display.saveWearables(day, records)
                     message = "워치 기록을 불러왔습니다."
                 } else {
                     message = "읽을 수 있는 워치 기록이 없습니다. 날짜와 건강 앱 권한을 확인해 주세요."
@@ -111,7 +120,7 @@ fun DailyWorkoutScreen(
         onImport = {
             runOperation("FLEEK 파일을 가져오지 못했습니다.") {
                 device.pickFleekCsv()?.let {
-                    report = repository.importFleek(day, it)
+                    report = display.importFleek(day, it)
                     message = "FLEEK 기록을 가져왔습니다."
                 }
             }
@@ -125,10 +134,13 @@ fun DailyWorkoutScreen(
             }
         },
         onDecision = { candidate, same ->
-            runOperation("운동 연결 결정을 저장하지 못했습니다.") { report = repository.decide(day, candidate, same) }
+            runOperation("운동 연결 결정을 저장하지 못했습니다.") { report = display.decide(day, candidate, same) }
         },
         onUndo = { decision ->
-            runOperation("운동 연결 결정을 취소하지 못했습니다.") { report = repository.undo(day, decision) }
+            runOperation("운동 연결 결정을 취소하지 못했습니다.") { report = display.undo(day, decision) }
+        },
+        cloudControls = {
+            if (cloud != null) CompletedWorkoutCloudControls(day, sync, device::exportJson) { report = display.load(day) }
         }
     )
 }
@@ -150,7 +162,8 @@ private fun DailyWorkoutContent(
     onImport: () -> Unit,
     onExport: () -> Unit,
     onDecision: (DailyWorkoutCandidate, Boolean) -> Unit,
-    onUndo: (DailyWorkoutDecision) -> Unit
+    onUndo: (DailyWorkoutDecision) -> Unit,
+    cloudControls: @Composable () -> Unit
 ) {
     var selectDate by rememberSaveable { mutableStateOf(false) }
     val report = state.report
@@ -173,6 +186,7 @@ private fun DailyWorkoutContent(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedButton(onSync, Modifier.fillMaxWidth(), enabled = !state.busy) { Text("워치 기록 불러오기") }
                     OutlinedButton(onImport, Modifier.fillMaxWidth(), enabled = !state.busy) { Text("FLEEK CSV 가져오기") }
+                    cloudControls()
                     Button(onExport, Modifier.fillMaxWidth(), enabled = !state.busy && report != null) { Text("AI용 JSON 저장") }
                     if (state.busy) Text("처리 중…") else state.message?.let { Text(it) }
                     if (report != null) {

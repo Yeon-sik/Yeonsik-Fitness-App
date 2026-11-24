@@ -23,6 +23,8 @@ data class LocalDailyWorkouts(
 fun interface DailyWorkoutLocalReader {
     fun read(day: WorkoutDay): LocalDailyWorkouts
     fun findRecord(recordId: String): LocalWorkoutReference? = null
+    fun completedStrength(day: WorkoutDay): List<DailyWorkoutSource> = read(day).workouts
+    fun deletedCompletedWorkouts(ids: Set<String>): Set<String> = emptySet()
 }
 
 data class LocalWorkoutReference(val date: String, val origin: WorkoutOrigin, val id: String)
@@ -39,6 +41,16 @@ class DailyWorkoutRepository(
     private val storage: DailyWorkoutStorage,
     private val localRecords: DailyWorkoutLocalReader
 ) {
+    internal fun syncFor(access: WorkoutCloudAccess, account: WorkoutCloudAccount) =
+        CompletedWorkoutSync(storage, localRecords, access, account)
+
+    internal fun withSyncedWorkouts(sync: CompletedWorkoutSync) = DailyWorkoutRepository(storage,
+        object : DailyWorkoutLocalReader by localRecords {
+            override fun read(day: WorkoutDay): LocalDailyWorkouts {
+                val local = localRecords.read(day)
+                return local.copy(workouts = local.workouts + sync.supplement(day, local.workouts))
+            }
+        })
     constructor(storage: DailyWorkoutStorage, localWorkouts: (WorkoutDay) -> List<DailyWorkoutSource>) :
         this(storage, DailyWorkoutLocalReader { day -> LocalDailyWorkouts(localWorkouts(day)) })
 

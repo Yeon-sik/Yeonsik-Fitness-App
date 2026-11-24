@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 internal fun AndroidDailyWorkoutDialog(date: String, repository: DailyWorkoutRepository, onClose: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val resolver = context.contentResolver
+    val cloud = remember(context, repository) { AndroidWorkoutCloudAccess(context) }
     val reader = remember(context) { HealthConnectDailyWorkoutReader(context) }
     val permissions = remember { ActivityReply<Set<String>>() }
     val inputFile = remember { ActivityReply<android.net.Uri?>() }
@@ -50,7 +51,7 @@ internal fun AndroidDailyWorkoutDialog(date: String, repository: DailyWorkoutRep
         }
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        DailyWorkoutScreen(date, repository, device, onClose)
+        DailyWorkoutScreen(date, repository, device, onClose, cloud)
     }
 }
 

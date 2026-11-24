@@ -35,6 +35,13 @@ internal class WorkoutDailyReadRepository(
 ) : DailyWorkoutLocalReader {
     private val wearables = WearableWorkoutRepository(database)
 
+    override fun completedStrength(day: WorkoutDay): List<DailyWorkoutSource> =
+        database.runInTransaction(Callable { completedWorkouts(day).values.filter { it.kind == DailyWorkoutKind.STRENGTH } })
+
+    override fun deletedCompletedWorkouts(ids: Set<String>): Set<String> = ids.filterTo(mutableSetOf()) { id ->
+        database.legacyFitnessSyncRoomDao().workoutRecord(id, scope.ownerId)?.deletedAt != null
+    }
+
     override fun findRecord(recordId: String): LocalWorkoutReference? {
         val row = database.workoutRoomDao().visibleRecord(recordId, scope.ownerId) ?: return null
         return reference(row.date, row.id, metadata(row.metadata))
@@ -102,23 +109,28 @@ internal class WorkoutDailyReadRepository(
                 durationSeconds = workout.durationSeconds.takeIf { it > 0 && !isFleek },
                 distanceMeters = cardioSession?.recordedDistanceMeters?.takeIf { it.isFinite() && it > 0 },
                 manualHeartRateBpm = row.averageHeartRate?.takeIf { it.isFinite() && it > 0 },
-                exercises = workout.exercises.filter { it.completedSets.isNotEmpty() }.map { entry ->
+                exercises = workout.exercises.map { entry ->
                     DailyWorkoutExercise(entry.name, entry.completedSets.map { set ->
                         DailyWorkoutSet(
                             weightKg = when (set.loadState) {
                                 LoadState.ADDED_WEIGHT -> set.addedWeightKg
                                 LoadState.ASSISTED -> set.assistedWeightKg
                                 else -> set.weightKg
-                            }.takeIf { it.isFinite() && it > 0 },
+                            }.takeIf { it.isFinite() && (it > 0 || it == 0.0 && set.inputLoadValue == 0.0) },
                             reps = set.actualReps.takeIf { it > 0 },
                             rir = set.rir,
                             durationSeconds = set.durationSeconds.takeIf { it > 0 },
                             distanceMeters = set.distanceMeters.takeIf { it.isFinite() && it > 0 },
                             loadState = set.loadState?.id(),
-                            setType = set.setType.id
+                            setType = set.setType.id,
+                            id = set.id,
+                            inputLoad = set.inputLoadValue,
+                            inputUnit = set.inputLoadUnit?.id
                         )
-                    })
-                }
+                    }, entry.id)
+                },
+                totalVolumeKg = workout.totalVolumeKg,
+                nativeSessionId = row.id
             )
         }.toMap()
     }
