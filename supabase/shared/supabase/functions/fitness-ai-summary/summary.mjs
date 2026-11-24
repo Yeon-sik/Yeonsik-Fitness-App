@@ -69,7 +69,7 @@ export async function readFitnessSummary(request, { project, publicKey, fetcher 
       const last = rows.at(-1).id;
       if (last === previous) throw Error('invalid cursor');
       previous = last;
-      url.searchParams.set('id', 'gt."' + last.replaceAll('\\', '\\\\').replaceAll('"', '\\"') + '"');
+      url.searchParams.set('id', 'gt.' + last);
     }
     return json({ version: 1, source: 'fitness_summary_projection_v2', from: input.from, to: input.to, total,
       days: [...byDate.keys()].sort().map(date => ({ date, ...byDate.get(date) })) });

@@ -11,6 +11,7 @@ const env = { project: 'https://shared.invalid', publicKey: 'fixture' };
 
 test('authenticated summary reads only the owner and approved fields, across short pages', async () => {
   let pages = 0;
+  const ids = ['session-1 (, & "detail")', 'session-2'];
   const result = await readFitnessSummary(request(dates), { ...env, fetcher: async (url, options) => {
     assert.equal(options.headers.Authorization, 'Bearer fixture');
     if (url.pathname === '/auth/v1/user') return Response.json({ id: owner, role: 'authenticated' });
@@ -19,9 +20,10 @@ test('authenticated summary reads only the owner and approved fields, across sho
     assert.equal(url.searchParams.get('deleted_at'), 'is.null');
     assert.deepEqual(url.searchParams.getAll('date'), ['gte.2025-01-01', 'lte.2025-01-07']);
     assert.doesNotMatch(url.searchParams.get('select'), /memo|heart|weight|name|user_id/);
+    assert.equal(new URL(url.href).searchParams.get('id'), pages ? 'gt.' + ids[pages - 1] : null);
     if (pages === 2) return Response.json([]);
     const count = ++pages;
-    const row = { id: 'session-' + count, date: dates.from, total_duration_seconds: count === 1 ? 60 : null,
+    const row = { id: ids[count - 1], date: dates.from, total_duration_seconds: count === 1 ? 60 : null,
       chest_sets: 2, back_sets: 0, legs_sets: 0, shoulders_sets: 0, abs_sets: 0, triceps_sets: 0, biceps_sets: 0 };
     return Response.json([row]);
   } });
