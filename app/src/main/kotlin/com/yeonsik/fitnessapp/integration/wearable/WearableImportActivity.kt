@@ -124,7 +124,7 @@ private fun WearableWorkoutCard(row: WearableWorkout, actions: @Composable () ->
             if (row.samples.isNotEmpty()) {
                 Text("측정 표본 평균 ${"%.1f".format(row.samples.map { it.bpm }.average())} · 최대 ${row.samples.maxOf { it.bpm }} bpm")
                 val samples = remember(row) { row.samples.map { DailyHeartRateSample(row.origin, it.time.toEpochMilli(), it.bpm.toDouble()) } }
-                WorkoutHeartRatePlot(samples, row.start.toEpochMilli(), row.end.toEpochMilli(), Modifier.fillMaxWidth().height(100.dp))
+                WorkoutHeartRatePlot(samples, row.start.toEpochMilli(), row.end.toEpochMilli(), Modifier.fillMaxWidth())
             } else Text("이 출처에서 같은 구간의 심박은 조회되지 않았습니다.")
             Text("출처: ${row.origin}", style = MaterialTheme.typography.bodySmall)
             actions()

@@ -1,12 +1,10 @@
 package com.yeonsik.fitness.shared.feature.dailyworkout
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -15,11 +13,8 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -87,29 +82,8 @@ private fun SessionWatchMeasurements(session: DailyWorkoutSession, zone: TimeZon
             Text("평균 ${heart.averageBpm.roundToInt()} bpm · 최고 ${heart.maxBpm.roundToInt()} bpm")
             Text("심박 ${heart.sampleCount}개 측정", style = MaterialTheme.typography.bodySmall)
             val source = watches.firstOrNull { it.writer == heart.writer } ?: session.timing
-            WorkoutHeartRatePlot(session.measuredSamples, source.startMillis, source.endMillis, Modifier.fillMaxWidth().height(72.dp))
+            WorkoutHeartRatePlot(session.measuredSamples, source.startMillis, source.endMillis, Modifier.fillMaxWidth())
         }
-    }
-}
-
-@Composable
-fun WorkoutHeartRatePlot(samples: List<DailyHeartRateSample>, startMillis: Long?, endMillis: Long?, modifier: Modifier = Modifier) {
-    if (samples.isEmpty()) return
-    val points = remember(samples, startMillis, endMillis) {
-        val first = samples.minOf { it.timeMillis }
-        val last = samples.maxOf { it.timeMillis }
-        val start = minOf(startMillis ?: first, first)
-        val span = (maxOf(endMillis ?: last, last) - start).coerceAtLeast(1).toDouble()
-        val low = samples.minOf { it.bpm } - 5
-        val high = samples.maxOf { it.bpm } + 5
-        samples.map { Offset(((it.timeMillis - start) / span).toFloat(), (1 - (it.bpm - low) / (high - low)).toFloat()) }
-    }
-    val color = MaterialTheme.colorScheme.primary
-    Canvas(modifier.semantics { contentDescription = "시간대별 심박 측정점" }) {
-        val radius = 2.dp.toPx()
-        val width = (size.width - 2 * radius).coerceAtLeast(0f)
-        val height = (size.height - 2 * radius).coerceAtLeast(0f)
-        for (point in points) drawCircle(color, radius, Offset(radius + point.x * width, radius + point.y * height))
     }
 }
 

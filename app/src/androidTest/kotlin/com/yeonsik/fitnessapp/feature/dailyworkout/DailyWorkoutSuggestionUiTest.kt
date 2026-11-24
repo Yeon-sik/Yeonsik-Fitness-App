@@ -2,14 +2,21 @@ package com.yeonsik.fitnessapp.feature.dailyworkout
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.dailyworkout.*
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -55,7 +62,7 @@ class DailyWorkoutSuggestionUiTest {
         val inCard = hasAnyAncestor(hasTestTag("daily-workout-entry"))
         compose.onNode(hasText("1종목 · 1세트") and inCard).assertExists()
         compose.onNode(hasText("심박 1개 측정") and inCard).assertExists()
-        compose.onNode(hasContentDescription("시간대별 심박 측정점") and inCard).assertExists()
+        compose.onNode(hasContentDescription("측정 순서별 심박 범위", substring = true) and inCard).assertExists()
         compose.onNode(hasText("운동 시간이 30분 겹칩니다.") and inCard).assertExists()
 
         compose.runOnIdle { showDay.value = false }
@@ -73,5 +80,41 @@ class DailyWorkoutSuggestionUiTest {
         list.performScrollToIndex(0)
         waitFor("운동 2회")
         compose.onNodeWithText("연결 제안").assertDoesNotExist()
+    }
+
+    @Test fun rendersSeparatedRangeBarsAndScrollsWhenFiveSampleGroupsExceedTheWidth() {
+        val count = mutableStateOf(15)
+        compose.setContent {
+            MaterialTheme {
+                val samples = List(count.value) { i -> DailyHeartRateSample("test.watch", i * 1000L, (90 + i % 5 * 8).toDouble()) }
+                WorkoutHeartRatePlot(samples, null, null, Modifier.width(220.dp))
+            }
+        }
+        val plot = compose.onNodeWithContentDescription("측정 순서별 심박 범위", substring = true)
+        fun drawnBars(): List<IntRange> {
+            val pixels = plot.captureToImage().toPixelMap()
+            val ranges = mutableListOf<IntRange>()
+            var start = -1
+            for (x in 0..pixels.width) {
+                val painted = x < pixels.width && (0 until pixels.height).any { y ->
+                    val color = pixels[x, y]
+                    color.alpha > 0.5f && color.red - color.green > 0.25f && color.red - color.blue > 0.15f
+                }
+                if (painted && start == -1) start = x
+                if (!painted && start >= 0) { ranges.add(start until x); start = -1 }
+            }
+            return ranges
+        }
+        val sparse = drawnBars()
+        assertEquals(3, sparse.size)
+        compose.runOnIdle { count.value = 60 }
+        val dense = drawnBars()
+        assertEquals(12, dense.size)
+        assertTrue(dense[1].first - dense[0].last in 2 until (sparse[1].first - sparse[0].last))
+        compose.runOnIdle { count.value = 900 }
+        compose.onNodeWithText("좌우로 보기", substring = true).assertExists()
+        plot.performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        assertTrue(plot.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value() > 0f)
     }
 }

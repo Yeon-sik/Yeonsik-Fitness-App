@@ -6,7 +6,7 @@ Implemented on `feat/health-connect-workout-import-20261109`.
 
 - Fitness tab → **밴드 운동·심박 가져오기** → read permissions → date → query → select → confirm save.
 - Open a completed strength workout or **하루 운동 기록** to see time-based suggestions for watch workouts already saved in Fitness or loaded for that day. Each suggestion explains how the times match. Choose **같은 운동으로 연결** or **별개 운동으로 집계**. Either screen can undo a decision made here.
-- A linked strength workout shows the watch interval, measured mean and peak heart rate, and recorded heart-rate points alongside the sets. **다른 워치 기록 가져오기** opens the importer. An active workout or a completed workout without a match still offers **이 운동의 밴드 기록 가져오기·확인** for an explicit import.
+- A linked strength workout shows the watch interval, measured mean and peak heart rate, and the heart-rate range chart alongside the sets. **다른 워치 기록 가져오기** opens the importer. An active workout or a completed workout without a match still offers **이 운동의 밴드 기록 가져오기·확인** for an explicit import.
 - Saved external workouts remain available on the import screen after process restart. Linked measurements are shown when opened from that Fitness workout.
 - This reads measurements already delivered to Health Connect. It is not a live Fit3 sensor connection. The Samsung export utility is still needed on the tested device until its native export works.
 - Existing canonical workouts, sets, manual averages and duration stay intact. External workouts are stored separately and do not automatically create completed workouts, add volume or alter statistics. The import screen labels the average as the measured-sample mean; provider summaries can use different calculation rules.
@@ -17,7 +17,7 @@ Implemented on `feat/health-connect-workout-import-20261109`.
 
 The main manifest requests only exercise and heart-rate read access. Health Connect is now an app dependency; the PR0 diagnostic launcher remains debug-only. The reader finishes all pages, matches the exercise origin when reading heart rate, filters by the exact interval, preserves timestamps and values, rejects conflicting same-time observations and never fills gaps. An empty heart-rate series is displayed explicitly.
 
-`WearableImportContent` receives state and callbacks. The ViewModel owns IO, selected candidates and account scope; the activity owns the permission launcher. Imported observations are rendered as individual points so missing intervals are not presented as continuous measurements.
+`WearableImportContent` receives state and callbacks. The ViewModel owns IO, selected candidates and account scope. The activity owns the permission launcher. Each chart bar spans the lowest and highest of up to five consecutive observations. The horizontal axis follows measurement order. A break longer than both one minute and four typical sample intervals starts a new group and leaves a blank slot. Short final groups are included. Summary values and stored observations use the original measurements.
 
 Room v61→v62 adds only `wearable_workouts`. Its key is `(user_id, origin, provider_id)`. Re-import replaces this account's same external identity while retaining its existing workout link. Linking requires an existing, non-deleted workout of the same account and date; an existing different link is rejected. No native workout DAO writes occur.
 
