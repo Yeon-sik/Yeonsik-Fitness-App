@@ -23,7 +23,7 @@ class WorkoutDetailLayoutUiTest {
         val count = mutableIntStateOf(7)
         compose.setContent {
             val sets = (1..count.intValue).reversed().map {
-                WorkoutSet("set-$it", it, 20.0, it, null, null, true, 0, 0.0, 0.0, 0.0, null, null, null)
+                WorkoutSet("set-$it", it, if (it == 2) 102.5 else 20.0, it, null, null, true, 0, 0.0, 0.0, 0.0, null, null, null)
             }
             FitnessComposeTheme(false) {
                 WorkoutHistorySetCard(WorkoutExerciseHistory("2001-05-15", 200.0, sets, recordId = "fixture"),
@@ -32,6 +32,9 @@ class WorkoutDetailLayoutUiTest {
         }
         fun row(index: Int) = compose.onNodeWithContentDescription("${index}세트, 부하", substring = true)
         fun bounds(index: Int) = row(index).fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithText("102.5").assertIsDisplayed()
+        assertEquals(bounds(1).right, bounds(2).right, 1f)
+        compose.onNodeWithContentDescription("1세트, 부하", substring = true).assertTextEquals("20.0")
         val first = bounds(1)
         assertEquals(first.left, bounds(7).left, 1f)
         assertTrue(bounds(7).top > first.top)
@@ -70,6 +73,11 @@ class WorkoutDetailLayoutUiTest {
         val previous = compose.onNodeWithText("2001-05-09").fetchSemanticsNode().boundsInRoot
         assertEquals(newest.top, previous.top, 1f)
         assertTrue(previous.left > newest.right)
+        val third = compose.onNodeWithText("2001-05-08").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val viewport = list.fetchSemanticsNode().boundsInRoot
+        assertEquals(previous.left - newest.left, third.left - previous.left, 1f)
+        assertTrue(third.right <= viewport.right)
+        assertTrue(previous.left - newest.left <= viewport.width / 3 + 1f)
         repeat(10) {
             list.performTouchInput { swipeLeft() }
             compose.waitForIdle()

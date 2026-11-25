@@ -666,11 +666,14 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
             )
         } else {
             key(detail.activeExercise.id) {
-                LazyRow(Modifier.fillMaxWidth().testTag("exercise-history-list"),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-                    itemsIndexed(latestFirst, key = { index, item -> item.recordId.ifBlank { "history-$index" } }) { _, history ->
-                        WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit,
-                            modifier = Modifier.fillParentMaxWidth(if (latestFirst.size == 1) 1f else 0.9f))
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val cardWidth = (maxWidth * 0.30f).coerceAtMost(128.dp)
+                    LazyRow(Modifier.fillMaxWidth().testTag("exercise-history-list"),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        itemsIndexed(latestFirst, key = { index, item -> item.recordId.ifBlank { "history-$index" } }) { _, history ->
+                            WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit,
+                                modifier = Modifier.widthIn(min = cardWidth))
+                        }
                     }
                 }
             }
