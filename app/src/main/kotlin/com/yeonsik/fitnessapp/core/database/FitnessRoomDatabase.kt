@@ -1080,11 +1080,21 @@ interface WorkoutRoomDao {
     fun strengthRecords(userId: String): List<WorkoutRecordsRoomEntity>
 
     @Query(
-        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
-            "AND scope IN ('fitness','both') AND id != :currentRecordId " +
-            "ORDER BY date DESC, updated_at DESC LIMIT :limit"
+        """
+        SELECT past.* FROM workout_records AS current_record
+        JOIN workout_records AS past ON past.user_id = current_record.user_id
+        WHERE current_record.user_id = :userId AND current_record.id = :currentRecordId
+          AND current_record.deleted_at IS NULL AND current_record.scope IN ('fitness','both')
+          AND past.deleted_at IS NULL AND past.scope IN ('fitness','both')
+          AND (past.date < current_record.date OR
+              (past.date = current_record.date AND past.created_at < current_record.created_at))
+          AND (past.source_app = 'os' OR instr(
+              replace(replace(replace(replace(past.metadata, ' ', ''), char(9), ''), char(10), ''), char(13), ''),
+              '"status":"completed"') > 0)
+        ORDER BY past.date DESC, past.created_at DESC, past.id DESC LIMIT :limit
+        """
     )
-    fun recentRecordsExcept(userId: String, currentRecordId: String, limit: Int): List<WorkoutRecordsRoomEntity>
+    fun previousCompletedRecords(userId: String, currentRecordId: String, limit: Int): List<WorkoutRecordsRoomEntity>
 
     @Query(
         "SELECT * FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId " +

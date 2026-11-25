@@ -14,6 +14,7 @@ com.yeonsik.fitnessapp.core.database.PriceTraceBrandMigrationTest
 com.yeonsik.fitnessapp.core.database.WorkoutSetupNoteMigrationTest
 com.yeonsik.fitnessapp.core.database.WearableWorkoutMigrationTest
 com.yeonsik.fitnessapp.feature.dailyworkout.DailyWorkoutSuggestionUiTest
+com.yeonsik.fitnessapp.feature.workout.data.WorkoutSetStructureStorageTest
 
 # Owner isolation, Meal snapshots, LoadState, units and workout identity
 com.yeonsik.fitnessapp.data.BodyMetricsRepositoryFacadeTest
@@ -32,6 +33,7 @@ com.yeonsik.fitnessapp.data.FitnessRepositorySummaryProjectionV2Test
 com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisherIncrementalTest
 
 # Set input drafts, workout completion/cancel, account scope and recreation
+com.yeonsik.fitnessapp.app.navigation.BottomNavigationDragUiTest
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSetRecordingUiTest
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModelTest
 com.yeonsik.fitnessapp.ui.RecordingNavigationRecreationTest

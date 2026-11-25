@@ -1935,6 +1935,7 @@ private fun AppWorkoutSessionContent(
     if (interactive) recordWatch(session)
     if (isCompleted) {
         WorkoutSessionMetrics(session, Modifier.fillMaxWidth())
+        WorkoutSessionVolumeHistory(session, unit)
     } else {
         FitnessStatusBadge(
             status = if (isInProgress) FitnessSemanticStatus.INFO else FitnessSemanticStatus.UNKNOWN,
@@ -1991,10 +1992,7 @@ private fun AppWorkoutSessionContent(
             }
         }
     }
-    if (isCompleted) {
-        FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds),
-            workoutCompletionStatusLabel(session.completedAt))
-    } else {
+    if (!isCompleted) {
         FitnessFactRow(
             first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
             second = { WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds) }
@@ -2011,25 +2009,28 @@ private fun AppWorkoutSessionContent(
     if (!isCompleted) {
         FitnessFactCard("총 볼륨", MassFormatter.withUnit(session.totalVolumeKg, unit),
             "저장 기준 kg · 표시 ${unit.symbol()}")
+        WorkoutSessionVolumeHistory(session, unit)
     }
-    if (session.recentVolumes.isNotEmpty()) {
-        FitnessSection("이전 운동 볼륨") {
-            FitnessTrendChart(
-                model = fitnessTrendPresentation(
-                    session.recentVolumes.map {
-                        FitnessTrendPoint(
-                            label = it.label.ifBlank { it.date },
-                            value = MassUnit.fromKg(it.volumeKg, unit),
-                            detailLabel = it.date
-                        )
-                    },
-                    minimumPoints = 2
-                ),
-                unit = unit.symbol(),
-                emptyLabel = "이전 운동 볼륨이 없습니다.",
-                insufficientLabel = "이전 운동 볼륨 기록이 부족합니다."
-            )
-        }
+}
+
+@Composable
+private fun WorkoutSessionVolumeHistory(session: WorkoutSessionSnapshot, unit: MassUnit) {
+    if (session.recentVolumes.isEmpty()) return
+    FitnessSection("이전 운동 볼륨") {
+        FitnessTrendChart(
+            model = fitnessTrendPresentation(
+                session.recentVolumes.map {
+                    FitnessTrendPoint(
+                        label = it.label.ifBlank { it.date },
+                        value = MassUnit.fromKg(it.volumeKg, unit),
+                        detailLabel = it.date
+                    )
+                },
+                minimumPoints = 1
+            ),
+            unit = unit.symbol(),
+            emptyLabel = "이전 운동 볼륨이 없습니다."
+        )
     }
 }
 

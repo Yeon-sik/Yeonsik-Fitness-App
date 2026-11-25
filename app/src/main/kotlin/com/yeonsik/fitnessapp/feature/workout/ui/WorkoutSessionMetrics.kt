@@ -30,7 +30,8 @@ internal fun WorkoutSessionMetrics(session: WorkoutSessionSnapshot, modifier: Mo
             val cell = Modifier.weight(1f).fillMaxHeight()
             WorkoutSessionMetric(
                 "운동 시각", formatWorkoutStartDateTime(session.recordedStartAt), cell,
-                valueStyle = MaterialTheme.typography.titleSmall
+                valueStyle = MaterialTheme.typography.titleSmall,
+                supportingText = formatCompletedWorkoutDuration(session.durationSeconds)
             )
             WorkoutSessionMetric("운동 종목", "${session.exercises.size}개", cell)
         }
@@ -47,7 +48,8 @@ private fun WorkoutSessionMetric(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    valueStyle: TextStyle = MaterialTheme.typography.titleMedium
+    valueStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    supportingText: String? = null
 ) {
     FitnessCard(modifier.semantics(mergeDescendants = true) {}) {
         Column(Modifier.padding(FitnessSpacing.small), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
@@ -56,6 +58,13 @@ private fun WorkoutSessionMetric(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(value, Modifier.fillMaxWidth(), style = valueStyle.copy(fontFeatureSettings = "tnum"))
+            if (supportingText != null) {
+                Text(
+                    supportingText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

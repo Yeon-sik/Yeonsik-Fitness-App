@@ -27,6 +27,10 @@ internal fun formatWorkoutStartDateTime(value: String, zoneId: ZoneId = ZoneId.s
     workoutLocalDateTime(value, zoneId)?.format(workoutStartDateTimeFormatter)
         ?: runCatching { LocalDate.parse(value).toString() + "\n시각 미기록" }.getOrDefault("시각 미기록")
 
+internal fun formatCompletedWorkoutDuration(seconds: Int): String =
+    if (seconds > 0) String.format(Locale.ROOT, "(%02d:%02d)", seconds / 3600, seconds / 60 % 60)
+    else "(시간 미기록)"
+
 private fun workoutLocalDateTime(value: String?, zoneId: ZoneId): LocalDateTime? {
     val timestamp = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     return runCatching {

@@ -20,6 +20,13 @@ class WorkoutPresentationTest {
     }
 
     @Test
+    fun sessionDurationUsesHoursAndMinutesAndIdentifiesMissingData() {
+        assertEquals("(00:42)", formatCompletedWorkoutDuration(42 * 60 + 59))
+        assertEquals("(01:05)", formatCompletedWorkoutDuration(65 * 60))
+        assertEquals("(시간 미기록)", formatCompletedWorkoutDuration(0))
+    }
+
+    @Test
     fun sessionExercisesUseStableOrderAndCurrentExerciseIsFirstIncomplete() {
         val first = sessionExercise(id = "z", order = 2, completed = 1, total = 1)
         val second = sessionExercise(id = "b", order = 1, completed = 0, total = 1)

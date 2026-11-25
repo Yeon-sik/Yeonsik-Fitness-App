@@ -996,16 +996,9 @@ class WorkoutRoomStorage(
 
     fun recentSessionVolumes(scope: AccountScope, currentRecordId: String, limit: Int): List<VolumePoint> {
         if (limit <= 0) return emptyList()
-        val points = mutableListOf<VolumePoint>()
-        for (record in workoutDao.recentRecordsExcept(scope.ownerId, currentRecordId, limit)) {
-                if (!WorkoutReadSemantics.isCompleted(record.sourceApp, record.metadata)) continue
-                points += VolumePoint(
-                    record.date,
-                    record.exerciseName,
-                    metrics(scope, record.id).totalVolumeKg
-                )
+        return workoutDao.previousCompletedRecords(scope.ownerId, currentRecordId, limit).asReversed().map { record ->
+            VolumePoint(record.date, record.exerciseName, metrics(scope, record.id).totalVolumeKg)
         }
-        return points.asReversed()
     }
 
     fun recentExerciseVolumes(

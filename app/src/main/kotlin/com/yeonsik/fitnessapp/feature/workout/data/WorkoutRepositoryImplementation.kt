@@ -112,7 +112,7 @@ class WorkoutRepositoryImplementation(
         return WorkoutSessionSnapshot(
             recordId, info.title, info.status, info.startedAt, info.durationSeconds,
             metrics.totalVolumeKg, metrics.setCount, mappedExercises,
-            storage.recentSessionVolumes(scope, recordId, 4).map { WorkoutVolumePoint(it.date, it.label, it.volumeKg) },
+            storage.recentSessionVolumes(scope, recordId, 5).map { WorkoutVolumePoint(it.date, it.label, it.volumeKg) },
             routineId = info.routineId,
             previousRoutine = previous?.copy(totals = previous.recordId?.let {
                 workoutRoutineTotals(sessionExercises(scope, it, false))

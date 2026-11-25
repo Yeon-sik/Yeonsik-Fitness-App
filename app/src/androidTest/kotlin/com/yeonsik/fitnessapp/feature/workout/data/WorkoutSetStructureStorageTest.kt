@@ -253,4 +253,28 @@ class WorkoutSetStructureStorageTest {
         assertEquals(200.0, session.previousRoutine!!.totals!!.volumeKg, 0.0)
         assertEquals(0.0, session.routineTotals!!.volumeKg, 0.0)
     }
+
+    @Test fun sessionVolumeReadsTheFiveEarlierCompletedRecordsInOrder() {
+        val dao = room.workoutRoomDao()
+        for (day in 1..6) {
+            val (id, _) = record("2026-10-0$day")
+            assertEquals(WorkoutCompletion.COMPLETED, repository.completeIfEligible(scope, id))
+        }
+        val (earlier, _) = record("2026-10-10")
+        assertEquals(WorkoutCompletion.COMPLETED, repository.completeIfEligible(scope, earlier))
+        val earlierRow = dao.visibleRecord(earlier, scope.ownerId)!!
+        dao.updateRecord(earlierRow.copy(createdAt = "2026-10-10T06:00:00Z", metadata = JSONObject(earlierRow.metadata).toString(2)))
+        val (current, _) = record("2026-10-10")
+        dao.updateRecord(dao.visibleRecord(current, scope.ownerId)!!.copy(createdAt = "2026-10-10T08:00:00Z"))
+        val (later, _) = record("2026-10-10")
+        assertEquals(WorkoutCompletion.COMPLETED, repository.completeIfEligible(scope, later))
+        dao.updateRecord(dao.visibleRecord(later, scope.ownerId)!!.copy(createdAt = "2026-10-10T10:00:00Z"))
+        record("2026-10-09")
+        dao.insertRecord(earlierRow.copy(id = "other-owner-fixture", userId = "other-owner", date = "2026-10-09"))
+        dao.insertRecord(earlierRow.copy(id = "deleted-volume-fixture", date = "2026-10-09", deletedAt = "2026-10-09"))
+
+        val points = repository.loadSession(scope, current)!!.recentVolumes
+        assertEquals(listOf("2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-10"), points.map { it.date })
+        assertEquals(List(5) { 200.0 }, points.map { it.volumeKg })
+    }
 }
