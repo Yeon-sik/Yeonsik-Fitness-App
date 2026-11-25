@@ -12,6 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalDragOrCancellation
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -52,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -61,18 +66,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.Backdrop
 import com.kashif_e.backdrop.backdrops.layerBackdrop
@@ -1546,7 +1556,7 @@ private fun RecordsHubTabs(
 }
 
 @Composable
-private fun BottomNavigation(
+internal fun BottomNavigation(
     homeState: HomeUiState,
     screen: FitnessScreen,
     onTabSelected: (FitnessScreen) -> Unit,
@@ -1572,6 +1582,10 @@ private fun BottomNavigation(
     // Give the longer Korean label more room at large accessibility font sizes.
     val workoutTabWeight = if (LocalDensity.current.fontScale > 1.5f) 1.6f else 1f
     val tabWeights = items.map { if (it.screen == FitnessScreen.WORKOUT) workoutTabWeight else 1f }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val selectTab by rememberUpdatedState(onTabSelected)
+    var dragIndex by remember(screen, tabWeights, rtl) { mutableStateOf<Int?>(null) }
+    val visibleIndex = dragIndex ?: selectedIndex
 
     Box(
         modifier
@@ -1579,6 +1593,43 @@ private fun BottomNavigation(
             .widthIn(max = 400.dp)
             .fillMaxWidth()
             .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
+            .testTag("bottom-navigation")
+            .pointerInput(screen, tabWeights, rtl) {
+                fun tabAt(position: Offset): Int? {
+                    if (position.x !in 0f..size.width.toFloat() || position.y !in 0f..size.height.toFloat()) return null
+                    val inset = 4.dp.toPx()
+                    val usableWidth = size.width - inset * 2
+                    if (usableWidth <= 0f) return null
+                    val x = if (rtl) size.width - position.x else position.x
+                    val weight = ((x - inset) / usableWidth).coerceIn(0f, 1f) * tabWeights.sum()
+                    var boundary = 0f
+                    return tabWeights.indexOfFirst {
+                        boundary += it
+                        weight < boundary
+                    }.takeIf { it >= 0 } ?: tabWeights.lastIndex
+                }
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
+                        change.consume()
+                    } ?: return@awaitEachGesture
+                    try {
+                        while (true) {
+                            dragIndex = tabAt(drag.position)
+                            val next = awaitHorizontalDragOrCancellation(drag.id) ?: break
+                            if (next.changedToUp()) {
+                                tabAt(next.position)?.takeIf { it != selectedIndex }?.let { selectTab(items[it].screen) }
+                                break
+                            }
+                            next.consume()
+                            drag = next
+                        }
+                    } finally {
+                        dragIndex = null
+                    }
+                }
+            }
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(4.dp)
@@ -1590,12 +1641,12 @@ private fun BottomNavigation(
         ) {
             val widthPerWeight = maxWidth / tabWeights.sum()
             val indicatorWidth by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights[selectedIndex],
+                targetValue = widthPerWeight * tabWeights[visibleIndex],
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "bottom-navigation-indicator-width"
             )
             val indicatorOffset by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights.take(selectedIndex).sum(),
+                targetValue = widthPerWeight * tabWeights.take(visibleIndex).sum(),
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "bottom-navigation-indicator"
             )
@@ -1610,7 +1661,8 @@ private fun BottomNavigation(
                 items.forEachIndexed { index, item ->
                     val interactionSource = remember(item.screen) { MutableInteractionSource() }
                     val selected = item.screen == active
-                    val contentColor = if (selected) selectedContent else unselectedContent
+                    val highlighted = index == visibleIndex
+                    val contentColor = if (highlighted) selectedContent else unselectedContent
                     val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
                     Column(
                         Modifier
@@ -1651,7 +1703,7 @@ private fun BottomNavigation(
                             item.label,
                             color = contentColor,
                             style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
