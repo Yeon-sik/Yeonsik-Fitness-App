@@ -17,8 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -666,16 +664,7 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
             )
         } else {
             key(detail.activeExercise.id) {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val cardWidth = (maxWidth * 0.30f).coerceAtMost(128.dp)
-                    LazyRow(Modifier.fillMaxWidth().testTag("exercise-history-list"),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        itemsIndexed(latestFirst, key = { index, item -> item.recordId.ifBlank { "history-$index" } }) { _, history ->
-                            WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit,
-                                modifier = Modifier.widthIn(min = cardWidth))
-                        }
-                    }
-                }
+                WorkoutHistoryCards(latestFirst, detail.activeExercise.name, detail.activeExercise.recordType, unit)
             }
         }
     }
