@@ -54,7 +54,7 @@ class WorkoutDetailLayoutUiTest {
         row(15).assertDoesNotExist()
     }
 
-    @Test fun recordCardsScrollVerticallyFromNewestThroughTheTenthVisit() {
+    @Test fun earlierVisitsScrollIntoViewFromTheRight() {
         val exercise = WorkoutExercise("fixture", "row", 0, "테스트 로우", recordType = "weight_reps")
         val histories = (1..10).map {
             val date = "2001-05-" + it.toString().padStart(2, '0')
@@ -68,11 +68,18 @@ class WorkoutDetailLayoutUiTest {
         val list = compose.onNodeWithTag("exercise-history-list")
         val newest = compose.onNodeWithText("2001-05-10").fetchSemanticsNode().boundsInRoot
         val previous = compose.onNodeWithText("2001-05-09").fetchSemanticsNode().boundsInRoot
-        assertEquals(newest.left, previous.left, 1f)
-        assertTrue(previous.top > newest.bottom)
-        list.performTouchInput { swipeUp() }
-        list.performScrollToIndex(9)
+        assertEquals(newest.top, previous.top, 1f)
+        assertTrue(previous.left > newest.right)
+        repeat(10) {
+            list.performTouchInput { swipeLeft() }
+            compose.waitForIdle()
+        }
         compose.onNodeWithText("2001-05-01").assertIsDisplayed()
+        repeat(10) {
+            list.performTouchInput { swipeRight() }
+            compose.waitForIdle()
+        }
+        compose.onNodeWithText("2001-05-10").assertIsDisplayed()
     }
 
     @Test fun volumeChartShowsTheTappedWorkoutsNameDateAndVolumeOnlyOnSelection() {

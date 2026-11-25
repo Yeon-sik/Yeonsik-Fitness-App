@@ -17,7 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -666,10 +666,11 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
             )
         } else {
             key(detail.activeExercise.id) {
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp).testTag("exercise-history-list"),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+                LazyRow(Modifier.fillMaxWidth().testTag("exercise-history-list"),
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
                     itemsIndexed(latestFirst, key = { index, item -> item.recordId.ifBlank { "history-$index" } }) { _, history ->
-                        WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit)
+                        WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit,
+                            modifier = Modifier.fillParentMaxWidth(if (latestFirst.size == 1) 1f else 0.9f))
                     }
                 }
             }

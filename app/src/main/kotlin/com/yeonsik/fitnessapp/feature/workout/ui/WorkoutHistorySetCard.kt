@@ -22,12 +22,13 @@ private const val ROWS_PER_COLUMN = 7
 private const val PREVIEW_LIMIT = ROWS_PER_COLUMN * 2
 
 @Composable
-internal fun WorkoutHistorySetCard(history: WorkoutExerciseHistory, exerciseName: String, recordType: String, unit: MassUnit) {
+internal fun WorkoutHistorySetCard(history: WorkoutExerciseHistory, exerciseName: String, recordType: String, unit: MassUnit,
+    modifier: Modifier = Modifier) {
     val sets = remember(history.sets) { history.sets.filter { it.isCompleted }.sortedBy { it.setIndex } }
     val rows = remember(sets, recordType, unit) { workoutSetTableRows(recordType, sets, unit) }
     var expanded by rememberSaveable(history.recordId, exerciseName) { mutableStateOf(false) }
     val date = history.date.ifBlank { "날짜 미상" }
-    AppCard(Modifier.fillMaxWidth()) {
+    AppCard(modifier.fillMaxWidth()) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
             val columns = sets.indices.take(PREVIEW_LIMIT).chunked(ROWS_PER_COLUMN)
