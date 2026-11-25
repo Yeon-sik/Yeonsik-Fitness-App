@@ -1120,14 +1120,19 @@ interface WorkoutRoomDao {
     fun visibleSet(setId: String, userId: String): WorkoutSetsRoomEntity?
 
     @Query(
-        "SELECT we.record_id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
+        "SELECT DISTINCT we.record_id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
             "FROM workout_exercises we LEFT JOIN workout_manual_exercise_links ml " +
             "ON ml.id=we.id AND ml.user_id=we.user_id AND we.exercise_id='manual' " +
             "INNER JOIN workout_records wr ON wr.id=we.record_id " +
-            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
+            "LEFT JOIN workout_records anchor ON anchor.id=:currentRecordId AND anchor.user_id=:userId " +
+            "WHERE wr.deleted_at IS NULL AND wr.user_id=:userId AND we.user_id=:userId " +
+            "AND (:currentRecordId='' OR wr.date < anchor.date OR " +
+            "(wr.date=anchor.date AND (wr.created_at < anchor.created_at OR " +
+            "(wr.created_at=anchor.created_at AND wr.id < anchor.id)))) " +
             "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
             "AND wr.scope IN ('fitness','both') " +
-            "AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
+            "AND (wr.source_app='os' OR instr(replace(replace(replace(replace(wr.metadata, ' ', ''), " +
+            "char(9), ''), char(10), ''), char(13), ''), '\"status\":\"completed\"') > 0) " +
             "AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id=we.id " +
             "AND ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1) " +
             "AND ((:familyId IS NOT NULL AND " +
@@ -1139,7 +1144,7 @@ interface WorkoutRoomDao {
             "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
             "OR (we.exercise_id='manual' AND ml.id IS NULL AND we.exercise_name_snapshot=:exerciseName)))) " +
-            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100"
+            "ORDER BY wr.date DESC, wr.created_at DESC, wr.id DESC LIMIT 100"
     )
     fun exerciseHistoryCandidates(
         userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,

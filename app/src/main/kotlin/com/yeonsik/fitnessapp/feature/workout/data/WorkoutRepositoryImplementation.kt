@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise
+import com.yeonsik.fitness.shared.feature.workout.model.EXERCISE_HISTORY_LIMIT
 import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
@@ -178,7 +179,7 @@ class WorkoutRepositoryImplementation(
             scope,
             active,
             recordId,
-            limit = if (completedSets.isEmpty()) 5 else 4
+            limit = if (completedSets.isEmpty()) EXERCISE_HISTORY_LIMIT else EXERCISE_HISTORY_LIMIT - 1
         )
         val bests = storage.bests(scope, active, recordId)
         val currentIsOneRepMax = currentOneRepMaxKg != null &&
@@ -202,7 +203,7 @@ class WorkoutRepositoryImplementation(
                 recordId = history.recordId,
                 estimatedOneRepMaxKg = history.estimatedOneRepMaxKg
             )
-        } + listOfNotNull(currentHistory)).takeLast(5)
+        } + listOfNotNull(currentHistory))
         return WorkoutExerciseDetail(
             recordId = recordId,
             activeExercise = active.toFeatureModel(),

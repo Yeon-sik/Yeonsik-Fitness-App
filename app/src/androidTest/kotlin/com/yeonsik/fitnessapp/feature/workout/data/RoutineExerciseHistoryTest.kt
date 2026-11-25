@@ -48,6 +48,21 @@ class RoutineExerciseHistoryTest {
         return recordId
     }
 
+    @Test fun detailKeepsTenVisitsEndingAtTheSelectedRecord() {
+        val exercise = exercise("chest_smith_flat_bench_press")
+        val visits = (1..13).map { day ->
+            record(owner, "2026-10-" + day.toString().padStart(2, '0'), exercise)
+        }
+        val selected = visits[11]
+        val occurrence = storage.exercises(owner, selected).single()
+        val history = requireNotNull(repository.loadExerciseDetail(owner, selected, occurrence.id))
+        assertEquals(visits.subList(2, 12), history.recentHistories.map { it.recordId })
+        val pending = repository.createSessionFromRoutine(owner, "2026-10-14", "테스트", "routine", listOf(exercise))
+        val pendingOccurrence = storage.exercises(owner, pending).single()
+        assertEquals(visits.takeLast(10), repository.loadExerciseDetail(owner, pending, pendingOccurrence.id)!!
+            .recentHistories.map { it.recordId })
+    }
+
     private fun counts(): List<Int> = listOf("workout_records", "workout_exercises", "workout_sets").map { table ->
         room.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $table").use { it.moveToFirst(); it.getInt(0) }
     }
@@ -64,7 +79,7 @@ class RoutineExerciseHistoryTest {
             incline.copy(exerciseId = "legacy-alias", nameKo = "동일 운동의 다른 이름")))
         assertEquals(latest, history.recordId)
         assertEquals(listOf("2026-10-05", "2026-10-06"), history.recentHistories.map { it.date })
-        assertEquals(10, history.sets.single().actualReps)
+        assertEquals(10, history.sets.single { it.isCompleted }.actualReps)
         assertEquals(before, counts())
         assertEquals(beforeSets, room.workoutRoomDao().visibleSets(history.activeExercise.id, owner.ownerId))
     }

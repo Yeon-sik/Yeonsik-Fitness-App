@@ -78,6 +78,8 @@ data class WorkoutSet @kotlin.jvm.JvmOverloads constructor(
     @JvmField val comparisonVolumeKg: Double? = null
 )
 
+const val EXERCISE_HISTORY_LIMIT = 10
+
 data class WorkoutExerciseDetail(
     val recordId: String,
     val activeExercise: WorkoutExercise,
@@ -89,7 +91,7 @@ data class WorkoutExerciseDetail(
     val allowedLoadStates: Map<String, List<LoadState>> = emptyMap(),
     val volumeFormula: String = "",
     val volumeBySetId: Map<String, Double> = emptyMap(),
-    /** The selected record plus up to four earlier completed records, oldest first. */
+    /** Up to [EXERCISE_HISTORY_LIMIT] sessions, oldest first, including the selected record if it has completed sets. */
     val recentHistories: List<WorkoutExerciseHistory> = emptyList(),
     val personalBests: WorkoutExercisePersonalBests? = null,
     val currentRecordDate: String = "",

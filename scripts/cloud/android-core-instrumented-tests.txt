@@ -22,6 +22,7 @@ com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsEditorFlowTest
 com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepositoryTest
 com.yeonsik.fitnessapp.data.FitnessRepositoryLoadStateTest
 com.yeonsik.fitnessapp.data.WorkoutRoomReadCorrectnessTest
+com.yeonsik.fitnessapp.feature.workout.data.RoutineExerciseHistoryTest
 
 # Backup restore, transfer v1/v2, local-preserving sync and Summary v2 tombstones
 com.yeonsik.fitnessapp.data.LocalDataBackupServiceTest
