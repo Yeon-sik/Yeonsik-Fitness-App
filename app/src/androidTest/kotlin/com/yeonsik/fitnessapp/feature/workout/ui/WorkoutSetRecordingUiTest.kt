@@ -326,7 +326,7 @@ class WorkoutSetRecordingUiTest {
         }
         val incline = occurrenceFor("chest_smith_incline_bench_press")
         val flat = occurrenceFor("chest_smith_flat_bench_press")
-        val fixture = show(detail().copy(activeExercise = incline, exercises = listOf(incline)))
+        val fixture = show(detail().copy(activeExercise = incline, exercises = listOf(incline)), readOnly = true)
         compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithTag("exercise-detail-image").assertHeightIsEqualTo(152.dp)
         compose.onNodeWithText("운동 이미지 없음").assertExists()

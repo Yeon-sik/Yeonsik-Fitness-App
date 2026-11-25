@@ -1,8 +1,10 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -35,8 +37,10 @@ class WorkoutDetailLayoutUiTest {
         assertTrue(bounds(7).top > first.top)
         row(8).assertDoesNotExist()
         compose.runOnIdle { count.intValue = 8 }
-        assertTrue(bounds(8).left > first.left)
-        assertEquals(first.top, bounds(8).top, 1f)
+        assertTrue(bounds(8).left > bounds(1).left)
+        assertEquals(bounds(1).top, bounds(8).top, 1f)
+        val reps = compose.onNodeWithContentDescription("1세트, 횟수 1회").fetchSemanticsNode().boundsInRoot
+        assertEquals(with(compose.density) { 6.dp.toPx() }, reps.left - bounds(1).right, 1f)
         compose.runOnIdle { count.intValue = 14 }
         assertEquals(bounds(7).top, bounds(14).top, 1f)
         compose.onNodeWithText("더보기").assertDoesNotExist()
@@ -48,6 +52,27 @@ class WorkoutDetailLayoutUiTest {
         row(15).assertIsDisplayed()
         compose.onNodeWithText("닫기").performClick()
         row(15).assertDoesNotExist()
+    }
+
+    @Test fun recordCardsScrollVerticallyFromNewestThroughTheTenthVisit() {
+        val exercise = WorkoutExercise("fixture", "row", 0, "테스트 로우", recordType = "weight_reps")
+        val histories = (1..10).map {
+            val date = "2001-05-" + it.toString().padStart(2, '0')
+            val set = WorkoutSet("s$it", 1, 20.0, 8, null, null, true, 0, 0.0, 0.0, 0.0, null, null, null)
+            WorkoutExerciseHistory(date, 160.0, listOf(set), recordId = "record-$it")
+        }
+        val detail = WorkoutExerciseDetail("record-10", exercise, listOf(exercise), emptyList(), recentHistories = histories)
+        compose.setContent {
+            FitnessComposeTheme(false) { Column { WorkoutExerciseHistoryContent(detail, MassUnit.KG) } }
+        }
+        val list = compose.onNodeWithTag("exercise-history-list")
+        val newest = compose.onNodeWithText("2001-05-10").fetchSemanticsNode().boundsInRoot
+        val previous = compose.onNodeWithText("2001-05-09").fetchSemanticsNode().boundsInRoot
+        assertEquals(newest.left, previous.left, 1f)
+        assertTrue(previous.top > newest.bottom)
+        list.performTouchInput { swipeUp() }
+        list.performScrollToIndex(9)
+        compose.onNodeWithText("2001-05-01").assertIsDisplayed()
     }
 
     @Test fun volumeChartShowsTheTappedWorkoutsNameDateAndVolumeOnlyOnSelection() {

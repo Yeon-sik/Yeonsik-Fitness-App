@@ -8,6 +8,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -27,22 +28,40 @@ internal fun WorkoutHistorySetCard(history: WorkoutExerciseHistory, exerciseName
     var expanded by rememberSaveable(history.recordId, exerciseName) { mutableStateOf(false) }
     val date = history.date.ifBlank { "날짜 미상" }
     AppCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-            Text(date, style = MaterialTheme.typography.titleSmall)
-            Text("${sets.size}세트 · 총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (sets.isEmpty()) Text("완료 세트 없음", style = MaterialTheme.typography.bodySmall)
-            else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
-                sets.indices.take(PREVIEW_LIMIT).chunked(ROWS_PER_COLUMN).forEach { column ->
-                    Column(Modifier.weight(1f)) {
-                        SetTableHeader(rows)
-                        column.forEach { index -> HistorySetRow(sets[index], rows.upperValues[index], rows.lowerValues[index]) }
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+            val columns = sets.indices.take(PREVIEW_LIMIT).chunked(ROWS_PER_COLUMN)
+            val gap = 12.dp
+            val groups = columns.size.coerceAtLeast(1)
+            val availableWidth = (maxWidth - gap * (groups - 1)).coerceAtLeast(0.dp)
+            val groupWidth = (86.dp * scale).coerceAtMost(availableWidth / groups)
+            val details: @Composable () -> Unit = {
+                Text(date, style = MaterialTheme.typography.titleSmall)
+                Text("${sets.size}세트 · 총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (sets.size > PREVIEW_LIMIT) TextButton({ expanded = true }) { Text("더보기") }
+            }
+            val table: @Composable () -> Unit = {
+                if (sets.isEmpty()) Text("완료 세트 없음", style = MaterialTheme.typography.bodySmall)
+                else Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    columns.forEach { column ->
+                        Column(Modifier.width(groupWidth)) {
+                            SetTableHeader(rows)
+                            column.forEach { i -> HistorySetRow(sets[i], rows.upperValues[i], rows.lowerValues[i]) }
+                        }
                     }
                 }
-                if (sets.size <= ROWS_PER_COLUMN) Spacer(Modifier.weight(1f))
             }
-            if (sets.size > PREVIEW_LIMIT) TextButton({ expanded = true }, Modifier.align(Alignment.End)) {
-                Text("더보기")
+            if (maxWidth >= (108.dp + 86.dp * columns.size) * scale + gap * columns.size) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    Column(Modifier.weight(1f)) { details() }
+                    table()
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column { details() }
+                    table()
+                }
             }
         }
     }
@@ -67,10 +86,10 @@ internal fun WorkoutHistorySetCard(history: WorkoutExerciseHistory, exerciseName
 @Composable
 private fun SetTableHeader(rows: WorkoutSetTableRows, numbered: Boolean = false) {
     val style = MaterialTheme.typography.labelSmall
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (numbered) Text("세트", Modifier.weight(0.75f), style = style)
-        Text(rows.upperLabel, Modifier.weight(1.4f), style = style)
-        Text(rows.lowerLabel, Modifier.weight(1f), style = style, textAlign = TextAlign.End)
+        Text(rows.upperLabel, Modifier.weight(1.6f), style = style, textAlign = TextAlign.End)
+        Text(rows.lowerLabel, Modifier.weight(1f), style = style)
     }
     HorizontalDivider()
 }
@@ -80,13 +99,14 @@ private fun HistorySetRow(set: WorkoutSet, upper: WorkoutSetTableCell, lower: Wo
     val style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum")
     val loadColor = if (upper.isLoadValue) workoutWeightTextColor(MaterialTheme.colorScheme.surface) else Color.Unspecified
     val marker = set.setType.marker.takeIf { set.setType != WorkoutSetType.NORMAL }.orEmpty()
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         if (numbered) Text(set.setIndex.toString(), Modifier.weight(0.75f), style = style)
         Text(if (marker.isEmpty()) upper.visibleValue else "$marker  ${upper.visibleValue}",
-            Modifier.weight(1.4f).semantics {
+            Modifier.weight(1.6f).semantics {
                 contentDescription = if (marker.isEmpty()) upper.spokenValue else "${upper.spokenValue}, ${set.setType.label}"
-            }, color = loadColor, style = style)
+            }, color = loadColor, style = style, textAlign = TextAlign.End)
         Text(lower.visibleValue, Modifier.weight(1f).semantics { contentDescription = lower.spokenValue },
-            style = style, textAlign = TextAlign.End)
+            style = style)
     }
 }

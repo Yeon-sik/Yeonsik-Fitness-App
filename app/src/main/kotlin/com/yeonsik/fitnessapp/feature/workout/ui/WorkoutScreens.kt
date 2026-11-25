@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -269,10 +271,11 @@ internal fun WorkoutDetailScreen(
         WorkoutExerciseRecordTabs(selected = selectedRecordTab, onSelected = { selectedRecordTab = it })
     }
     if (imageExerciseId != null) {
-        Box(Modifier.fillMaxWidth().height(152.dp).testTag("exercise-detail-image"), contentAlignment = Alignment.Center) {
+        val imageHeight = if (ready?.readOnly == true) 152.dp else 120.dp
+        Box(Modifier.fillMaxWidth().height(imageHeight).testTag("exercise-detail-image"), contentAlignment = Alignment.Center) {
             WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
                 animate = ready != null && !ready.readOnly && !showImageViewer, sharedAnchor = imageAnchor,
-                onClick = { showImageViewer = true }, maxImageHeight = 152.dp)
+                onClick = { showImageViewer = true }, maxImageHeight = imageHeight)
         }
         if (showImageViewer) WorkoutExerciseImageViewer(imageExerciseId, imageIdentity, title,
             animate = ready != null && !ready.readOnly) {
@@ -662,9 +665,10 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
                 message = "이 종목의 완료된 세트 기록이 없습니다."
             )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-                latestFirst.forEach { history ->
-                    key(history.recordId) {
+            key(detail.activeExercise.id) {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp).testTag("exercise-history-list"),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+                    itemsIndexed(latestFirst, key = { index, item -> item.recordId.ifBlank { "history-$index" } }) { _, history ->
                         WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit)
                     }
                 }
@@ -704,7 +708,7 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
 
 @Composable
 private fun WorkoutExerciseTrendsTab(detail: WorkoutExerciseDetail, unit: MassUnit) {
-    FitnessSection("최근 5회 추세") {
+    FitnessSection("최근 ${EXERCISE_HISTORY_LIMIT}회 추세") {
         val points = workoutExerciseTrendPoints(detail.recentHistories)
         if (points.isEmpty()) {
             FitnessStatusMessage(
@@ -884,11 +888,12 @@ private fun WorkoutExerciseDualTrendChart(
             drawSeries(points.map { it.estimatedOneRepMaxKg }, oneRepColor, circular = true)
             drawSeries(points.map { it.totalVolumeKg.takeIf { volume -> volume.isFinite() && volume > 0.0 } }, volumeColor, circular = false)
         }
-        Row(Modifier.fillMaxWidth()) {
-            points.forEach { point ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Keep all points in the plot and give the endpoint dates room on a phone.
+            val axisPoints = if (points.size > 1) listOf(points.first(), points.last()) else points
+            axisPoints.forEach { point ->
                 Text(
                     point.date.takeLast(5),
-                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
