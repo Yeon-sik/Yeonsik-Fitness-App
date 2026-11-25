@@ -87,7 +87,8 @@ internal fun heartRateBands(samples: List<DailyHeartRateSample>, startMillis: Lo
 }
 
 @Composable
-fun WorkoutHeartRatePlot(samples: List<DailyHeartRateSample>, startMillis: Long?, endMillis: Long?, modifier: Modifier = Modifier) {
+fun WorkoutHeartRatePlot(samples: List<DailyHeartRateSample>, startMillis: Long?, endMillis: Long?,
+    modifier: Modifier = Modifier, showInstructions: Boolean = true) {
     val slots = remember(samples, startMillis, endMillis) { heartRateBands(samples, startMillis, endMillis) }
     if (slots.isEmpty()) return
     val bands = remember(slots) { slots.filterNotNull() }
@@ -277,12 +278,12 @@ fun WorkoutHeartRatePlot(samples: List<DailyHeartRateSample>, startMillis: Long?
                         }
                     }
                 }
-                Text(
+                if (selectionText != null || showInstructions) Text(
                     selectionText ?: "막대를 누르거나 끌어 최저·최고 보기",
                     style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
                     color = if (selection != null) scheme.onSurface else scheme.onSurfaceVariant
                 )
-                if (hasGap || !fits) {
+                if (showInstructions && (hasGap || !fits)) {
                     val note = listOfNotNull(
                         "빈칸은 측정 공백".takeIf { hasGap },
                         "양끝으로 끌어 좌우로 보기".takeIf { !fits }

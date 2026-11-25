@@ -73,7 +73,16 @@ class DailyWorkoutSuggestionUiTest {
         compose.runOnIdle { showDay.value = false }
         waitFor("연결 제안")
         compose.onNodeWithText("같은 운동으로 연결").performClick()
-        waitFor("연결된 워치 기록")
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("워치 기록 옵션").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("평균 112 bpm · 최고 112 bpm").assertExists()
+        compose.onNodeWithText("연결된 워치 기록").assertDoesNotExist()
+        compose.onNodeWithText("심박 1개 측정").assertDoesNotExist()
+        compose.onNodeWithText("막대를 누르거나", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("test.watch", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("워치 기록 옵션").performClick()
+        compose.onNodeWithText("연결 취소", substring = true).assertExists()
+        compose.onNodeWithText("다른 워치 기록 가져오기").assertExists()
+        androidx.test.espresso.Espresso.pressBack()
         compose.runOnIdle { showDay.value = true }
         waitFor("운동 1회")
         list.performScrollToNode(hasText("연결된 워치 기록"))

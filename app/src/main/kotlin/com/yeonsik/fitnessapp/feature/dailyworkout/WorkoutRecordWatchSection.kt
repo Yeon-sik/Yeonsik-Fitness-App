@@ -1,6 +1,13 @@
 package com.yeonsik.fitnessapp.feature.dailyworkout
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -12,9 +19,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutDecision
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutRecordReview
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutRecordWatchCard
 import com.yeonsik.fitness.shared.feature.dailyworkout.DailyWorkoutReport
@@ -66,27 +78,56 @@ internal fun WorkoutRecordWatchSection(repository: DailyWorkoutRepository?, owne
                 }
             }
         }
-        review?.let { current ->
+        val current = review
+        val entry = current?.entry
+        val date = current?.report?.day?.date?.toString() ?: session.startedAt.take(10)
+        val linked = entry?.sessions?.firstOrNull()?.hasLinkedWatch == true
+        if (current != null) {
             val day = current.report.day
-            current.entry?.let { entry ->
+            if (entry != null) {
                 DailyWorkoutRecordWatchCard(entry, day.zone, busy, { match, same ->
                     change(current) { repository.decide(day, match, same) }
-                }, Modifier.fillMaxWidth())
+                }, Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { expanded = true }, enabled = !busy,
+                            modifier = Modifier.semantics { contentDescription = "워치 기록 옵션" }) {
+                            val tint = LocalContentColor.current
+                            Canvas(Modifier.size(20.dp)) {
+                                for (position in 1..3) drawCircle(tint, 1.6.dp.toPx(), Offset(center.x, size.height * position / 4))
+                            }
+                        }
+                        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                            for (decision in current.decisions) {
+                                DropdownMenuItem(text = { Text(current.undoLabel(decision)) }, onClick = {
+                                    expanded = false
+                                    change(current) { repository.undo(day, decision) }
+                                })
+                            }
+                            WearableImportAction(ownerId, session.recordId, date) { open ->
+                                DropdownMenuItem(text = { Text("다른 워치 기록 가져오기") }, onClick = { expanded = false; open() })
+                            }
+                        }
+                    }
+                }
             }
-            for (decision in current.decisions) {
-                val otherKey = if (decision.first == current.sourceKey) decision.second else decision.first
-                val other = current.report.sources.getValue(otherKey)
+            if (!linked) for (decision in current.decisions) {
                 TextButton({ change(current) { repository.undo(day, decision) } }, enabled = !busy) {
-                    Text((if (decision.sameWorkout) "연결 취소" else "별개 운동 결정 취소") + " · " + other.title)
+                    Text(current.undoLabel(decision))
                 }
             }
         }
         error?.let { Text(it) }
-        val date = review?.report?.day?.date?.toString() ?: session.startedAt.take(10)
-        if (review?.entry == null) WearableImportEntry(ownerId, session.recordId, date) else {
+        if (entry == null) WearableImportEntry(ownerId, session.recordId, date) else if (!linked) {
             WearableImportAction(ownerId, session.recordId, date) { open ->
                 TextButton(open, enabled = !busy) { Text("다른 워치 기록 가져오기") }
             }
         }
     }
+}
+
+private fun DailyWorkoutRecordReview.undoLabel(decision: DailyWorkoutDecision): String {
+    val otherKey = if (decision.first == sourceKey) decision.second else decision.first
+    val action = if (decision.sameWorkout) "연결 취소" else "별개 운동 결정 취소"
+    return "$action · ${report.sources.getValue(otherKey).title}"
 }

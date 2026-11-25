@@ -99,6 +99,7 @@ data class DailyWorkoutSession(
     val measuredSamples: List<DailyHeartRateSample> = emptyList()
 ) {
     val primary: DailyWorkoutSource get() = sources.first()
+    val hasLinkedWatch: Boolean get() = sources.any { it.origin.isHealth } && sources.any { !it.origin.isHealth }
     val details: DailyWorkoutSource? get() = sources.firstOrNull { it.exercises.isNotEmpty() }
 }
 

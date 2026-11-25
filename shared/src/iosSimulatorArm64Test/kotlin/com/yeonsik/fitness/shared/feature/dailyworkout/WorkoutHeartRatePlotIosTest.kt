@@ -10,6 +10,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.test.swipe
@@ -24,7 +25,12 @@ class WorkoutHeartRatePlotIosTest {
         val samples = listOf(93, 81, 108, 89, 94, 132, 157, 143, 119, 131).mapIndexed { index, bpm ->
             DailyHeartRateSample("test.watch", index * 1_000L, bpm.toDouble())
         }
-        setContent { MaterialTheme { WorkoutHeartRatePlot(samples, null, null, Modifier.width(240.dp)) } }
+        setContent {
+            MaterialTheme {
+                WorkoutHeartRatePlot(samples, null, null, Modifier.width(240.dp), showInstructions = false)
+            }
+        }
+        onNodeWithText("막대를 누르거나", substring = true).assertDoesNotExist()
         val plot = onNodeWithContentDescription("High는 최고 구간", substring = true)
         plot.performTouchInput { click(Offset(width * 0.25f, center.y)) }
         plot.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "최저 81 bpm · 최고 108 bpm"))

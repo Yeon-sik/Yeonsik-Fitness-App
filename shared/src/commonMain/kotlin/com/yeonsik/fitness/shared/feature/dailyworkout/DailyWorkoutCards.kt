@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -13,6 +14,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
@@ -54,11 +56,23 @@ internal fun DailyWorkoutEntryCard(
 @Composable
 fun DailyWorkoutRecordWatchCard(
     entry: DailyWorkoutEntry, zone: TimeZone, busy: Boolean, onDecision: (DailyWorkoutCandidate, Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}
 ) {
     OutlinedCard(modifier.testTag("workout-record-watch")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            entry.sessions.forEach { SessionWatchMeasurements(it, zone, entry.candidates.isNotEmpty()) }
+            entry.sessions.forEach { session ->
+                if (session === entry.sessions.first() && session.hasLinkedWatch) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            session.heartRate?.let { HeartRateSummary(it) } ?: Text("심박 기록 없음")
+                        }
+                        actions()
+                    }
+                    SessionHeartRatePlot(session, showInstructions = false)
+                } else {
+                    SessionWatchMeasurements(session, zone, entry.candidates.isNotEmpty())
+                }
+            }
             MatchActions(entry.candidates, zone, busy, onDecision)
         }
     }
@@ -79,12 +93,23 @@ private fun SessionWatchMeasurements(session: DailyWorkoutSession, zone: TimeZon
         Text(heading, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         for (watch in watches) Text("${watch.writerLabel()} · ${watch.timeLabel(zone)}", style = MaterialTheme.typography.bodyMedium)
         if (heart != null) {
-            Text("평균 ${heart.averageBpm.roundToInt()} bpm · 최고 ${heart.maxBpm.roundToInt()} bpm")
+            HeartRateSummary(heart)
             Text("심박 ${heart.sampleCount}개 측정", style = MaterialTheme.typography.bodySmall)
-            val source = watches.firstOrNull { it.writer == heart.writer } ?: session.timing
-            WorkoutHeartRatePlot(session.measuredSamples, source.startMillis, source.endMillis, Modifier.fillMaxWidth())
+            SessionHeartRatePlot(session)
         }
     }
+}
+
+@Composable
+private fun HeartRateSummary(heart: DailyHeartRateSummary) {
+    Text("평균 ${heart.averageBpm.roundToInt()} bpm · 최고 ${heart.maxBpm.roundToInt()} bpm")
+}
+
+@Composable
+private fun SessionHeartRatePlot(session: DailyWorkoutSession, showInstructions: Boolean = true) {
+    val source = session.sources.firstOrNull { it.origin.isHealth && it.writer == session.heartRate?.writer } ?: session.timing
+    WorkoutHeartRatePlot(session.measuredSamples, source.startMillis, source.endMillis,
+        Modifier.fillMaxWidth(), showInstructions)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
