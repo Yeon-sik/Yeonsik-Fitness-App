@@ -4,26 +4,12 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitHorizontalDragOrCancellation
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,15 +22,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
@@ -56,43 +36,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.Backdrop
 import com.kashif_e.backdrop.backdrops.layerBackdrop
 import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.effects.blur
-import com.kashif_e.backdrop.effects.colorControls
-import com.kashif_e.backdrop.effects.lens
-import com.kashif_e.backdrop.effects.vibrancy
-import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitnessapp.core.ui.*
@@ -120,7 +82,6 @@ import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanDraft
 import com.yeonsik.fitnessapp.supplement.SupplementPlan
 import com.yeonsik.fitnessapp.feature.workout.ui.*
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
@@ -1383,128 +1344,6 @@ private fun RestTimerBar(
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 @Composable
-private fun Modifier.navigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean
-): Modifier {
-    val colors = MaterialTheme.colorScheme
-    return if (useBackdropGlass) {
-        clip(CircleShape).drawBackdrop(
-            backdrop = backdrop,
-            shape = { CircleShape },
-            effects = {
-                colorControls(saturation = 1.04f)
-                blur(FitnessUiTokens.NAV_GLASS_BLUR_RADIUS_DP.dp.toPx())
-            },
-            highlight = { Highlight.Plain },
-            onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.72f)) }
-        )
-    } else {
-        clip(CircleShape)
-            .background(colors.surfaceContainerHigh)
-            .border(
-                1.dp,
-                if (highContrastEnabled) colors.onSurface else colors.outlineVariant,
-                CircleShape
-            )
-    }
-}
-
-@Composable
-private fun Modifier.glassSelection(): Modifier =
-    clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
-
-@Composable
-private fun Modifier.bottomNavigationGlassSurface(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean,
-    highContrastEnabled: Boolean,
-    dark: Boolean
-): Modifier {
-    if (!useBackdropGlass) {
-        return navigationGlassSurface(backdrop, false, highContrastEnabled)
-    }
-    val colors = MaterialTheme.colorScheme
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val sheen = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(alpha = if (dark) 0.10f else 0.28f),
-            Color.Transparent,
-            colors.surface.copy(alpha = 0.10f)
-        )
-    )
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            if (fullEffects) vibrancy()
-            blur(8.dp.toPx())
-            if (fullEffects) {
-                lens(10.dp.toPx(), 16.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = 0.65f) },
-        onDrawSurface = {
-            drawRect(colors.surface.copy(alpha = if (dark) 0.34f else 0.30f))
-            drawRect(sheen)
-        }
-    )
-}
-
-@Composable
-private fun Modifier.bottomNavigationGlassSelection(
-    backdrop: Backdrop,
-    useBackdropGlass: Boolean
-): Modifier {
-    if (!useBackdropGlass) return glassSelection()
-    val tint = MaterialTheme.colorScheme.primaryContainer
-    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    return clip(CircleShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { CircleShape },
-        effects = {
-            blur(3.dp.toPx())
-            if (fullEffects) {
-                lens(4.dp.toPx(), 7.dp.toPx())
-            }
-        },
-        highlight = { Highlight.Ambient.copy(alpha = 0.55f) },
-        onDrawSurface = { drawRect(tint.copy(alpha = 0.72f)) }
-    )
-}
-
-@Composable
-private fun Modifier.glassTabFeedback(
-    dark: Boolean,
-    interactionSource: MutableInteractionSource
-): Modifier {
-    val pressed by interactionSource.collectIsPressedAsState()
-    val focused by interactionSource.collectIsFocusedAsState()
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val opacity by animateFloatAsState(
-        targetValue = when {
-            pressed -> if (dark) 0.08f else 0.10f
-            focused -> if (dark) 0.07f else 0.09f
-            hovered -> 0.05f
-            else -> 0f
-        },
-        animationSpec = tween(durationMillis = if (pressed) 80 else 160)
-    )
-    val tint = if (dark) Color.White else Color(0xFF28313A)
-    // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
-    return drawWithCache {
-        val radius = size.minDimension / 2f
-        onDrawBehind {
-            drawRoundRect(
-                color = tint.copy(alpha = opacity),
-                cornerRadius = CornerRadius(radius, radius)
-            )
-        }
-    }
-}
-
-@Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
     onSelected: (RecordsHubTab) -> Unit,
@@ -1514,45 +1353,12 @@ private fun RecordsHubTabs(
     dark: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier
-            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
-            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            .padding(FitnessSpacing.micro)
-            .selectableGroup()
-    ) {
-        RecordsHubTab.entries.forEach { tab ->
-            val isSelected = tab == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = FitnessSpacing.touch)
-                    .clip(CircleShape)
-                    .then(
-                        if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
-                        else Modifier
-                    )
-                    .selectable(
-                        selected = isSelected,
-                        role = Role.Tab,
-                        onClick = { onSelected(tab) }
-                    )
-                    .padding(vertical = FitnessSpacing.micro),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    tab.label,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                )
-            }
-        }
-    }
+    FitnessTextTabs(
+        labels = RecordsHubTab.entries.map { it.label }, selectedIndex = selected.ordinal,
+        onSelected = { onSelected(RecordsHubTab.entries[it]) }, tag = "records-hub-tabs",
+        backdrop = backdrop, useBackdropGlass = useBackdropGlass, highContrastEnabled = highContrastEnabled,
+        dark = dark, modifier = modifier
+    )
 }
 
 @Composable
@@ -1582,134 +1388,46 @@ internal fun BottomNavigation(
     // Give the longer Korean label more room at large accessibility font sizes.
     val workoutTabWeight = if (LocalDensity.current.fontScale > 1.5f) 1.6f else 1f
     val tabWeights = items.map { if (it.screen == FitnessScreen.WORKOUT) workoutTabWeight else 1f }
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val selectTab by rememberUpdatedState(onTabSelected)
-    var dragIndex by remember(screen, tabWeights, rtl) { mutableStateOf<Int?>(null) }
-    val visibleIndex = dragIndex ?: selectedIndex
-
-    Box(
-        modifier
-            .padding(horizontal = 24.dp, vertical = 8.dp)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
-            .testTag("bottom-navigation")
-            .pointerInput(screen, tabWeights, rtl) {
-                fun tabAt(position: Offset): Int? {
-                    if (position.x !in 0f..size.width.toFloat() || position.y !in 0f..size.height.toFloat()) return null
-                    val inset = 4.dp.toPx()
-                    val usableWidth = size.width - inset * 2
-                    if (usableWidth <= 0f) return null
-                    val x = if (rtl) size.width - position.x else position.x
-                    val weight = ((x - inset) / usableWidth).coerceIn(0f, 1f) * tabWeights.sum()
-                    var boundary = 0f
-                    return tabWeights.indexOfFirst {
-                        boundary += it
-                        weight < boundary
-                    }.takeIf { it >= 0 } ?: tabWeights.lastIndex
-                }
-
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    var drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
-                        change.consume()
-                    } ?: return@awaitEachGesture
-                    try {
-                        while (true) {
-                            dragIndex = tabAt(drag.position)
-                            val next = awaitHorizontalDragOrCancellation(drag.id) ?: break
-                            if (next.changedToUp()) {
-                                tabAt(next.position)?.takeIf { it != selectedIndex }?.let { selectTab(items[it].screen) }
-                                break
-                            }
-                            next.consume()
-                            drag = next
-                        }
-                    } finally {
-                        dragIndex = null
-                    }
-                }
-            }
-            // Consume taps on the glass rim rather than activating content underneath it.
-            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            .padding(4.dp)
-    ) {
-        BoxWithConstraints(
-            Modifier
-                .fillMaxWidth()
-                .height(itemHeight)
-        ) {
-            val widthPerWeight = maxWidth / tabWeights.sum()
-            val indicatorWidth by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights[visibleIndex],
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                label = "bottom-navigation-indicator-width"
-            )
-            val indicatorOffset by animateDpAsState(
-                targetValue = widthPerWeight * tabWeights.take(visibleIndex).sum(),
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                label = "bottom-navigation-indicator"
-            )
-            Box(
-                Modifier
-                    .offset(x = indicatorOffset)
-                    .width(indicatorWidth)
-                    .fillMaxHeight()
-                    .bottomNavigationGlassSelection(backdrop, useBackdropGlass)
-            )
-            Row(Modifier.fillMaxSize().selectableGroup()) {
-                items.forEachIndexed { index, item ->
-                    val interactionSource = remember(item.screen) { MutableInteractionSource() }
-                    val selected = item.screen == active
-                    val highlighted = index == visibleIndex
-                    val contentColor = if (highlighted) selectedContent else unselectedContent
-                    val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
-                    Column(
+    FitnessTabBar(
+        selectedIndex = selectedIndex, tabWeights = tabWeights, itemHeight = itemHeight,
+        onSelected = { onTabSelected(items[it].screen) }, backdrop = backdrop, useBackdropGlass = useBackdropGlass,
+        highContrastEnabled = highContrastEnabled, dark = dark,
+        modifier = modifier.padding(horizontal = 24.dp, vertical = 8.dp), tag = "bottom-navigation",
+        tabModifier = { index ->
+            if (items[index].screen == FitnessScreen.WORKOUT && workoutInProgress)
+                Modifier.semantics { stateDescription = "운동 진행 중" } else Modifier
+        }
+    ) { index, highlighted ->
+        val item = items[index]
+        val contentColor = if (highlighted) selectedContent else unselectedContent
+        val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                BottomNavigationIcon(item.screen, contentColor, Modifier.fillMaxSize())
+                if (hasActiveWorkout) {
+                    Box(
                         Modifier
-                            .weight(tabWeights[index])
-                            .fillMaxHeight()
-                            .glassTabFeedback(dark, interactionSource)
-                            .selectable(
-                                selected = selected,
-                                interactionSource = interactionSource,
-                                indication = null,
-                                role = Role.Tab,
-                                onClick = { onTabSelected(item.screen) }
+                            .align(Alignment.TopEnd)
+                            .offset(x = 3.dp, y = (-1).dp)
+                            .size(6.dp)
+                            .background(progressTint, CircleShape)
+                            .border(
+                                1.dp,
+                                if (dark) Color(0xFF343C43) else Color.White,
+                                CircleShape
                             )
-                            .semantics {
-                                if (hasActiveWorkout) stateDescription = "운동 진행 중"
-                            },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
-                    ) {
-                        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                            BottomNavigationIcon(item.screen, contentColor, Modifier.fillMaxSize())
-                            if (hasActiveWorkout) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 3.dp, y = (-1).dp)
-                                        .size(6.dp)
-                                        .background(progressTint, CircleShape)
-                                        .border(
-                                            1.dp,
-                                            if (dark) Color(0xFF343C43) else Color.White,
-                                            CircleShape
-                                        )
-                                )
-                            }
-                        }
-                        Text(
-                            item.label,
-                            color = contentColor,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    )
                 }
             }
+            Text(
+                item.label,
+                color = contentColor,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

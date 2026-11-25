@@ -34,6 +34,7 @@ com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisherIncremental
 
 # Set input drafts, workout completion/cancel, account scope and recreation
 com.yeonsik.fitnessapp.app.navigation.BottomNavigationDragUiTest
+com.yeonsik.fitnessapp.feature.workout.ui.WorkoutDetailLayoutUiTest
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSetRecordingUiTest
 com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModelTest
 com.yeonsik.fitnessapp.ui.RecordingNavigationRecreationTest

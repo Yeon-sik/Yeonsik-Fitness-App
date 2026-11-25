@@ -205,7 +205,8 @@ fun FitnessTrendChart(
     modifier: Modifier = Modifier,
     unit: String = "",
     emptyLabel: String = "추세를 표시할 기록이 없습니다.",
-    insufficientLabel: String = "추세를 표시하려면 기록이 더 필요합니다."
+    insufficientLabel: String = "추세를 표시하려면 기록이 더 필요합니다.",
+    selectNearestOnTap: Boolean = false
 ) {
     val accessibilityDescription = fitnessTrendAccessibilityDescription(model, unit)
     when (model.state) {
@@ -230,6 +231,7 @@ fun FitnessTrendChart(
         FitnessTrendState.READY -> FitnessTrendPlot(
             model = model,
             unit = unit,
+            selectNearestOnTap = selectNearestOnTap,
             modifier = modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = accessibilityDescription }
@@ -241,6 +243,7 @@ fun FitnessTrendChart(
 private fun FitnessTrendPlot(
     model: FitnessTrendPresentation,
     unit: String,
+    selectNearestOnTap: Boolean,
     modifier: Modifier = Modifier
 ) {
     val points = model.finitePoints
@@ -293,9 +296,10 @@ private fun FitnessTrendPlot(
                 fitnessTrendPointOffsets(model, plotSize, padding)
             }
             Canvas(
-                Modifier.fillMaxSize().pointerInput(model, unit, offsets, padding) {
+                Modifier.fillMaxSize().pointerInput(model, unit, offsets, padding, selectNearestOnTap) {
                     detectTapGestures { tap ->
-                        val index = fitnessTrendHitTest(offsets, tap, padding)
+                        val index = if (selectNearestOnTap) offsets.indices.minByOrNull { kotlin.math.abs(offsets[it].x - tap.x) }
+                            else fitnessTrendHitTest(offsets, tap, padding)
                         selectedPointIndex = if (index == selectedPointIndex) null else index
                     }
                 }
@@ -344,7 +348,7 @@ private fun FitnessTrendPlot(
                 )
             }
         }
-        Row(
+        if (points.first().label.isNotBlank() || points.last().label.isNotBlank()) Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top

@@ -328,6 +328,7 @@ class WorkoutSetRecordingUiTest {
         val flat = occurrenceFor("chest_smith_flat_bench_press")
         val fixture = show(detail().copy(activeExercise = incline, exercises = listOf(incline)))
         compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithTag("exercise-detail-image").assertHeightIsEqualTo(152.dp)
         compose.onNodeWithText("운동 이미지 없음").assertExists()
         compose.onAllNodesWithTag("workout-exercise-frame-0", useUnmergedTree = true).assertCountEquals(0)
         compose.runOnIdle {
@@ -345,6 +346,7 @@ class WorkoutSetRecordingUiTest {
         compose.onNodeWithText("운동 이미지 없음").assertDoesNotExist()
         waitForImageFrame(0)
         compose.onNodeWithContentDescription("${flat.name} 운동 이미지").assertExists()
+        compose.onNodeWithTag("exercise-detail-image").assertHeightIsEqualTo(152.dp)
     }
 
     @Test fun sessionCardsShowMissingImageForInclineAndExactImageForFlat() {

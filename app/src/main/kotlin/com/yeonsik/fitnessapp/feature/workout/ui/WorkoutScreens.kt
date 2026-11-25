@@ -13,12 +13,8 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
@@ -273,10 +269,11 @@ internal fun WorkoutDetailScreen(
         WorkoutExerciseRecordTabs(selected = selectedRecordTab, onSelected = { selectedRecordTab = it })
     }
     if (imageExerciseId != null) {
-        WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
-            animate = ready != null && !ready.readOnly && !showImageViewer, sharedAnchor = imageAnchor,
-            onClick = { showImageViewer = true },
-            maxImageHeight = if (ready != null && !ready.readOnly) 120.dp else 220.dp)
+        Box(Modifier.fillMaxWidth().height(152.dp).testTag("exercise-detail-image"), contentAlignment = Alignment.Center) {
+            WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
+                animate = ready != null && !ready.readOnly && !showImageViewer, sharedAnchor = imageAnchor,
+                onClick = { showImageViewer = true }, maxImageHeight = 152.dp)
+        }
         if (showImageViewer) WorkoutExerciseImageViewer(imageExerciseId, imageIdentity, title,
             animate = ready != null && !ready.readOnly) {
             showImageViewer = false
@@ -328,9 +325,9 @@ internal fun WorkoutDetailScreen(
         modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
     )
     WorkoutExerciseNavigation(orderedExercises, activeIndex, actions::openExercise)
-    FitnessStatusBadge(
-        status = if (ready.readOnly) FitnessSemanticStatus.SUCCESS else FitnessSemanticStatus.INFO,
-        label = if (ready.readOnly) "완료된 기록 · 읽기 전용" else "진행 중 · 입력 가능",
+    if (!ready.readOnly) FitnessStatusBadge(
+        status = FitnessSemanticStatus.INFO,
+        label = "진행 중 · 입력 가능",
         modifier = Modifier.fillMaxWidth()
     )
     if (ready.readOnly) {
@@ -649,46 +646,9 @@ private fun WorkoutExerciseRecordTabs(
     selected: String,
     onSelected: (String) -> Unit
 ) {
-    Row(
-        Modifier
-            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .clip(androidx.compose.foundation.shape.CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(FitnessSpacing.micro)
-            .selectableGroup()
-    ) {
-        listOf(EXERCISE_RECORDS_TAB to "종목 기록", EXERCISE_TRENDS_TAB to "종목 변화")
-            .forEach { (tab, label) ->
-                val isSelected = selected == tab
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = FitnessSpacing.touch)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                            else Color.Transparent
-                        )
-                        .selectable(
-                            selected = isSelected,
-                            role = Role.Tab,
-                            onClick = { onSelected(tab) }
-                        )
-                        .padding(vertical = FitnessSpacing.micro),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                    )
-                }
-            }
-    }
+    val tabs = listOf(EXERCISE_RECORDS_TAB, EXERCISE_TRENDS_TAB)
+    FitnessTextTabs(labels = listOf("종목 기록", "종목 변화"), selectedIndex = tabs.indexOf(selected),
+        onSelected = { onSelected(tabs[it]) }, tag = "exercise-record-tabs")
 }
 
 @Composable
@@ -702,33 +662,10 @@ private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassU
                 message = "이 종목의 완료된 세트 기록이 없습니다."
             )
         } else {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                contentPadding = PaddingValues(horizontal = AppSpacing.small)
-            ) {
-                items(latestFirst, key = { it.recordId }) { history ->
-                    AppCard(Modifier.width(320.dp)) {
-                        Column(
-                            Modifier.padding(AppSpacing.card),
-                            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-                        ) {
-                            Text(
-                                history.date.ifBlank { "날짜 미상" },
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(
-                                "총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            WorkoutExerciseSetTable(
-                                sets = history.sets,
-                                recordType = detail.activeExercise.recordType,
-                                unit = unit,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+                latestFirst.forEach { history ->
+                    key(history.recordId) {
+                        WorkoutHistorySetCard(history, detail.activeExercise.name, detail.activeExercise.recordType, unit)
                     }
                 }
             }
@@ -2014,22 +1951,22 @@ private fun AppWorkoutSessionContent(
 }
 
 @Composable
-private fun WorkoutSessionVolumeHistory(session: WorkoutSessionSnapshot, unit: MassUnit) {
+internal fun WorkoutSessionVolumeHistory(session: WorkoutSessionSnapshot, unit: MassUnit) {
     if (session.recentVolumes.isEmpty()) return
     FitnessSection("이전 운동 볼륨") {
         FitnessTrendChart(
             model = fitnessTrendPresentation(
                 session.recentVolumes.map {
                     FitnessTrendPoint(
-                        label = it.label.ifBlank { it.date },
                         value = MassUnit.fromKg(it.volumeKg, unit),
-                        detailLabel = it.date
+                        detailLabel = listOf(it.label, it.date).filter(String::isNotBlank).distinct().joinToString(" · ")
                     )
                 },
                 minimumPoints = 1
             ),
             unit = unit.symbol(),
-            emptyLabel = "이전 운동 볼륨이 없습니다."
+            emptyLabel = "이전 운동 볼륨이 없습니다.",
+            selectNearestOnTap = true
         )
     }
 }
