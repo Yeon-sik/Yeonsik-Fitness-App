@@ -120,7 +120,7 @@ class DailyWorkoutSuggestionUiTest {
         try {
             plot.performTouchInput {
                 down(center)
-                moveTo(Offset(1f, center.y))
+                moveTo(Offset(width - 1f, center.y))
             }
             compose.mainClock.advanceTimeBy(500)
             assertTrue(plot.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value() > 0f)

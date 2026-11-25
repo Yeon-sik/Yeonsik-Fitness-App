@@ -241,7 +241,10 @@ class WorkoutSetStructureStorageTest {
             val dao = room.workoutRoomDao()
             val row = dao.visibleRecord(record, scope.ownerId)!!
             dao.updateRecord(row.copy(metadata = JSONObject(row.metadata).put("routine_id", "routine").toString()))
-            if (warmup) repository.updateSetType(scope, record, storage.sets(scope, exercise).single().id, WorkoutSetType.WARMUP)
+            if (warmup) {
+                val completedSet = storage.sets(scope, exercise).single { it.isCompleted }
+                assertTrue(repository.updateSetType(scope, record, completedSet.id, WorkoutSetType.WARMUP))
+            }
             if (complete) repository.completeIfEligible(scope, record)
             return record
         }
