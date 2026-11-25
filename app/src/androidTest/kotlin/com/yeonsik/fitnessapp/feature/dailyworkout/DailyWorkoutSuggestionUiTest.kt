@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -22,6 +24,9 @@ import org.junit.Test
 
 class DailyWorkoutSuggestionUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+
+    private fun isPulse(color: Color) =
+        color.alpha > 0.5f && color.red - color.green > 0.25f && color.red - color.blue > 0.15f
 
     @Test fun suggestsOnOpeningAndSharesTheConfirmedWatchBetweenTheDayAndRecordDetail() {
         val day = WorkoutDay(LocalDate.parse("2001-05-15"), TimeZone.currentSystemDefault())
@@ -95,11 +100,9 @@ class DailyWorkoutSuggestionUiTest {
             val pixels = plot.captureToImage().toPixelMap()
             val ranges = mutableListOf<IntRange>()
             var start = -1
+            val barRow = pixels.height * 2 / 3
             for (x in 0..pixels.width) {
-                val painted = x < pixels.width && (0 until pixels.height).any { y ->
-                    val color = pixels[x, y]
-                    color.alpha > 0.5f && color.red - color.green > 0.25f && color.red - color.blue > 0.15f
-                }
+                val painted = x < pixels.width && isPulse(pixels[x, barRow])
                 if (painted && start == -1) start = x
                 if (!painted && start >= 0) { ranges.add(start until x); start = -1 }
             }
@@ -113,8 +116,45 @@ class DailyWorkoutSuggestionUiTest {
         assertTrue(dense[1].first - dense[0].last in 2 until (sparse[1].first - sparse[0].last))
         compose.runOnIdle { count.value = 900 }
         compose.onNodeWithText("좌우로 보기", substring = true).assertExists()
-        plot.performTouchInput { swipeLeft() }
-        compose.waitForIdle()
-        assertTrue(plot.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value() > 0f)
+        compose.mainClock.autoAdvance = false
+        try {
+            plot.performTouchInput {
+                down(center)
+                moveTo(Offset(1f, center.y))
+            }
+            compose.mainClock.advanceTimeBy(500)
+            assertTrue(plot.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value() > 0f)
+            plot.performTouchInput { up() }
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test fun tapsAndScrubsExactExtremesWithoutFillingInAGap() {
+        val writer = "test.watch"
+        val samples = listOf(93, 81, 108, 89, 94, 132, 157, 143, 119, 131).mapIndexed { index, bpm ->
+            DailyHeartRateSample(writer, index * 1_000L + if (index >= 5) 100_000L else 0L, bpm.toDouble())
+        }
+        compose.setContent { MaterialTheme { WorkoutHeartRatePlot(samples, null, null, Modifier.width(240.dp)) } }
+        val plot = compose.onNodeWithContentDescription("측정 순서별 심박 범위", substring = true)
+        fun shows(text: String) = plot.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, text))
+        plot.assertContentDescriptionContains("High는 최고 구간", substring = true)
+        val pixels = plot.captureToImage().toPixelMap()
+        fun markerIn(columns: IntRange) = columns.any { x ->
+            (0 until pixels.height / 5).any { y -> isPulse(pixels[x, y]) }
+        }
+        assertTrue("Peak label and arrow belong above the rightmost group", markerIn((pixels.width * 2 / 3) until pixels.width))
+        assertTrue("A lower group must have no peak mark", !markerIn(0 until pixels.width / 3))
+        plot.performTouchInput { click(Offset(width / 6f, center.y)) }
+        shows("최저 81 bpm · 최고 108 bpm")
+        plot.performTouchInput {
+            down(Offset(width / 6f, center.y))
+            moveTo(center)
+        }
+        shows("측정 공백")
+        plot.performTouchInput { moveTo(Offset(width * 5f / 6f, center.y)) }
+        shows("최저 119 bpm · 최고 157 bpm")
+        plot.performTouchInput { up() }
+        shows("최저 119 bpm · 최고 157 bpm")
     }
 }

@@ -50,5 +50,10 @@ kotlin {
                 implementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0"
             }
         }
+        iosSimulatorArm64Test {
+            dependencies {
+                implementation "org.jetbrains.compose.ui:ui-test:1.9.3"
+            }
+        }
     }
 }
