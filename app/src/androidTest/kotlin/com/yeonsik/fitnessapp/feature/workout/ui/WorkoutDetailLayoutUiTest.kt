@@ -86,7 +86,10 @@ class WorkoutDetailLayoutUiTest {
         assertTrue(previous.left > newest.right)
         val third = compose.onNodeWithText("2001-05-08").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val latestCard = compose.onNodeWithTag("exercise-history-card-0").fetchSemanticsNode().boundsInRoot
-        val shortCard = compose.onNodeWithTag("exercise-history-card-1").fetchSemanticsNode().boundsInRoot
+        val shortCardTag = "exercise-history-card-1"
+        compose.onNode(hasText("20.0") and hasAnyAncestor(hasTestTag(shortCardTag))).assertIsDisplayed()
+        compose.onNode(hasText("8") and hasAnyAncestor(hasTestTag(shortCardTag))).assertIsDisplayed()
+        val shortCard = compose.onNodeWithTag(shortCardTag).fetchSemanticsNode().boundsInRoot
         assertEquals(latestCard.width, shortCard.width, 1f)
         assertEquals(latestCard.height, shortCard.height, 1f)
         assertEquals(with(compose.density) { 4.dp.toPx() }, shortCard.left - latestCard.right, 1f)

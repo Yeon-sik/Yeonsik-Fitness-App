@@ -54,9 +54,7 @@ internal fun WorkoutHistoryCards(
         histories.map { history ->
             val sets = history.sets.filter { it.isCompleted }.sortedBy { it.setIndex }
             val rows = workoutSetTableRows(recordType, sets, unit)
-            // A single fractional digit is the precision of the history mass formatter.
-            val hasFractionalLoad = rows.upperValues.any { it.isLoadValue && '.' in it.visibleValue }
-            val upperValues = if (!hasFractionalLoad) rows.upperValues else rows.upperValues.map { cell ->
+            val upperValues = rows.upperValues.map { cell ->
                 val wholeLoad = cell.isLoadValue && cell.visibleValue.lastOrNull()?.isDigit() == true &&
                     '.' !in cell.visibleValue
                 if (wholeLoad) cell.copy(visibleValue = cell.visibleValue + ".0") else cell
