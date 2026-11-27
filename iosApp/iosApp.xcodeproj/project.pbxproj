@@ -116,6 +116,7 @@
 				A11A00070000000000000001 /* Sources */,
 				A11A00030000000000000001 /* Frameworks */,
 				A11A00070000000000000003 /* Resources */,
+				A11A00070000000000000020 /* Package workout summary assets */,
 			);
 			buildRules = ();
 			dependencies = ();
@@ -170,6 +171,17 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A11A00070000000000000020 /* Package workout summary assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Package workout summary assets";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\npython3 \"$SRCROOT/../scripts/ios/package-workout-summary-assets.py\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/WorkoutSummary\"\n";
+		};
 		A11A00070000000000000002 /* Build YeonsikShared framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;

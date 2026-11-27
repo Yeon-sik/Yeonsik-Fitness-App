@@ -80,8 +80,10 @@ private extension LoggedWorkout {
                     completed: set.isCompleted)
             }
             return IosWorkoutSummaryKt.iosSummaryExercise(id: exercise.id.uuidString,
-                exerciseId: (exercise.routineExerciseID ?? exercise.id).uuidString, order: Int32(order + 1),
-                name: exercise.name, sets: rows)
+                exerciseId: exercise.catalog?.id ?? (exercise.routineExerciseID ?? exercise.id).uuidString,
+                order: Int32(order + 1), name: exercise.name,
+                bodyPart: exercise.catalog?.bodyPart, primaryPart: exercise.catalog?.primaryPart,
+                equipment: exercise.catalog?.equipment, sets: rows)
         }
     }
 }

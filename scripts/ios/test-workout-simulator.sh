@@ -77,6 +77,8 @@ completed = [row for item in workout["exercises"] for row in item["sets"] if row
 assert workout["completedAt"] is not None
 Path(sys.argv[3]).write_text(json.dumps({
     "title": workout["title"], "exercise": exercise["name"], "status": "completed",
+    "catalogId": exercise["catalog"]["id"], "primaryPart": exercise["catalog"]["primaryPart"],
+    "equipment": exercise["catalog"]["equipment"],
     "completedSets": len(completed), "setIndex": exercise["sets"].index(logged_set) + 1,
     "inputWeight": logged_set["inputWeight"], "unit": logged_set["unit"], "weightKg": logged_set["weightKg"],
     "reps": logged_set["reps"], "rir": logged_set["rir"],

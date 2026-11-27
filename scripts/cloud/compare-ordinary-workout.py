@@ -6,6 +6,7 @@ from pathlib import Path
 
 expected = {
     "title": "ParityBench", "exercise": "바벨 플랫 벤치 프레스", "status": "completed",
+    "catalogId": "chest_barbell_flat_bench_press", "primaryPart": "중부 가슴", "equipment": "바벨",
     "completedSets": 1, "setIndex": 1, "inputWeight": 100, "unit": "lb",
     "weightKg": 45.359237, "reps": 10, "rir": 2, "volumeKg": 453.59237,
 }

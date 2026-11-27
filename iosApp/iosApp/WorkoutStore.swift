@@ -6,6 +6,37 @@ import YeonsikShared
 struct RoutineExercise: Codable, Identifiable, Sendable {
     var id = UUID()
     var name: String
+    var catalog: OrdinaryExerciseMetadata?
+}
+
+struct OrdinaryExerciseMetadata: Codable, Sendable {
+    let id: String
+    let bodyPart: String
+    let primaryPart: String
+    let equipment: String
+}
+
+private enum OrdinaryExerciseCatalog {
+    private struct Entry: Decodable {
+        let name: String
+        let englishName: String
+        let metadata: OrdinaryExerciseMetadata
+
+    }
+
+    // Only unambiguous, exact catalog names identify manually entered ordinary exercises.
+    static let byName: [String: OrdinaryExerciseMetadata] = {
+        guard let url = Bundle.main.url(forResource: "catalog", withExtension: "json",
+                                        subdirectory: "WorkoutSummary"),
+              let data = try? Data(contentsOf: url),
+              let entries = try? JSONDecoder().decode([Entry].self, from: data) else { return [:] }
+        let names = entries.flatMap { entry in
+            Set([entry.name, entry.englishName]).filter { !$0.isEmpty }.map { ($0, entry.metadata) }
+        }
+        return Dictionary(grouping: names, by: { $0.0 }).compactMapValues { matches in
+            matches.count == 1 ? matches[0].1 : nil
+        }
+    }()
 }
 
 struct WorkoutRoutine: Codable, Identifiable, Sendable {
@@ -69,6 +100,7 @@ struct LoggedExercise: Codable, Identifiable, Sendable {
     let id: UUID
     let routineExerciseID: UUID?
     let name: String
+    var catalog: OrdinaryExerciseMetadata?
     var sets: [LoggedSet] = []
 
     // Version 1 reused the routine exercise UUID every time its routine was performed.
@@ -205,6 +237,8 @@ final class WorkoutStore: ObservableObject {
         cleaned.name = routine.name.trimmingCharacters(in: .whitespacesAndNewlines)
         for index in cleaned.exercises.indices {
             cleaned.exercises[index].name = cleaned.exercises[index].name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = cleaned.exercises[index].name
+            cleaned.exercises[index].catalog = OrdinaryExerciseCatalog.byName[name]
         }
         guard !cleaned.name.isEmpty, !cleaned.exercises.isEmpty,
               cleaned.exercises.allSatisfy({ !$0.name.isEmpty }) else { throw WorkoutError.invalidRoutine }
@@ -225,7 +259,7 @@ final class WorkoutStore: ObservableObject {
             }
             data.inProgress = LoggedWorkout(
                 id: UUID(), routineID: routine.id, title: routine.name, startedAt: Date(), completedAt: nil,
-                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name,
+                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name, catalog: $0.catalog,
                     sets: [LoggedSet(unit: IosDisplaySettings.shared.unit == .lb ? .lb : .kg)]) }
             )
         }

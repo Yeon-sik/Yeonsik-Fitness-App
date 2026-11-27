@@ -309,7 +309,22 @@ final class WorkoutFlowTests: XCTestCase {
     private func enterBodyWeight(
         _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
     ) {
-        tap(field)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        if field.isHittable {
+            field.tap()
+        } else {
+            // XCTest can report no hit point for a UIKit text field nested in a Compose scroll view.
+            // Tap its visible center and require the native keyboard and the edited value below.
+            let center = CGPoint(x: field.frame.midX, y: field.frame.midY)
+            XCTAssertFalse(field.frame.isEmpty, field.debugDescription)
+            XCTAssertTrue(app.frame.contains(center), field.debugDescription)
+            XCTContext.runActivity(named: "Tap visible center of \(field.label)") { _ in
+                app.coordinate(withNormalizedOffset: .zero).withOffset(
+                    CGVector(dx: center.x - app.frame.minX, dy: center.y - app.frame.minY)
+                ).tap()
+            }
+        }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), field.debugDescription)
         let keys = app.keyboards.firstMatch.keys
         for _ in previous {
             tap(keys["Delete"])

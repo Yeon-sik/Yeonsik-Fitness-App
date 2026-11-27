@@ -15,6 +15,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
@@ -45,8 +47,10 @@ class OrdinaryWorkoutParityTest {
     @Test fun firstSetKeepsItsIdentityAndInputThroughEditDeletionResumeAndHistory() {
         val preset = requireNotNull(ExerciseFamilyCatalog.load(context).runtimeCatalog().preset("chest_barbell_flat_bench_press"))
         val draft = ExerciseMasterAdapter.toRoutineExerciseDraft(preset)
-        val bench = RoutineExerciseInstance("bench", draft.exerciseId, draft.nameKo, draft.bodyPartId.orEmpty(),
-            draft.primarySubPart.orEmpty(), "", requireNotNull(draft.recordType), 1, draft.familyIdentity)
+        val bench = RoutineExerciseInstance("bench", draft.exerciseId, draft.nameKo,
+            requireNotNull(BodyPart.fromId(draft.bodyPartId)).labelKo, draft.primarySubPart.orEmpty(),
+            requireNotNull(EquipmentType.fromId(draft.equipmentVariantId)).labelKo,
+            requireNotNull(draft.recordType), 1, draft.familyIdentity)
         val original = WorkoutSetInput(43.09127515, 8, null, null, null, null, 3, null, true,
             LoadState.EXTERNAL_LOAD, 95.0, MassUnit.LB)
         val edited = original.copy(weightKg = 45.359237, inputLoadValue = 100.0, reps = 10, rir = 2)
@@ -109,6 +113,10 @@ class OrdinaryWorkoutParityTest {
                 Log.i("WorkoutParity", "FITNESS_PARITY " + JSONObject().apply {
                     put("title", session.title)
                     put("exercise", history.activeExercise.name)
+                    val exercise = session.exercises.single()
+                    put("catalogId", exercise.exerciseId)
+                    put("primaryPart", exercise.primarySubPart)
+                    put("equipment", exercise.equipment)
                     put("status", session.status)
                     put("completedSets", session.completedSetCount)
                     put("setIndex", saved.setIndex)
