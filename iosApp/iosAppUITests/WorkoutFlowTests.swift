@@ -62,6 +62,7 @@ final class WorkoutFlowTests: XCTestCase {
         let reps = field("횟수")
         let rir = field("RIR")
         XCTAssertTrue(firstRemove.waitForExistence(timeout: 10))
+        assertFitnessTabHidden(in: app)
         XCTAssertFalse(firstRemove.isEnabled)
         tap(menu)
         tap(bodyControl(app, identifier: "set-unit-kg", label: "kg"))
@@ -129,6 +130,7 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["운동 요약"].waitForExistence(timeout: 15))
         let volume = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "1,000lb")).firstMatch
         XCTAssertTrue(volume.waitForExistence(timeout: 15), app.debugDescription)
+        assertFitnessTabHidden(in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "완료 세트 1")).firstMatch.exists)
         let summary = XCTAttachment(screenshot: app.screenshot())
         summary.name = "완료 직후 운동 요약"
@@ -139,6 +141,7 @@ final class WorkoutFlowTests: XCTestCase {
         tap(recordsButton)
         let history = app.descendants(matching: .any).matching(identifier: "history-\(name)").firstMatch
         XCTAssertTrue(history.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.tabBars.buttons["기록"].isSelected)
 
         app.terminate()
         app.launch()
@@ -282,6 +285,13 @@ final class WorkoutFlowTests: XCTestCase {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.008, dy: 0.50))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.50))
         start.press(forDuration: 0.04, thenDragTo: end)
+    }
+
+    @MainActor
+    private func assertFitnessTabHidden(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let button = app.tabBars.buttons["피트니스"]
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !button.exists || !button.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed, file: file, line: line)
     }
 
     @MainActor

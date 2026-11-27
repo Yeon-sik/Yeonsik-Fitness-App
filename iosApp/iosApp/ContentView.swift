@@ -115,30 +115,33 @@ private struct WorkoutTabs: View {
                 .navigationTitle(destination.label)
                 .sheet(isPresented: $fitnessWeight) { BodyView(openToday: true) { fitnessWeight = false } }
                 .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .strength:
-                        strengthRoutines
-                    case .routine(let id):
-                        RoutineView(routineID: id) { path = [.strength, .active] }
-                    case .active:
-                        ActiveWorkoutView { completedID in
-                            if let id = completedID {
-                                path = Array(path.dropLast()) + [.summary(id)]
-                            } else {
-                                path = []
+                    Group {
+                        switch route {
+                        case .strength:
+                            strengthRoutines
+                        case .routine(let id):
+                            RoutineView(routineID: id) { path = [.strength, .active] }
+                        case .active:
+                            ActiveWorkoutView { completedID in
+                                if let id = completedID {
+                                    path = Array(path.dropLast()) + [.summary(id)]
+                                } else {
+                                    path = []
+                                }
+                            }
+                        case .summary(let id):
+                            if let workout = store.data?.history.first(where: { $0.id == id }) {
+                                WorkoutCompletionSummaryView(workout: workout,
+                                    onExercise: { path.append(.completedExercise(id, $0)) },
+                                    onRecords: { select(.records) })
+                            }
+                        case .completedExercise(let workoutID, let exerciseID):
+                            if let workout = store.data?.history.first(where: { $0.id == workoutID }) {
+                                WorkoutHistoryDetail(workout: workout, exerciseID: exerciseID)
                             }
                         }
-                    case .summary(let id):
-                        if let workout = store.data?.history.first(where: { $0.id == id }) {
-                            WorkoutCompletionSummaryView(workout: workout,
-                                onExercise: { path.append(.completedExercise(id, $0)) },
-                                onRecords: { select(.records) })
-                        }
-                    case .completedExercise(let workoutID, let exerciseID):
-                        if let workout = store.data?.history.first(where: { $0.id == workoutID }) {
-                            WorkoutHistoryDetail(workout: workout, exerciseID: exerciseID)
-                        }
                     }
+                    .toolbar(route == .strength ? .visible : .hidden, for: .tabBar)
                 }
             }
         } else if destination == .records {
@@ -306,6 +309,7 @@ private struct ActiveWorkoutView: View {
                     ExerciseSetEditor(workoutID: workout.id, exerciseID: exercise.id, host: editors.host(for: exercise.id))
                         .navigationTitle(exercise.name)
                         .navigationBarTitleDisplayMode(.inline)
+                        .toolbar(.hidden, for: .tabBar)
                 } label: {
                     LabeledContent(exercise.name) {
                         Text("\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)세트")
