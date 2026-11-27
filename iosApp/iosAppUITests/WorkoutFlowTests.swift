@@ -73,6 +73,9 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["100 lb · 10회"].exists)
         XCTAssertTrue(app.staticTexts["RIR 2"].exists)
         XCTAssertTrue(app.staticTexts["추정 1RM 60.5 kg"].exists)
+        tap(app.tabBars.buttons["기록"])
+        XCTAssertTrue(history.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(app.staticTexts["100 lb · 10회"].exists)
         app.terminate()
     }
 
