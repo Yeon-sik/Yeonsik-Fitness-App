@@ -14,6 +14,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 object FitnessComposeTokens {
+    const val TREND_CHART_HEIGHT_DP = 128
+    const val SECTION_TOP_SPACING_DP = 26
+    const val PAGE_HORIZONTAL_PADDING_DP = 20
+    const val NAV_ITEM_MIN_HEIGHT_DP = 48
+    const val HOME_ACTION_MIN_HEIGHT_DP = 88
+    const val HERO_RADIUS_DP = 24
+    const val HERO_PADDING_DP = 24
+    const val COLOR_WARNING = 0xFF8A5A00.toInt()
+    const val COLOR_POSITIVE = 0xFF2E7D5B.toInt()
+    const val COLOR_D_WARNING = 0xFFFFCA68.toInt()
+    const val COLOR_D_POSITIVE = 0xFF69D39E.toInt()
     const val COLOR_D_SURFACE = 0xFF1C1E22.toInt()
     const val COLOR_SURFACE = 0xFFFFFFFF.toInt()
     const val COLOR_D_BACKGROUND = 0xFF090B0E.toInt()

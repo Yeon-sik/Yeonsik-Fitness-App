@@ -4,7 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 
 /** Drawing and hit testing share the same coordinates, including filtered-out invalid values. */
-internal fun fitnessTrendPointOffsets(
+fun fitnessTrendPointOffsets(
     model: FitnessTrendPresentation,
     size: Size,
     padding: Float
@@ -24,7 +24,7 @@ internal fun fitnessTrendPointOffsets(
 }
 
 /** Select only a nearby point; taps on empty chart space dismiss the current detail. */
-internal fun fitnessTrendHitTest(points: List<Offset>, tap: Offset, radius: Float): Int? {
+fun fitnessTrendHitTest(points: List<Offset>, tap: Offset, radius: Float): Int? {
     if (!tap.x.isFinite() || !tap.y.isFinite() || !radius.isFinite() || radius < 0f) return null
     val nearest = points.indices.minByOrNull { (points[it] - tap).getDistanceSquared() }
         ?: return null

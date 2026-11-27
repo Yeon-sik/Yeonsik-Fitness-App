@@ -11,7 +11,6 @@ import com.yeonsik.fitnessapp.ui.WorkoutSummaryAnalytics
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
-import java.util.LinkedHashMap
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -22,17 +21,6 @@ internal fun stableWorkoutExercises(
     .withIndex()
     .sortedWith(
         compareBy<IndexedValue<WorkoutExercise>> { it.value.orderIndex }
-            .thenBy { it.value.id }
-            .thenBy { it.index }
-    )
-    .map { it.value }
-
-internal fun stableWorkoutSessionExercises(
-    exercises: List<WorkoutSessionExercise>
-): List<WorkoutSessionExercise> = exercises
-    .withIndex()
-    .sortedWith(
-        compareBy<IndexedValue<WorkoutSessionExercise>> { it.value.orderIndex }
             .thenBy { it.value.id }
             .thenBy { it.index }
     )
@@ -62,40 +50,6 @@ internal fun workoutExerciseProgress(
     emptyLabel = "세트 없음"
 )
 
-internal data class WorkoutSummaryMuscleDistribution(
-    val label: String,
-    val completedSetCount: Int,
-    val fraction: Float
-)
-
-/**
- * Creates a presentation-only distribution from the exercise snapshot. The workout owner has
- * already persisted the exercise focus and completed sets; this helper does not infer anatomy or
- * recalculate volume.
- */
-internal fun workoutSummaryMuscleDistribution(
-    exercises: List<WorkoutSessionExercise>
-): List<WorkoutSummaryMuscleDistribution> {
-    val counts = LinkedHashMap<String, Int>()
-    stableWorkoutSessionExercises(exercises).forEach { exercise ->
-        val completed = exercise.completedSets.count { it.isCompleted }
-        if (completed <= 0) return@forEach
-        val label = exercise.primarySubPart
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() && it != "세부 부위 없음" }
-            ?: exercise.uiPart.trim().takeIf { it.isNotEmpty() }
-            ?: "기타"
-        counts[label] = (counts[label] ?: 0) + completed
-    }
-    val total = counts.values.sum()
-    if (total <= 0) return emptyList()
-    return counts.entries
-        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
-        .map { (label, count) ->
-            WorkoutSummaryMuscleDistribution(label, count, count.toFloat() / total.toFloat())
-        }
-}
-
 internal fun workoutSummaryChangeLabel(
     previousVolumeKg: Double?,
     currentVolumeKg: Double
@@ -118,18 +72,6 @@ internal fun workoutExerciseVolumeChangeLabel(
     val signedDifference = if (differenceKg > 0.0) "+$difference" else "−$difference"
     val percentage = workoutSummaryChangeLabel(previous, currentVolumeKg)
     return "직전 대비 $signedDifference ($percentage)"
-}
-
-internal fun formatWorkoutElapsedSeconds(seconds: Int): String {
-    val safeSeconds = seconds.coerceAtLeast(0)
-    val hours = safeSeconds / 3600
-    val minutes = (safeSeconds % 3600) / 60
-    val remainder = safeSeconds % 60
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, remainder)
-    } else {
-        "%02d:%02d".format(minutes, remainder)
-    }
 }
 
 internal fun workoutElapsedSeconds(

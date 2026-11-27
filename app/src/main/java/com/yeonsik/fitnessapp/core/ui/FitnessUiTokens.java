@@ -34,9 +34,9 @@ public final class FitnessUiTokens {
     public static final int COLOR_PRIMARY = COLOR_BRAND_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
-    public static final int COLOR_POSITIVE = 0xFF2E7D5B;
+    public static final int COLOR_POSITIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_POSITIVE;
     public static final int COLOR_NEGATIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_NEGATIVE;
-    public static final int COLOR_WARNING = 0xFF8A5A00;
+    public static final int COLOR_WARNING = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_WARNING;
     public static final int COLOR_CHART_CALORIES = 0xFF2F6F9F;
     public static final int COLOR_CHART_CARBS = 0xFF2B7A78;
     public static final int COLOR_CHART_PROTEIN = 0xFF8B5E3C;
@@ -65,9 +65,9 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_HERO_END = 0xFF214A63;
     public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
     public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
-    public static final int COLOR_D_POSITIVE = 0xFF69D39E;
+    public static final int COLOR_D_POSITIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_POSITIVE;
     public static final int COLOR_D_NEGATIVE = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_NEGATIVE;
-    public static final int COLOR_D_WARNING = 0xFFFFCA68;
+    public static final int COLOR_D_WARNING = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.COLOR_D_WARNING;
     public static final int COLOR_D_ACCENT = COLOR_D_PASTEL_BLUE;
     public static final int COLOR_D_ON_ACCENT_MUTED = 0xB80E2938;
     public static final int COLOR_D_CHIP_ON_ACCENT = 0x1E0E2938;
@@ -78,7 +78,7 @@ public final class FitnessUiTokens {
 
     // Shape/depth tokens
     public static final int CARD_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.CARD_RADIUS_DP;
-    public static final int HERO_RADIUS_DP = 24;
+    public static final int HERO_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.HERO_RADIUS_DP;
     public static final int INPUT_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.INPUT_RADIUS_DP;
     public static final int BUTTON_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.BUTTON_RADIUS_DP;
     public static final int CHIP_RADIUS_DP = 999;
@@ -88,16 +88,16 @@ public final class FitnessUiTokens {
     public static final int DEPTH_EMPHASIS_DP = 3;
 
     // Layout/spacing tokens
-    public static final int PAGE_HORIZONTAL_PADDING_DP = 20;
+    public static final int PAGE_HORIZONTAL_PADDING_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.PAGE_HORIZONTAL_PADDING_DP;
     public static final int PAGE_TOP_PADDING_DP = 20;
     public static final int PAGE_BOTTOM_PADDING_DP = 28;
     public static final int SCREEN_TITLE_TOP_SPACING_DP = 4;
     public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;
-    public static final int SECTION_TOP_SPACING_DP = 26;
+    public static final int SECTION_TOP_SPACING_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.SECTION_TOP_SPACING_DP;
     public static final int SECTION_BOTTOM_SPACING_DP = 10;
     public static final int CARD_GAP_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.CARD_GAP_DP;
-    public static final int HERO_PADDING_DP = 24;
-    public static final int HOME_ACTION_MIN_HEIGHT_DP = 88;
+    public static final int HERO_PADDING_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.HERO_PADDING_DP;
+    public static final int HOME_ACTION_MIN_HEIGHT_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.HOME_ACTION_MIN_HEIGHT_DP;
     public static final int FIELD_LABEL_GAP_DP = 6;
     public static final int FORM_ITEM_GAP_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.FORM_ITEM_GAP_DP;
     public static final int NUTRITION_ROW_MIN_HEIGHT_DP = 56;
@@ -107,9 +107,9 @@ public final class FitnessUiTokens {
     public static final int NUTRITION_LABEL_MAX_LINES = 2;
     public static final int NUTRITION_INPUT_HEIGHT_DP = 48;
     public static final int BUTTON_GAP_DP = 5;
-    public static final int TREND_CHART_HEIGHT_DP = 128;
+    public static final int TREND_CHART_HEIGHT_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.TREND_CHART_HEIGHT_DP;
     public static final int NAV_ITEM_RADIUS_DP = 12;
-    public static final int NAV_ITEM_MIN_HEIGHT_DP = 48;
+    public static final int NAV_ITEM_MIN_HEIGHT_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.NAV_ITEM_MIN_HEIGHT_DP;
     public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;

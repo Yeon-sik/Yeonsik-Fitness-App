@@ -2,7 +2,7 @@ package com.yeonsik.fitnessapp.data;
 
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
-import java.util.Locale;
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutDisplayNumbers;
 
 /** Small locale-stable formatter for user-facing mass values. */
 public final class MassFormatter {
@@ -11,42 +11,20 @@ public final class MassFormatter {
 
     /** Formats a canonical kilogram value in the selected display unit. */
     public static String format(double kilograms, MassUnit unit) {
-        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), true, 1);
+        return WorkoutDisplayNumbers.INSTANCE.mass(kilograms, MassUnit.orDefault(unit));
     }
 
     /** Formats a canonical kilogram value for an editable field without grouping separators. */
     public static String formatInput(double kilograms, MassUnit unit) {
-        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), false, 2);
+        return WorkoutDisplayNumbers.INSTANCE.decimal(MassUnit.fromKg(kilograms, unit), false, 2);
     }
 
     /** Formats a value that is already expressed in the selected unit. */
     public static String formatValue(double value, MassUnit unit) {
-        return formatValue(value, true, 1);
+        return WorkoutDisplayNumbers.INSTANCE.decimal(value, true, 1);
     }
 
     public static String withUnit(double kilograms, MassUnit unit) {
-        MassUnit effective = MassUnit.orDefault(unit);
-        return format(kilograms, effective) + effective.symbol();
-    }
-
-    private static String formatValue(double value, boolean grouped, int maximumFractionDigits) {
-        if (!Double.isFinite(value)) {
-            return "—";
-        }
-        if (Math.abs(value) < 0.0000001d) {
-            value = 0d;
-        }
-        String pattern = grouped
-                ? (maximumFractionDigits == 1 ? "%,.1f" : "%,.2f")
-                : (maximumFractionDigits == 1 ? "%.1f" : "%.2f");
-        String result = String.format(Locale.ROOT, pattern, value);
-        int end = result.length();
-        while (end > 0 && result.charAt(end - 1) == '0') {
-            end -= 1;
-        }
-        if (end > 0 && result.charAt(end - 1) == '.') {
-            end -= 1;
-        }
-        return result.substring(0, end);
+        return WorkoutDisplayNumbers.INSTANCE.withUnit(kilograms, MassUnit.orDefault(unit));
     }
 }

@@ -15,6 +15,8 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.yeonsik.fitness.shared.core.ui.fitnessColorScheme
 import com.yeonsik.fitness.shared.core.ui.fitnessShapes
 import com.yeonsik.fitness.shared.core.ui.fitnessTypography
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
+import com.yeonsik.fitnessapp.core.ui.fitnessSemanticColors
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIViewController
@@ -46,7 +48,9 @@ internal fun IosFitnessTheme(content: @Composable () -> Unit) {
         colorScheme = remember(dark) { fitnessColorScheme(dark) },
         typography = remember { fitnessTypography() },
         shapes = remember { fitnessShapes() },
-        content = content
+        content = {
+            CompositionLocalProvider(LocalFitnessColors provides fitnessSemanticColors(dark), content = content)
+        }
     )
 }
 

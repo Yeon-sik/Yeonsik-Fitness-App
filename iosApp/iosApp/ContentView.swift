@@ -31,7 +31,9 @@ struct ContentView: View {
 }
 
 private struct WorkoutTabs: View {
-    private enum Route: Hashable { case strength, routine(UUID), active }
+    private enum Route: Hashable {
+        case strength, routine(UUID), active, summary(UUID), completedExercise(UUID, UUID)
+    }
 
     @EnvironmentObject private var store: WorkoutStore
     @State private var tab = ProductTab.home
@@ -119,9 +121,22 @@ private struct WorkoutTabs: View {
                     case .routine(let id):
                         RoutineView(routineID: id) { path = [.strength, .active] }
                     case .active:
-                        ActiveWorkoutView { completed in
-                            path = []
-                            if completed { select(.records) }
+                        ActiveWorkoutView { completedID in
+                            if let id = completedID {
+                                path = Array(path.dropLast()) + [.summary(id)]
+                            } else {
+                                path = []
+                            }
+                        }
+                    case .summary(let id):
+                        if let workout = store.data?.history.first(where: { $0.id == id }) {
+                            WorkoutCompletionSummaryView(workout: workout,
+                                onExercise: { path.append(.completedExercise(id, $0)) },
+                                onRecords: { select(.records) })
+                        }
+                    case .completedExercise(let workoutID, let exerciseID):
+                        if let workout = store.data?.history.first(where: { $0.id == workoutID }) {
+                            WorkoutHistoryDetail(workout: workout, exerciseID: exerciseID)
                         }
                     }
                 }
@@ -276,7 +291,7 @@ private struct ActiveWorkoutView: View {
     @StateObject private var editors = ExerciseEditorSessions()
     @State private var confirmingDiscard = false
     @State private var error: String?
-    let leaveWorkout: (Bool) -> Void
+    let leaveWorkout: (UUID?) -> Void
 
     var body: some View {
         if let workout = store.data?.inProgress {
@@ -327,7 +342,7 @@ private struct ActiveWorkoutView: View {
                 } else {
                     try await store.discardWorkout(id: id)
                 }
-                leaveWorkout(completed)
+                leaveWorkout(completed ? id : nil)
             } catch { self.error = error.localizedDescription }
         }
     }
@@ -513,11 +528,14 @@ private struct WorkoutHistoryView: View {
 
 private struct WorkoutHistoryDetail: View {
     let workout: LoggedWorkout
+    var exerciseID: UUID? = nil
 
     var body: some View {
         List {
             LabeledContent("완료 시간", value: (workout.completedAt ?? workout.startedAt).formatted())
-            ForEach(workout.exercises.filter { $0.sets.contains(where: \.isCompleted) }) { exercise in
+            ForEach(workout.exercises.filter {
+                (exerciseID == nil || $0.id == exerciseID) && $0.sets.contains(where: \.isCompleted)
+            }) { exercise in
                 Section(exercise.name) {
                     ForEach(Array(exercise.sets.enumerated()).filter { $0.element.isCompleted }, id: \.element.id) { index, set in
                         SetRow(number: index + 1, set: set)
@@ -525,7 +543,7 @@ private struct WorkoutHistoryDetail: View {
                 }
             }
         }
-        .navigationTitle(workout.title)
+        .navigationTitle(workout.exercises.first(where: { $0.id == exerciseID })?.name ?? workout.title)
     }
 }
 
