@@ -1,11 +1,18 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,6 +20,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
@@ -21,7 +29,8 @@ import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
-import com.yeonsik.fitness.shared.feature.workout.ui.CompletedWorkoutSummary
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSummaryScreen
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
@@ -101,13 +110,24 @@ class OrdinaryWorkoutParityTest {
                 compose.setContent {
                     FitnessComposeTheme(false) {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
-                            CompletedWorkoutSummary(session, MassUnit.LB, {}, { recordsOpened = true }, { _, _ -> })
+                            WorkoutSummaryScreen(WorkoutSessionUiState.Ready(owner.ownerId, session), owner.ownerId,
+                                MassUnit.LB, onBack = {}, onExercise = {}, onRecords = { recordsOpened = true },
+                                recordWatch = {})
                         }
                     }
                 }
-                compose.onNodeWithTag("summary-sets").assertContentDescriptionEquals("완료 세트 1")
-                compose.onNodeWithTag("summary-volume").assertContentDescriptionEquals("총 볼륨 1,000lb")
-                compose.onNodeWithTag("summary-records").performScrollTo().performClick()
+                compose.onNodeWithText("운동 요약").assertExists()
+                compose.onAllNodesWithText("1,000lb", useUnmergedTree = true).onFirst().assertExists()
+                if (InstrumentationRegistry.getArguments().getString("captureSummary") == "true") {
+                    compose.waitForIdle()
+                    context.cacheDir.resolve("ordinary-summary.png").outputStream().use {
+                        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                } else {
+                    compose.onNodeWithTag("summary-sets").assertContentDescriptionEquals("완료 세트 1")
+                    compose.onNodeWithTag("summary-volume").assertContentDescriptionEquals("총 볼륨 1,000lb")
+                }
+                compose.onNodeWithText("기록에서 보기").performScrollTo().performClick()
                 compose.runOnIdle { assertTrue(recordsOpened) }
                 // The CI comparator reads only this synthetic database's completed record.
                 Log.i("WorkoutParity", "FITNESS_PARITY " + JSONObject().apply {

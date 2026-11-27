@@ -16,6 +16,10 @@ def check(simulator, bundle, records):
 
     original = records.read_bytes()
     current = json.loads(original)
+    # Versions 1 and 2 predate catalog metadata even when the typed name matches a preset.
+    for item in [*current["routines"], *current["history"]]:
+        for exercise in item["exercises"]:
+            exercise.pop("catalog", None)
     routine = current["routines"][0]
     routine_exercise = routine["exercises"][0]["id"]
     sample = current["history"][0]
@@ -51,6 +55,7 @@ def check(simulator, bundle, records):
         assert len(sessions) == len(migrated_sessions)
         for before, after in zip(sessions, migrated_sessions):
             exercise = after["exercises"][0]
+            assert "catalog" not in exercise, "A historical free-text exercise was reassigned to a catalog preset"
             expected = uuid.uuid5(uuid.UUID(before["id"]), routine_exercise.lower())
             assert uuid.UUID(exercise["id"]) == expected and expected not in seen
             seen.add(expected)
