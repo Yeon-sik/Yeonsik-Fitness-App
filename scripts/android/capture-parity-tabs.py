@@ -24,8 +24,12 @@ def main():
 
     def hierarchy():
         filename = "/data/local/tmp/fitness-parity.xml"
-        adb("shell", "uiautomator", "dump", filename)
-        return ET.fromstring(adb("exec-out", "cat", filename))
+        for _ in range(4):
+            result = adb("shell", "uiautomator", "dump", filename)
+            if b"dumped to:" in result:
+                return ET.fromstring(adb("exec-out", "cat", filename))
+            time.sleep(0.5)
+        raise RuntimeError("UI Automator could not read the current screen")
 
     def bounds(node):
         return list(map(int, re.findall(r"\d+", node.attrib["bounds"])))

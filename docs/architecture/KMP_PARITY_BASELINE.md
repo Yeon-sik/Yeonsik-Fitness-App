@@ -38,5 +38,10 @@
 | Room 61 → 62 → 62 재개방 | 두 계정에 같은 날짜의 70.25 kg·81.5 kg, 원래 운동에 12.5 kg × 10회·RIR 2, 외부 심박 100을 준비한다. 마이그레이션 전후 기존 행을 대조하고 웨어러블을 연결한다. 재개방 후 한 계정에 72.5 kg을 추가하고 원래 운동과 연결·계정 격리를 다시 확인한다. |
 | Android 화면 | 합성 전용 에뮬레이터에서 메인 → 체중 → 취소 → 피트니스 → 기록 → 설정을 조작한다. 각 탭의 실제 선택 상태를 확인한 뒤 캡처한다. 기준 환경은 1080 × 2424, 420 dpi, 글꼴 배율 1.0이다. |
 | iOS 체중 | 달력·편집창을 순서대로 닫고 재진입한다. 숫자 키로 70.5 입력 → 저장 → 재실행 → 72.5 수정 → 삭제 → 72.75 추가를 수행한다. 저장 파일과 재설치 전후 해시를 비교한다. |
+| 탭과 표시 설정 | 초기 탭 메인, 네 탭 순서 메인·피트니스·기록·설정. 선택한 탭은 루트로 복귀한다. 설치 기본값은 kg·어둡게다. 파운드로 225를 저장하면 같은 ID의 원본은 102.05828325 kg이다. kg 재선택·재실행 뒤 값을 대조하고 밝게·어둡게·기기 설정의 적용을 확인한다. |
 
-Android 캡처 명령은 `python scripts/android/capture-parity-tabs.py emulator-5584 build/parity-evidence/android-before`다. 비교할 APK 설치 후 같은 에뮬레이터와 설정에서 출력 경로를 `android-after`로 바꿔 실행한다. Room 계정·운동·체중 대조는 `WearableWorkoutMigrationTest`, iOS 입력·재설치는 `scripts/ios/test-workout-simulator.sh`에서 실행한다.
+빈 테스트 기기에서 `python scripts/android/capture-parity-tabs.py emulator-5584 build/parity-evidence/android-before --seed-weight`를 실행하면 오늘의 합성 체중 72.5 kg과 기준 화면이 만들어진다. 비교할 APK를 덮어 설치한 뒤 같은 에뮬레이터에서 `python scripts/android/capture-parity-tabs.py emulator-5584 build/parity-evidence/android-after`를 실행한다. Room 계정·운동·체중 대조는 `WearableWorkoutMigrationTest`, iOS 입력·재설치는 `scripts/ios/test-workout-simulator.sh`에서 실행한다.
+
+## 단계 1 Android 실행 결과
+
+`a5e3f7a7`에서 Android 단위 테스트 691건과 공통 테스트 54건이 통과했다. Android 조건부 테스트 2건은 건너뛰었다. 에뮬레이터에서는 Room 마이그레이션, 하단바 드래그, 체중·설정·계정 입력을 다룬 6건이 통과했다. 같은 합성 데이터의 메인·체중 편집·피트니스·기록·설정 다섯 화면은 1080 × 2424 원본의 전체 너비, 세로 좌표 90 이상 2354 미만에서 RGB가 모두 같았다. [Android 변경 전후 캡처](evidence/android-tabs-stage1.webp)
