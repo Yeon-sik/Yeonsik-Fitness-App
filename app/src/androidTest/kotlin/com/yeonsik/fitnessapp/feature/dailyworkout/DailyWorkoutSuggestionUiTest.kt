@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.dailyworkout
 
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
@@ -13,6 +14,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.feature.dailyworkout.*
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import kotlinx.datetime.LocalDate
@@ -82,7 +84,11 @@ class DailyWorkoutSuggestionUiTest {
         compose.onNodeWithContentDescription("워치 기록 옵션").performClick()
         compose.onNodeWithText("연결 취소", substring = true).assertExists()
         compose.onNodeWithText("다른 워치 기록 가져오기").assertExists()
-        androidx.test.espresso.Espresso.pressBack()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("연결 취소", substring = true).fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithContentDescription("워치 기록 옵션").assertExists()
         compose.runOnIdle { showDay.value = true }
         waitFor("운동 1회")
         list.performScrollToNode(hasText("연결된 워치 기록"))
