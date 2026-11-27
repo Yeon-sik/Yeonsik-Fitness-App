@@ -36,7 +36,6 @@ internal actual fun BodyWeightInput(
                     borderStyle = UITextBorderStyle.UITextBorderStyleRoundedRect
                     adjustsFontForContentSizeCategory = true
                     font = UIFont.preferredFontForTextStyle(UIFontTextStyleBody)
-                    accessibilityIdentifier = "weight-input"
                     addTarget(this, NSSelectorFromString(field::editingChanged.name), UIControlEventEditingChanged)
                 }
             },
