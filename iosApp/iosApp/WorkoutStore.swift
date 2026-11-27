@@ -17,34 +17,49 @@ struct WorkoutRoutine: Codable, Identifiable, Sendable {
 enum WorkoutWeightUnit: String, CaseIterable, Codable, Sendable {
     case kg, lb
 
-    func toKg(_ value: Double) -> Double {
-        let unit: MassUnit = self == .kg ? .kg : .lb
-        return unit.toKg(value: value)
-    }
+    var sharedUnit: MassUnit { self == .kg ? .kg : .lb }
 }
 
 struct LoggedSet: Codable, Identifiable, Sendable {
     let id: UUID
-    let inputWeight: Double
+    let inputWeight: Double?
     let unit: WorkoutWeightUnit
-    let weightKg: Double
-    let reps: Int32
+    let weightKg: Double?
+    let reps: Int32?
     let rir: Int?
+    let isCompleted: Bool
 
-    init(id: UUID, inputWeight: Double, unit: WorkoutWeightUnit, reps: Int32, rir: Int?) throws {
-        guard inputWeight.isFinite, inputWeight >= 0, reps > 0,
-              rir.map({ (0...5).contains($0) }) ?? true else {
-            throw WorkoutError.invalidSet
-        }
+    init(id: UUID = UUID(), unit: WorkoutWeightUnit, entry: OrdinarySetEntry? = nil, completed: Bool = false) {
         self.id = id
-        self.inputWeight = inputWeight
         self.unit = unit
-        self.weightKg = unit.toKg(inputWeight)
-        self.reps = reps
-        self.rir = rir
+        self.inputWeight = entry?.inputLoad?.doubleValue
+        self.weightKg = entry?.weightKg?.doubleValue
+        self.reps = entry?.reps?.int32Value
+        self.rir = entry?.rir?.intValue
+        self.isCompleted = completed
+    }
+
+    init(from decoder: Decoder) throws {
+        let fields = try decoder.container(keyedBy: CodingKeys.self)
+        id = try fields.decode(UUID.self, forKey: .id)
+        unit = try fields.decode(WorkoutWeightUnit.self, forKey: .unit)
+        rir = try fields.decodeIfPresent(Int.self, forKey: .rir)
+        if (decoder.userInfo[WorkoutData.versionKey] as? Int ?? WorkoutData.currentVersion) < 3 {
+            // Both previous formats only stored saved, completed sets with numeric weight and reps.
+            inputWeight = try fields.decode(Double.self, forKey: .inputWeight)
+            weightKg = try fields.decode(Double.self, forKey: .weightKg)
+            reps = try fields.decode(Int32.self, forKey: .reps)
+            isCompleted = true
+        } else {
+            inputWeight = try fields.decodeIfPresent(Double.self, forKey: .inputWeight)
+            weightKg = try fields.decodeIfPresent(Double.self, forKey: .weightKg)
+            reps = try fields.decodeIfPresent(Int32.self, forKey: .reps)
+            isCompleted = try fields.decode(Bool.self, forKey: .isCompleted)
+        }
     }
 
     var estimatedOneRepMaxKg: Double? {
+        guard let weightKg, let reps else { return nil }
         let estimate = WorkoutPerformanceCalculator.shared.epleyE1rm(loadKg: weightKg, reps: reps)
         return estimate.isFinite && estimate > 0 ? estimate : nil
     }
@@ -78,11 +93,15 @@ struct LoggedWorkout: Codable, Identifiable, Sendable {
     var completedAt: Date?
     var exercises: [LoggedExercise]
 
-    var setCount: Int { exercises.reduce(0) { $0 + $1.sets.count } }
+    var setCount: Int { exercises.reduce(0) { $0 + $1.sets.filter(\.isCompleted).count } }
+    var volumeKg: Double {
+        exercises.flatMap(\.sets).filter(\.isCompleted).reduce(0) { $0 + ($1.weightKg ?? 0) * Double($1.reps ?? 0) }
+    }
 }
 
 struct WorkoutData: Codable, Sendable {
-    static let currentVersion = 2
+    static let currentVersion = 3
+    static let versionKey = CodingUserInfoKey(rawValue: "fitness.workout.schemaVersion")!
     var schemaVersion = currentVersion
     var routines: [WorkoutRoutine] = []
     var inProgress: LoggedWorkout?
@@ -101,7 +120,7 @@ struct WorkoutData: Codable, Sendable {
 }
 
 enum WorkoutError: LocalizedError {
-    case incompatibleData, unreadableData, invalidRoutine, invalidSet
+    case incompatibleData, unreadableData, invalidRoutine, invalidRemoval
     case dataUnavailable, routineUnavailable, workoutUnavailable, workoutInProgress, missingSets
 
     var errorDescription: String? {
@@ -109,7 +128,7 @@ enum WorkoutError: LocalizedError {
         case .incompatibleData: return "이 버전에서 열 수 없는 운동 기록입니다."
         case .unreadableData: return "저장된 운동 기록을 읽을 수 없습니다."
         case .invalidRoutine: return "루틴 이름과 종목 이름을 입력해 주세요. 종목은 하나 이상 있어야 합니다."
-        case .invalidSet: return "중량은 0 이상, 횟수는 1 이상으로 입력해 주세요."
+        case .invalidRemoval: return "첫 세트는 삭제할 수 없습니다."
         case .dataUnavailable: return "운동 데이터를 불러오거나 저장하는 중입니다."
         case .routineUnavailable: return "루틴을 찾을 수 없습니다."
         case .workoutUnavailable: return "진행 중인 운동을 찾을 수 없습니다."
@@ -135,10 +154,12 @@ actor WorkoutFileRepository {
 
         let decoder = JSONDecoder()
         guard let header = try? decoder.decode(Header.self, from: raw) else { throw WorkoutError.unreadableData }
-        guard [1, WorkoutData.currentVersion].contains(header.schemaVersion) else { throw WorkoutError.incompatibleData }
+        guard (1...WorkoutData.currentVersion).contains(header.schemaVersion) else { throw WorkoutError.incompatibleData }
+        decoder.userInfo[WorkoutData.versionKey] = header.schemaVersion
         guard var data = try? decoder.decode(WorkoutData.self, from: raw) else { throw WorkoutError.unreadableData }
-        if header.schemaVersion == 1 {
-            data.migrateVersionOne()
+        if header.schemaVersion < WorkoutData.currentVersion {
+            if header.schemaVersion == 1 { data.migrateVersionOne() }
+            data.schemaVersion = WorkoutData.currentVersion
             try save(data)
         }
         return data
@@ -204,24 +225,35 @@ final class WorkoutStore: ObservableObject {
             }
             data.inProgress = LoggedWorkout(
                 id: UUID(), routineID: routine.id, title: routine.name, startedAt: Date(), completedAt: nil,
-                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name) }
+                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name,
+                    sets: [LoggedSet(unit: IosDisplaySettings.shared.unit == .lb ? .lb : .kg)]) }
             )
         }
     }
 
     func saveSet(_ set: LoggedSet, workoutID: UUID, exerciseID: UUID) async throws {
         try await changeSets(workoutID: workoutID, exerciseID: exerciseID) { sets in
-            if let index = sets.firstIndex(where: { $0.id == set.id }) {
-                sets[index] = set
-            } else {
-                sets.append(set)
+            guard let index = sets.firstIndex(where: { $0.id == set.id }) else {
+                throw WorkoutError.workoutUnavailable
+            }
+            sets[index] = set
+        }
+    }
+
+    func addSet(workoutID: UUID, exerciseID: UUID, onlyIfEmpty: Bool = false) async throws {
+        try await changeSets(workoutID: workoutID, exerciseID: exerciseID) { sets in
+            if !onlyIfEmpty || sets.isEmpty {
+                sets.append(LoggedSet(unit: IosDisplaySettings.shared.unit == .lb ? .lb : .kg))
             }
         }
     }
 
     func removeSet(id: UUID, workoutID: UUID, exerciseID: UUID) async throws {
         try await changeSets(workoutID: workoutID, exerciseID: exerciseID) { sets in
-            sets.removeAll { $0.id == id }
+            guard let index = sets.firstIndex(where: { $0.id == id }),
+                  OrdinarySetRules.shared.canRemove(count: Int32(sets.count), setIndex: Int64(index + 1), isFirst: index == 0)
+            else { throw WorkoutError.invalidRemoval }
+            sets.remove(at: index)
         }
     }
 
@@ -243,14 +275,14 @@ final class WorkoutStore: ObservableObject {
     }
 
     private func changeSets(
-        workoutID: UUID, exerciseID: UUID, _ edit: (inout [LoggedSet]) -> Void
+        workoutID: UUID, exerciseID: UUID, _ edit: (inout [LoggedSet]) throws -> Void
     ) async throws {
         try await change { data in
             guard var workout = data.inProgress, workout.id == workoutID,
                   let index = workout.exercises.firstIndex(where: { $0.id == exerciseID }) else {
                 throw WorkoutError.workoutUnavailable
             }
-            edit(&workout.exercises[index].sets)
+            try edit(&workout.exercises[index].sets)
             data.inProgress = workout
         }
     }

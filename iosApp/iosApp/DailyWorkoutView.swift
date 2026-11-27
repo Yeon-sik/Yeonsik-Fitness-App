@@ -17,15 +17,15 @@ struct DailyWorkoutView: UIViewControllerRepresentable {
         let workouts = history.compactMap { workout -> DailyWorkoutSource? in
             guard let end = workout.completedAt else { return nil }
             let exercises = workout.exercises.map { exercise in
-                DailyWorkoutExercise(name: exercise.name, sets: exercise.sets.map { set in
-                    IosDailyWorkoutHostKt.makeIosWorkoutSet(id: set.id.uuidString.lowercased(), weightKg: set.weightKg,
-                        reps: set.reps, rir: Int32(set.rir ?? -1), inputLoad: set.inputWeight, unit: set.unit.rawValue)
+                DailyWorkoutExercise(name: exercise.name, sets: exercise.sets.filter(\.isCompleted).map { set in
+                    IosDailyWorkoutHostKt.makeIosWorkoutSet(id: set.id.uuidString.lowercased(), weightKg: set.weightKg ?? .nan,
+                        reps: set.reps ?? 0, rir: Int32(set.rir ?? -1), inputLoad: set.inputWeight ?? .nan, unit: set.unit.rawValue)
                 }, id: exercise.id.uuidString.lowercased())
             }
             return IosDailyWorkoutHostKt.makeIosFitnessWorkout(
                 id: workout.id.uuidString, title: workout.title,
                 startMillis: workout.startedAt.milliseconds, endMillis: end.milliseconds, exercises: exercises,
-                volumeKg: workout.exercises.flatMap(\.sets).reduce(0) { $0 + $1.weightKg * Double($1.reps) }
+                volumeKg: workout.volumeKg
             )
         }
         let controller = IosDailyWorkoutHostKt.makeDailyWorkoutViewController(

@@ -96,7 +96,8 @@ fun makeIosFitnessWorkout(
 
 fun makeIosWorkoutSet(id: String, weightKg: Double, reps: Int, rir: Int, inputLoad: Double, unit: String) = DailyWorkoutSet(
     weightKg.takeIf { it.isFinite() && it >= 0 }, reps.takeIf { it > 0 }, rir.takeIf { it >= 0 },
-    id = id, inputLoad = inputLoad, inputUnit = unit, loadState = "external_load", setType = "normal"
+    id = id, inputLoad = inputLoad.takeIf { it.isFinite() && it >= 0 },
+    inputUnit = unit.takeIf { inputLoad.isFinite() && inputLoad >= 0 }, loadState = "external_load", setType = "normal"
 )
 
 fun makeAppleHealthWorkout(

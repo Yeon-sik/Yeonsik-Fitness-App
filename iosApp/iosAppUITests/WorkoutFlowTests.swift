@@ -29,6 +29,8 @@ final class WorkoutFlowTests: XCTestCase {
         app.launch()
 
         let name = "CI Workout \(UUID().uuidString.prefix(8))"
+        tap(app.tabBars.buttons["설정"])
+        tap(bodyControl(app, identifier: "display-lb", label: "파운드"))
         tap(app.tabBars.buttons["피트니스"])
         tap(app.buttons["무산소 운동"])
         tap(app.buttons["create-routine"])
@@ -42,13 +44,41 @@ final class WorkoutFlowTests: XCTestCase {
         let finish = app.buttons["finish-workout"]
         XCTAssertTrue(finish.waitForExistence(timeout: 15))
         XCTAssertFalse(finish.isEnabled)
-        tap(app.buttons["add-set"])
-        tap(app.segmentedControls.buttons["lb"])
-        tap(app.descendants(matching: .any)["set-rir"])
-        tap(app.buttons["2"])
-        enter("100", into: app.textFields["set-weight"])
-        enter("10", into: app.textFields["set-reps"])
-        tap(app.buttons["save-set"])
+        let exercise = app.descendants(matching: .any)["exercise-Bench Press"]
+        tap(exercise)
+        func field(_ label: String, _ index: Int = 0) -> XCUIElement {
+            app.textFields.matching(NSPredicate(format: "label == %@", label)).element(boundBy: index)
+        }
+        let menu = bodyControl(app, identifier: "menu-set-1", label: "1세트 설정")
+        let completions = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "complete-set-"))
+        let complete = completions.element(boundBy: 0)
+        let firstRemove = bodyControl(app, identifier: "remove-set-1", label: "1세트 삭제")
+        let weight = field("중량(lb)")
+        let reps = field("횟수")
+        let rir = field("RIR")
+        XCTAssertTrue(firstRemove.waitForExistence(timeout: 10))
+        XCTAssertFalse(firstRemove.isEnabled)
+        tap(menu)
+        tap(bodyControl(app, identifier: "set-unit-kg", label: "kg"))
+        XCTAssertTrue(field("중량(kg)").waitForExistence(timeout: 10))
+        tap(menu)
+        tap(bodyControl(app, identifier: "set-unit-lb", label: "lb"))
+        enterBodyWeight("95", into: weight, in: app)
+        tap(app.buttons["다음"])
+        tap(app.keyboards.keys["8"])
+        assertBodyWeight("8", in: reps)
+        tap(app.buttons["다음"])
+        tap(app.keyboards.keys["3"])
+        assertBodyWeight("3", in: rir)
+        tap(app.buttons["입력 저장"])
+        tapEnabled(complete)
+        let screen = XCTAttachment(screenshot: app.screenshot())
+        screen.name = "일반 세트 95lb 8회 RIR 3"
+        screen.lifetime = .keepAlways
+        add(screen)
+        let firstID = complete.identifier
+        XCTAssertTrue(firstID.hasPrefix("complete-set-"), complete.debugDescription)
+        tap(app.navigationBars.buttons.firstMatch)
         let readyToFinish = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: finish)
         XCTAssertEqual(XCTWaiter.wait(for: [readyToFinish], timeout: 15), .completed)
 
@@ -56,6 +86,39 @@ final class WorkoutFlowTests: XCTestCase {
         app.launch()
         tap(app.tabBars.buttons["피트니스"])
         let resume = app.descendants(matching: .any)["resume-workout"]
+        tap(resume)
+        tap(exercise)
+        XCTAssertEqual(complete.identifier, firstID)
+        assertBodyWeight("95", in: weight)
+        assertBodyWeight("8", in: reps)
+        assertBodyWeight("3", in: rir)
+        enterBodyWeight("99", into: weight, in: app, replacing: "95")
+        tap(app.navigationBars.buttons.firstMatch)
+        tap(exercise)
+        assertBodyWeight("99", in: weight)
+        tap(menu)
+        tap(bodyControl(app, identifier: "set-discard-draft", label: "입력 취소"))
+        assertBodyWeight("95", in: weight)
+        enterBodyWeight("100", into: weight, in: app, replacing: "95")
+        enterBodyWeight("10", into: reps, in: app, replacing: "8")
+        enterBodyWeight("2", into: rir, in: app, replacing: "3")
+        tap(app.buttons["입력 저장"])
+        tapEnabled(bodyControl(app, identifier: "add-set", label: "세트 추가"))
+        let second = field("중량(lb)", 1)
+        enterBodyWeight("50", into: second, in: app)
+        enterBodyWeight("6", into: field("횟수", 1), in: app)
+        enterBodyWeight("1", into: field("RIR", 1), in: app)
+        tap(app.buttons["입력 저장"])
+        tapEnabled(completions.element(boundBy: 1))
+        XCTAssertFalse(firstRemove.isEnabled)
+        tapEnabled(bodyControl(app, identifier: "remove-set-2", label: "2세트 삭제"))
+        waitUntilGone(second)
+        XCTAssertEqual(complete.identifier, firstID)
+        assertBodyWeight("100", in: weight)
+        tap(app.navigationBars.buttons.firstMatch)
+        app.terminate()
+        app.launch()
+        tap(app.tabBars.buttons["피트니스"])
         tap(resume)
         tap(finish)
         let history = app.descendants(matching: .any)["history-\(name)"]
@@ -239,6 +302,13 @@ final class WorkoutFlowTests: XCTestCase {
     private func enter(_ text: String, into field: XCUIElement) {
         tap(field)
         field.typeText(text)
+    }
+
+    @MainActor
+    private func tapEnabled(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 15), .completed, element.debugDescription, file: file, line: line)
+        element.tap()
     }
 
     @MainActor

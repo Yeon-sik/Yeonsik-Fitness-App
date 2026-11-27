@@ -272,14 +272,8 @@ private struct RoutineEditor: View {
 }
 
 private struct ActiveWorkoutView: View {
-    private struct SetSelection: Identifiable {
-        let exercise: LoggedExercise
-        let existingSet: LoggedSet?
-        var id: UUID { existingSet?.id ?? exercise.id }
-    }
-
     @EnvironmentObject private var store: WorkoutStore
-    @State private var selection: SetSelection?
+    @StateObject private var editors = ExerciseEditorSessions()
     @State private var confirmingDiscard = false
     @State private var error: String?
     let leaveWorkout: (Bool) -> Void
@@ -293,25 +287,16 @@ private struct ActiveWorkoutView: View {
     private func exerciseList(_ workout: LoggedWorkout) -> some View {
         List {
             ForEach(workout.exercises) { exercise in
-                Section(exercise.name) {
-                    ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
-                        Button {
-                            selection = SetSelection(exercise: exercise, existingSet: set)
-                        } label: {
-                            SetRow(number: index + 1, set: set)
-                        }
-                        .foregroundStyle(.primary)
-                        .swipeActions(allowsFullSwipe: false) {
-                            Button("삭제") { remove(set, from: exercise, workoutID: workout.id) }.tint(.red)
-                        }
+                NavigationLink {
+                    ExerciseSetEditor(workoutID: workout.id, exerciseID: exercise.id, host: editors.host(for: exercise.id))
+                        .navigationTitle(exercise.name)
+                        .navigationBarTitleDisplayMode(.inline)
+                } label: {
+                    LabeledContent(exercise.name) {
+                        Text("\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)세트")
                     }
-                    Button {
-                        selection = SetSelection(exercise: exercise, existingSet: nil)
-                    } label: {
-                        Label("세트 추가", systemImage: "plus")
-                    }
-                    .accessibilityIdentifier("add-set")
                 }
+                .accessibilityIdentifier("exercise-\(exercise.name)")
             }
             Section {
                 Button("진행 중 운동 삭제", role: .destructive) { confirmingDiscard = true }
@@ -326,23 +311,12 @@ private struct ActiveWorkoutView: View {
                     .accessibilityIdentifier("finish-workout")
             }
         }
-        .sheet(item: $selection) { item in
-            SetEditor(workoutID: workout.id, exercise: item.exercise, set: item.existingSet)
-        }
         .confirmationDialog("진행 중 운동을 삭제할까요?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
             Button("운동 삭제", role: .destructive) { endWorkout(id: workout.id, completed: false) }
         } message: {
             Text("이 운동에서 저장한 세트가 삭제됩니다.")
         }
         .workoutError($error)
-    }
-
-    private func remove(_ set: LoggedSet, from exercise: LoggedExercise, workoutID: UUID) {
-        Task {
-            do {
-                try await store.removeSet(id: set.id, workoutID: workoutID, exerciseID: exercise.id)
-            } catch { self.error = error.localizedDescription }
-        }
     }
 
     private func endWorkout(id: UUID, completed: Bool) {
@@ -359,85 +333,105 @@ private struct ActiveWorkoutView: View {
     }
 }
 
-private struct SetEditor: View {
+private final class ExerciseEditorSessions: ObservableObject {
+    private var editors: [UUID: IosSetEditorHost] = [:]
+
+    func host(for id: UUID) -> IosSetEditorHost {
+        if let existing = editors[id] { return existing }
+        let editor = IosSetEditorHost(decimalSeparator: Locale.current.decimalSeparator ?? ".")
+        editors[id] = editor
+        return editor
+    }
+}
+
+private struct ExerciseSetEditor: View {
     @EnvironmentObject private var store: WorkoutStore
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.locale) private var locale
-    @State private var weight: String
-    @State private var reps: String
-    @State private var unit: WorkoutWeightUnit
-    @State private var rir: Int?
     @State private var error: String?
     let workoutID: UUID
-    let exercise: LoggedExercise
-    let set: LoggedSet?
-
-    init(workoutID: UUID, exercise: LoggedExercise, set: LoggedSet?) {
-        self.workoutID = workoutID
-        self.exercise = exercise
-        self.set = set
-        _weight = State(initialValue: set.map {
-            String($0.inputWeight).replacingOccurrences(of: ".", with: Locale.current.decimalSeparator ?? ".")
-        } ?? "")
-        _reps = State(initialValue: set.map { String($0.reps) } ?? "")
-        _unit = State(initialValue: set?.unit ?? (IosDisplaySettings.shared.unit == .lb ? .lb : .kg))
-        _rir = State(initialValue: set?.rir)
-    }
+    let exerciseID: UUID
+    let host: IosSetEditorHost
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if let error { Text(error).foregroundStyle(.red) }
-                Section(exercise.name) {
-                    Picker("중량 단위", selection: $unit) {
-                        ForEach(WorkoutWeightUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        if let exercise = store.data?.inProgress?.exercises.first(where: { $0.id == exerciseID }) {
+            SetTableController(store: store, workoutID: workoutID, exercise: exercise, host: host)
+                .task {
+                    // A session saved by an earlier build may have no first row yet.
+                    if exercise.sets.isEmpty {
+                        do { try await store.addSet(workoutID: workoutID, exerciseID: exerciseID, onlyIfEmpty: true) }
+                        catch { self.error = error.localizedDescription }
                     }
-                    .pickerStyle(.segmented)
-
-                    TextField("중량", text: $weight, prompt: Text("중량 (\(unit.rawValue))"))
-                        .keyboardType(.decimalPad)
-                        .accessibilityIdentifier("set-weight")
-                    TextField("횟수", text: $reps)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("set-reps")
-                    Picker("RIR", selection: $rir) {
-                        Text("미입력").tag(nil as Int?)
-                        ForEach(0...5, id: \.self) { Text("\($0)").tag(Optional($0)) }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("set-rir")
                 }
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(set == nil ? "세트 추가" : "세트 편집")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }.disabled(store.isWorking)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("저장", action: save)
-                        .disabled(store.isWorking)
-                        .accessibilityIdentifier("save-set")
-                }
-            }
+                .workoutError($error)
         }
-        .interactiveDismissDisabled(store.isWorking)
+    }
+}
+
+private struct SetTableController: UIViewControllerRepresentable {
+    let store: WorkoutStore
+    let workoutID: UUID
+    let exercise: LoggedExercise
+    let host: IosSetEditorHost
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(store: store, workoutID: workoutID, exerciseID: exercise.id)
     }
 
-    private func save() {
-        Task {
-            do {
-                let rawWeight = weight.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .replacingOccurrences(of: locale.decimalSeparator ?? ".", with: ".")
-                guard let inputWeight = Double(rawWeight),
-                      let count = Int32(reps.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                    throw WorkoutError.invalidSet
-                }
-                let logged = try LoggedSet(id: set?.id ?? UUID(), inputWeight: inputWeight, unit: unit, reps: count, rir: rir)
-                try await store.saveSet(logged, workoutID: workoutID, exerciseID: exercise.id)
-                dismiss()
-            } catch { self.error = error.localizedDescription }
+    func makeUIViewController(context: Context) -> UIViewController {
+        host.controller(storage: context.coordinator)
+    }
+
+    func updateUIViewController(_ controller: UIViewController, context: Context) {
+        let rows = exercise.sets.map { set in
+            let weight = set.inputWeight.map {
+                $0.formatted(.number.grouping(.never).precision(.fractionLength(0...1)))
+            } ?? ""
+            return IosSetRow(id: set.id.uuidString, unit: set.unit.sharedUnit, weight: weight,
+                reps: set.reps.map { String($0) } ?? "", rir: set.rir.map { String($0) } ?? "",
+                completed: set.isCompleted, storedLoad: set.inputWeight.map { KotlinDouble(value: $0) },
+                storedKg: set.weightKg.map { KotlinDouble(value: $0) })
+        }
+        host.update(rows: rows)
+    }
+
+    @MainActor final class Coordinator: NSObject, IosSetEditorStorage {
+        let store: WorkoutStore
+        let workoutID: UUID
+        let exerciseID: UUID
+
+        init(store: WorkoutStore, workoutID: UUID, exerciseID: UUID) {
+            self.store = store
+            self.workoutID = workoutID
+            self.exerciseID = exerciseID
+        }
+
+        nonisolated func add(reply: IosSetWriteReply) {
+            Task { @MainActor in
+                do {
+                    try await store.addSet(workoutID: workoutID, exerciseID: exerciseID)
+                    reply.finish(error: nil)
+                } catch { reply.finish(error: error.localizedDescription) }
+            }
+        }
+
+        nonisolated func remove(id: String, reply: IosSetWriteReply) {
+            Task { @MainActor in
+                do {
+                    guard let uuid = UUID(uuidString: id) else { throw WorkoutError.workoutUnavailable }
+                    try await store.removeSet(id: uuid, workoutID: workoutID, exerciseID: exerciseID)
+                    reply.finish(error: nil)
+                } catch { reply.finish(error: error.localizedDescription) }
+            }
+        }
+
+        nonisolated func save(id: String, entry: OrdinarySetEntry, completed: Bool, reply: IosSetWriteReply) {
+            Task { @MainActor in
+                do {
+                    guard let uuid = UUID(uuidString: id) else { throw WorkoutError.workoutUnavailable }
+                    let set = LoggedSet(id: uuid, unit: entry.unit == .lb ? .lb : .kg, entry: entry, completed: completed)
+                    try await store.saveSet(set, workoutID: workoutID, exerciseID: exerciseID)
+                    reply.finish(error: nil)
+                } catch { reply.finish(error: error.localizedDescription) }
+            }
         }
     }
 }
@@ -523,9 +517,9 @@ private struct WorkoutHistoryDetail: View {
     var body: some View {
         List {
             LabeledContent("완료 시간", value: (workout.completedAt ?? workout.startedAt).formatted())
-            ForEach(workout.exercises.filter { !$0.sets.isEmpty }) { exercise in
+            ForEach(workout.exercises.filter { $0.sets.contains(where: \.isCompleted) }) { exercise in
                 Section(exercise.name) {
-                    ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
+                    ForEach(Array(exercise.sets.enumerated()).filter { $0.element.isCompleted }, id: \.element.id) { index, set in
                         SetRow(number: index + 1, set: set)
                     }
                 }
@@ -542,7 +536,8 @@ private struct SetRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("세트 \(number)").font(.subheadline).foregroundStyle(.secondary)
-            Text("\(set.inputWeight.formatted()) \(set.unit.rawValue) · \(set.reps)회")
+            Text([set.inputWeight.map { "\($0.formatted()) \(set.unit.rawValue)" },
+                  set.reps.map { "\($0)회" }].compactMap { $0 }.joined(separator: " · "))
                 .monospacedDigit()
             if let rir = set.rir { Text("RIR \(rir)").font(.subheadline) }
             if let estimate = set.estimatedOneRepMaxKg {

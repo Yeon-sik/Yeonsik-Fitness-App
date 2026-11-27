@@ -65,8 +65,9 @@ from pathlib import Path
 data = json.loads(Path(sys.argv[1]).read_text())
 workout = data["history"][0]
 logged_set = workout["exercises"][0]["sets"][0]
-assert data["schemaVersion"] == 2 and data.get("inProgress") is None
+assert data["schemaVersion"] == 3 and data.get("inProgress") is None
 exercise = workout["exercises"][0]
+assert len(exercise["sets"]) == 1 and logged_set["isCompleted"] is True
 assert exercise["id"] != exercise["routineExerciseID"]
 assert workout["routineID"] in {routine["id"] for routine in data["routines"]}
 assert logged_set["unit"] == "lb" and logged_set["inputWeight"] == 100
