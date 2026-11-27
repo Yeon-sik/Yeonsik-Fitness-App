@@ -29,6 +29,8 @@ final class WorkoutFlowTests: XCTestCase {
         app.launch()
 
         let name = "CI Workout \(UUID().uuidString.prefix(8))"
+        tap(app.tabBars.buttons["피트니스"])
+        tap(app.buttons["무산소 운동"])
         tap(app.buttons["create-routine"])
         enter(name, into: app.textFields["routine-name"])
         enter("Bench Press", into: app.textFields["exercise-name"])
@@ -52,6 +54,7 @@ final class WorkoutFlowTests: XCTestCase {
 
         app.terminate()
         app.launch()
+        tap(app.tabBars.buttons["피트니스"])
         let resume = app.descendants(matching: .any)["resume-workout"]
         tap(resume)
         tap(finish)
@@ -60,6 +63,8 @@ final class WorkoutFlowTests: XCTestCase {
 
         app.terminate()
         app.launch()
+        tap(app.tabBars.buttons["피트니스"])
+        tap(app.buttons["무산소 운동"])
         XCTAssertTrue(routine.waitForExistence(timeout: 15))
         XCTAssertFalse(resume.exists)
         tap(app.tabBars.buttons["기록"])
@@ -76,7 +81,7 @@ final class WorkoutFlowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        let bodyTab = app.tabBars.buttons["체중"]
+        let recordsTab = app.tabBars.buttons["기록"]
         let add = bodyControl(app, identifier: "weight-add", label: "체중 기록 추가")
         let date = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "weight-date", "날짜 선택")
@@ -89,7 +94,16 @@ final class WorkoutFlowTests: XCTestCase {
             "weight-record", "kg", "수정"
         )).firstMatch
 
-        tap(bodyTab)
+        XCTAssertTrue(app.tabBars.buttons["메인"].waitForExistence(timeout: 15))
+        XCTAssertEqual(app.tabBars.buttons.allElementsBoundByIndex.map(\.label), ["메인", "피트니스", "기록", "설정"])
+        XCTAssertTrue(app.tabBars.buttons["메인"].isSelected)
+        tap(app.tabBars.buttons["피트니스"])
+        tap(app.buttons["체중 기록"])
+        XCTAssertTrue(date.waitForExistence(timeout: 15))
+        tap(bodyControl(app, identifier: "weight-cancel", label: "취소"))
+        waitUntilGone(date)
+        tap(recordsTab)
+        tap(app.buttons["체중 기록"])
         XCTAssertTrue(add.waitForExistence(timeout: 15), app.debugDescription)
         tap(add)
         tap(date)
@@ -108,7 +122,8 @@ final class WorkoutFlowTests: XCTestCase {
 
         app.terminate()
         app.launch()
-        tap(bodyTab)
+        tap(recordsTab)
+        tap(app.buttons["체중 기록"])
         tap(record)
         assertBodyWeight("70.5", in: input)
         enterBodyWeight("72.5", into: input, in: app, replacing: "70.5")
@@ -119,12 +134,51 @@ final class WorkoutFlowTests: XCTestCase {
         tap(bodyControl(app, identifier: "weight-delete", label: "이 기록 삭제"))
         waitUntilGone(record)
 
+        tap(app.buttons["닫기"])
+        tap(app.tabBars.buttons["설정"])
+        tap(bodyControl(app, identifier: "display-lb", label: "파운드"))
+        tap(bodyControl(app, identifier: "display-light", label: "밝게"))
+        app.terminate()
+        app.launch()
+        tap(app.tabBars.buttons["설정"])
+        assertSelected(bodyControl(app, identifier: "display-lb", label: "파운드"))
+        assertSelected(bodyControl(app, identifier: "display-light", label: "밝게"))
+        tap(app.tabBars.buttons["메인"])
+        tap(app.buttons["체중"])
+        XCTAssertTrue(app.textFields["체중 lb"].waitForExistence(timeout: 15))
+        enterBodyWeight("225", into: input, in: app)
+        tap(save)
+        waitUntilGone(date)
+        tap(app.tabBars.buttons["설정"])
+        tap(bodyControl(app, identifier: "display-kg", label: "킬로그램"))
+        tap(bodyControl(app, identifier: "display-system", label: "기기 설정"))
+        assertSelected(bodyControl(app, identifier: "display-system", label: "기기 설정"))
+        tap(bodyControl(app, identifier: "display-dark", label: "어둡게"))
+        assertSelected(bodyControl(app, identifier: "display-dark", label: "어둡게"))
+        tap(recordsTab)
+        tap(app.buttons["기록 추가"])
+        tap(app.buttons["체중"])
+        assertBodyWeight("102.06", in: input)
+        tap(save)
+        waitUntilGone(date)
+        tap(app.buttons["체중 기록"])
+        tap(record)
+        assertBodyWeight("102.06", in: input)
+        tap(bodyControl(app, identifier: "weight-delete", label: "이 기록 삭제"))
+        waitUntilGone(record)
+
         tap(add)
         enterBodyWeight("72.75", into: input, in: app)
         tap(save)
         waitUntilGone(date)
         XCTAssertTrue(record.waitForExistence(timeout: 15))
         app.terminate()
+    }
+
+    @MainActor
+    private func assertSelected(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed, element.debugDescription, file: file, line: line)
     }
 
     @MainActor

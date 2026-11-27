@@ -1,7 +1,9 @@
 import SwiftUI
+import YeonsikShared
 
 struct ContentView: View {
     @EnvironmentObject private var store: WorkoutStore
+    @AppStorage(IosDisplaySettings.shared.themeKey) private var themeID = DisplayTheme.dark.id
 
     var body: some View {
         Group {
@@ -18,20 +20,78 @@ struct ContentView: View {
             }
         }
         .task { await store.load() }
+        .preferredColorScheme(colorScheme)
+    }
+
+    private var colorScheme: ColorScheme? {
+        let theme = DisplayPreferences.shared.theme(stored: themeID)
+        if theme == .system { return nil }
+        return theme == .dark ? .dark : .light
     }
 }
 
 private struct WorkoutTabs: View {
-    private enum Tab { case workout, history, body }
-    private enum Route: Hashable { case routine(UUID), active }
+    private enum Route: Hashable { case strength, routine(UUID), active }
 
     @EnvironmentObject private var store: WorkoutStore
-    @State private var tab = Tab.workout
+    @State private var tab = ProductTab.home
     @State private var path: [Route] = []
+    @State private var recordsPath: [UUID] = []
+    @State private var rootVisits: [String: Int] = [:]
     @State private var creatingRoutine = false
+    @State private var homeWeight = false
+    @State private var fitnessWeight = false
 
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: Binding(get: { tab.id }, set: { id in
+            if let destination = ProductTab.companion.fromId(id: id) { select(destination) }
+        })) {
+            ForEach(ProductTab.companion.ordered, id: \.id) { destination in
+                root(destination)
+                    .id(rootVisits[destination.id, default: 0])
+                    .tabItem { Label(destination.label, systemImage: icon(destination)) }
+                    .tag(destination.id)
+            }
+        }
+    }
+
+    private func select(_ destination: ProductTab) {
+        let inChild = (tab == .fitness && !path.isEmpty) || (tab == .records && !recordsPath.isEmpty)
+        if destination.needsRootChange(currentRoot: inChild ? nil : tab) {
+            if destination == .fitness { path = [] }
+            if destination == .records { recordsPath = [] }
+        }
+        rootVisits[destination.id, default: 0] += 1
+        tab = destination
+    }
+
+    private func icon(_ destination: ProductTab) -> String {
+        if destination == .home { return "house" }
+        if destination == .fitness { return "dumbbell" }
+        if destination == .records { return "calendar" }
+        return "gearshape"
+    }
+
+    @ViewBuilder private func root(_ destination: ProductTab) -> some View {
+        if destination == .home {
+            NavigationStack {
+                List {
+                    if let active = store.data?.inProgress {
+                        Button {
+                            select(.fitness)
+                            path = [.active]
+                        } label: { LabeledContent("진행 중 운동 계속", value: active.title) }
+                    }
+                    Button("무산소") {
+                        select(.fitness)
+                        path = [.strength]
+                    }
+                    Button("체중") { homeWeight = true }
+                }
+                .navigationTitle(destination.label)
+                .sheet(isPresented: $homeWeight) { BodyView(openToday: true) { homeWeight = false } }
+            }
+        } else if destination == .fitness {
             NavigationStack(path: $path) {
                 List {
                     if let active = store.data?.inProgress {
@@ -43,54 +103,66 @@ private struct WorkoutTabs: View {
                         }
                     }
 
-                    Section("내 루틴") {
-                        let routines = store.data?.routines ?? []
-                        if routines.isEmpty {
-                            Text("더하기 버튼으로 첫 루틴을 만들어 보세요.")
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(routines) { routine in
-                            NavigationLink(value: Route.routine(routine.id)) {
-                                LabeledContent(routine.name, value: "\(routine.exercises.count)개 종목")
-                            }
-                            .accessibilityIdentifier("routine-\(routine.name)")
-                        }
+                    Section("운동 기록") {
+                        NavigationLink("무산소 운동", value: Route.strength)
                     }
-
-                }
-                .navigationTitle("운동")
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { creatingRoutine = true } label: {
-                            Label("루틴 만들기", systemImage: "plus")
-                        }
-                        .accessibilityIdentifier("create-routine")
+                    Section("생활 기록") {
+                        Button("체중 기록") { fitnessWeight = true }
                     }
                 }
-                .sheet(isPresented: $creatingRoutine) { RoutineEditor(routine: nil) }
+                .navigationTitle(destination.label)
+                .sheet(isPresented: $fitnessWeight) { BodyView(openToday: true) { fitnessWeight = false } }
                 .navigationDestination(for: Route.self) { route in
                     switch route {
+                    case .strength:
+                        strengthRoutines
                     case .routine(let id):
-                        RoutineView(routineID: id) { path = [.active] }
+                        RoutineView(routineID: id) { path = [.strength, .active] }
                     case .active:
                         ActiveWorkoutView { completed in
                             path = []
-                            if completed { tab = .history }
+                            if completed { select(.records) }
                         }
                     }
                 }
             }
-            .tabItem { Label("운동", systemImage: "dumbbell") }
-            .tag(Tab.workout)
-
-            NavigationStack { WorkoutHistoryView() }
-                .tabItem { Label("기록", systemImage: "clock") }
-                .tag(Tab.history)
-
-            BodyView()
-                .tabItem { Label("체중", systemImage: "scalemass") }
-                .tag(Tab.body)
+        } else if destination == .records {
+            NavigationStack(path: $recordsPath) {
+                WorkoutHistoryView()
+                    .navigationDestination(for: UUID.self) { id in
+                        if let workout = store.data?.history.first(where: { $0.id == id }) {
+                            WorkoutHistoryDetail(workout: workout)
+                        }
+                    }
+            }
+        } else {
+            NavigationStack { DisplaySettingsView().navigationTitle(destination.label) }
         }
+    }
+
+    private var strengthRoutines: some View {
+        List {
+            Section("내 루틴") {
+                let routines = store.data?.routines ?? []
+                if routines.isEmpty {
+                    Text("더하기 버튼으로 첫 루틴을 만들어 보세요.").foregroundStyle(.secondary)
+                }
+                ForEach(routines) { routine in
+                    NavigationLink(value: Route.routine(routine.id)) {
+                        LabeledContent(routine.name, value: "\(routine.exercises.count)개 종목")
+                    }
+                    .accessibilityIdentifier("routine-\(routine.name)")
+                }
+            }
+        }
+        .navigationTitle("무산소 운동")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { creatingRoutine = true } label: { Label("루틴 만들기", systemImage: "plus") }
+                    .accessibilityIdentifier("create-routine")
+            }
+        }
+        .sheet(isPresented: $creatingRoutine) { RoutineEditor(routine: nil) }
     }
 }
 
@@ -308,7 +380,7 @@ private struct SetEditor: View {
             String($0.inputWeight).replacingOccurrences(of: ".", with: Locale.current.decimalSeparator ?? ".")
         } ?? "")
         _reps = State(initialValue: set.map { String($0.reps) } ?? "")
-        _unit = State(initialValue: set?.unit ?? .kg)
+        _unit = State(initialValue: set?.unit ?? (IosDisplaySettings.shared.unit == .lb ? .lb : .kg))
         _rir = State(initialValue: set?.rir)
     }
 
@@ -371,20 +443,25 @@ private struct SetEditor: View {
 }
 
 private struct WorkoutHistoryView: View {
+    private enum BodyEntry: String, Identifiable {
+        case history, today
+        var id: String { rawValue }
+    }
     @EnvironmentObject private var store: WorkoutStore
     @State private var showDailyWorkout = false
     @State private var showSyncAccount = false
+    @State private var bodyEntry: BodyEntry?
 
     var body: some View {
         List {
+            Menu("기록 추가") { Button("체중") { bodyEntry = .today } }
+            Button("체중 기록") { bodyEntry = .history }
             let history = store.data?.history ?? []
             if history.isEmpty {
                 Text("완료한 운동이 여기에 표시됩니다.").foregroundStyle(.secondary)
             }
             ForEach(history) { workout in
-                NavigationLink {
-                    WorkoutHistoryDetail(workout: workout)
-                } label: {
+                NavigationLink(value: workout.id) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(workout.title)
                         Text("\((workout.completedAt ?? workout.startedAt).formatted(date: .abbreviated, time: .shortened)) · \(workout.setCount)세트")
@@ -408,6 +485,16 @@ private struct WorkoutHistoryView: View {
             DailyWorkoutView(history: store.data?.history ?? [])
         }
         .sheet(isPresented: $showSyncAccount) { WorkoutCloudAccountView() }
+        .sheet(item: $bodyEntry) { entry in
+            NavigationStack {
+                BodyView(openToday: entry == .today) { bodyEntry = nil }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("닫기") { bodyEntry = nil }
+                        }
+                    }
+            }
+        }
     }
 }
 

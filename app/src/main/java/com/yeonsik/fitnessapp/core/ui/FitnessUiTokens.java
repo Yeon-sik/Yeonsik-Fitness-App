@@ -80,7 +80,7 @@ public final class FitnessUiTokens {
     public static final int CARD_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.CARD_RADIUS_DP;
     public static final int HERO_RADIUS_DP = 24;
     public static final int INPUT_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.INPUT_RADIUS_DP;
-    public static final int BUTTON_RADIUS_DP = 14;
+    public static final int BUTTON_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.BUTTON_RADIUS_DP;
     public static final int CHIP_RADIUS_DP = 999;
     public static final int SHEET_RADIUS_DP = com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens.SHEET_RADIUS_DP;
     public static final int DEPTH_FLAT_DP = 0;

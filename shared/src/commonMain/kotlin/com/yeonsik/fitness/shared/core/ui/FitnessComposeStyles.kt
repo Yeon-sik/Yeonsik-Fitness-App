@@ -35,6 +35,7 @@ object FitnessComposeTokens {
     const val COLOR_D_NEGATIVE = 0xFFFF8A80.toInt()
     const val COLOR_NEGATIVE = 0xFFC0453E.toInt()
     const val INPUT_RADIUS_DP = 14
+    const val BUTTON_RADIUS_DP = 14
     const val CARD_RADIUS_DP = 20
     const val SHEET_RADIUS_DP = 24
     const val CARD_GAP_DP = 12

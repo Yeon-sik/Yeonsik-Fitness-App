@@ -3,8 +3,18 @@ package com.yeonsik.fitness.shared.feature.body.ui
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 
 class BodyMetricsEditorScreenTest {
+    @Test
+    fun poundsAreConvertedOnceAndRoundedDisplayKeepsTheOriginalKilograms() {
+        val kg = checkNotNull(bodyWeightKilograms("225", MassUnit.LB, "", null))
+        assertEquals(102.05828325, kg, 1e-10)
+        assertEquals(kg, bodyWeightKilograms("102.06", MassUnit.KG, "102.06", kg))
+        assertEquals(103.0, bodyWeightKilograms("103", MassUnit.KG, "102.06", kg))
+        assertNull(bodyWeightKilograms("NaN", MassUnit.LB, "", null))
+    }
+
     @Test
     fun commaDecimalShowsInlineCorrection() {
         assertEquals(

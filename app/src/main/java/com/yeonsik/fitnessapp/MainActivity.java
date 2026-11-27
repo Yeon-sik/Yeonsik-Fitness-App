@@ -547,15 +547,10 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         String currentThemeMode = settingsViewModel == null
                 ? THEME_LIGHT
                 : settingsViewModel.themeMode();
-        if (THEME_DARK.equals(currentThemeMode)) {
-            return true;
-        }
-        if (THEME_SYSTEM.equals(currentThemeMode)) {
-            int nightMask = getResources().getConfiguration().uiMode
-                    & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-            return nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        }
-        return false;
+        int nightMask = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return com.yeonsik.fitness.shared.feature.settings.DisplayPreferences.INSTANCE.theme(currentThemeMode)
+                .isDark(nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
 
     // ── 창 / 루트 뷰 ──────────────────────────────────────────────────

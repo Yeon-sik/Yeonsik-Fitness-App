@@ -20,6 +20,24 @@ import kotlin.test.assertNull
 @OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
 class IosBodyMetricsRepositoryTest {
     @Test
+    fun build305BodyFileRetainsItsIdsOwnersAndPrecisionWhenReopened() = withStoreFile { file ->
+        val fixture = """{"schemaVersion":1,"writeOrder":2,"owners":{
+            "ios-local":{"entries":[{"id":"legacy-a","date":"2026-11-20","weightKg":102.05828325,"memo":"fixture","writeOrder":1}]},
+            "other":{"entries":[{"id":"legacy-b","date":"2026-11-20","weightKg":81.5,"memo":"","writeOrder":2}]}}}"""
+        check(NSString.create(string = fixture)
+            .writeToURL(file, atomically = true, encoding = NSUTF8StringEncoding, error = null))
+        val owner = AccountScope("ios-local")
+        val store = IosBodyMetricsRepository(file)
+        assertEquals(102.05828325, store.bodyMetricEntryById(owner, "legacy-a")?.weightKg)
+        assertNull(store.bodyMetricEntryById(owner, "legacy-b"))
+        assertEquals(fixture, NSString.create(contentsOfURL = file, encoding = NSUTF8StringEncoding, error = null)?.toString())
+        store.addBodyMetric(owner, "2026-11-21", 72.75, "")
+        val reopened = IosBodyMetricsRepository(file)
+        assertEquals("fixture", reopened.bodyMetricEntryById(owner, "legacy-a")?.memo)
+        assertEquals(81.5, reopened.bodyMetricEntryById(AccountScope("other"), "legacy-b")?.weightKg)
+    }
+
+    @Test
     fun persistsBodyCrudProfileAndOwnerIsolationAcrossInstances() = withStoreFile { file ->
         val ownerA = AccountScope("owner-a")
         val ownerB = AccountScope("owner-b")

@@ -131,13 +131,6 @@ internal fun SettingsSupportingText(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-internal fun themeModeLabel(mode: String): String = when (mode) {
-    "light" -> "밝게"
-    "dark" -> "어둡게"
-    "system" -> "기기 설정"
-    else -> "기본 테마"
-}
-
 internal fun syncDetailForDisplay(state: SettingsUiState): String = when {
     state.isManualSyncing -> state.syncProgressDetail.ifBlank {
         SettingsUiPolicy.safeSyncDetailForSurface("syncing")

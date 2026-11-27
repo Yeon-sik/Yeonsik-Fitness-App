@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -39,7 +40,8 @@ fun BodyMetricsEditorDialog(
     unit: MassUnit,
     formatInput: (Double, MassUnit) -> String,
     onRecordsChanged: () -> Unit,
-    notify: (String) -> Unit
+    notify: (String) -> Unit,
+    onCancel: () -> Unit = {}
 ) {
     val state by controller.state.collectAsState()
     LaunchedEffect(state, account) {
@@ -60,7 +62,10 @@ fun BodyMetricsEditorDialog(
         formatInput = formatInput,
         onSave = { date, weightKg -> controller.save(ready, date, weightKg) },
         onDelete = { controller.delete(ready) },
-        onDismiss = { controller.dismiss(ready) },
+        onDismiss = {
+            controller.dismiss(ready)
+            onCancel()
+        },
         notify = notify
     )
 }
@@ -79,11 +84,14 @@ private fun BodyMetricsEditorContent(
 ) {
     var date by rememberSaveable(requestId) { mutableStateOf(editor.date) }
     var showDatePicker by rememberSaveable(requestId) { mutableStateOf(false) }
-    var weight by rememberSaveable(requestId) {
-        mutableStateOf(if (editor.exists()) formatInput(editor.weightKg, unit) else "")
+    val unitId = rememberSaveable(requestId) { unit.id }
+    val editUnit = MassUnit.orDefault(MassUnit.parse(unitId))
+    val originalText = remember(requestId, editor, editUnit) {
+        if (editor.exists()) formatInput(editor.weightKg, editUnit) else ""
     }
+    var weight by rememberSaveable(requestId) { mutableStateOf(originalText) }
     var weightSaveAttempted by rememberSaveable(requestId) { mutableStateOf(false) }
-    val parsedWeight = weight.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+    val weightKg = bodyWeightKilograms(weight, editUnit, originalText, editor.weightKg.takeIf { editor.exists() })
     val weightErrorMessage = bodyMetricsWeightErrorMessage(weight, weightSaveAttempted)
 
     AlertDialog(
@@ -106,7 +114,7 @@ private fun BodyMetricsEditorContent(
                 BodyWeightInput(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = "체중 ${unit.symbol()}",
+                    label = "체중 ${editUnit.symbol()}",
                     error = weightErrorMessage,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -117,10 +125,10 @@ private fun BodyMetricsEditorContent(
                 val selectedDate = runCatching { LocalDate.parse(date) }.getOrNull()
                 if (selectedDate == null) {
                     notify("달력에서 날짜를 선택하세요.")
-                } else if (parsedWeight == null) {
+                } else if (weightKg == null) {
                     weightSaveAttempted = true
                 } else {
-                    onSave(selectedDate.toString(), unit.toKg(parsedWeight))
+                    onSave(selectedDate.toString(), weightKg)
                 }
             }, modifier = Modifier.testTag("weight-save")) { Text("저장") }
         },
@@ -175,6 +183,12 @@ internal expect fun BodyDialogBackGesture(onBack: () -> Unit)
 internal expect fun BodyWeightInput(
     value: String, onValueChange: (String) -> Unit, label: String, error: String?, modifier: Modifier
 )
+
+internal fun bodyWeightKilograms(input: String, unit: MassUnit, originalText: String, originalKg: Double?): Double? {
+    val text = input.trim()
+    if (originalKg != null && text == originalText) return originalKg
+    return text.toDoubleOrNull()?.takeIf { it.isFinite() }?.let(unit::toKg)
+}
 
 internal fun bodyMetricsWeightErrorMessage(value: String, saveAttempted: Boolean): String? {
     val input = value.trim()

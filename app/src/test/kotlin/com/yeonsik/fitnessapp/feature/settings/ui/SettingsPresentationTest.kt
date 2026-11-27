@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.settings.ui
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.ThemeModePreferences
+import com.yeonsik.fitness.shared.feature.settings.DisplayPreferences
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import org.junit.Assert.assertEquals
@@ -10,9 +11,9 @@ import org.junit.Test
 class SettingsPresentationTest {
     @Test
     fun themeModesUseFriendlyLabelsWithoutChangingStoredIds() {
-        assertEquals("밝게", themeModeLabel("light"))
-        assertEquals("어둡게", themeModeLabel("dark"))
-        assertEquals("기기 설정", themeModeLabel("system"))
+        assertEquals("밝게", DisplayPreferences.theme("light").label)
+        assertEquals("어둡게", DisplayPreferences.theme("dark").label)
+        assertEquals("기기 설정", DisplayPreferences.theme("system").label)
         assertEquals("dark", ThemeModePreferences.DEFAULT_THEME_MODE)
     }
 

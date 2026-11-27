@@ -4,11 +4,12 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+import com.yeonsik.fitness.shared.feature.settings.DisplayPreferences;
 
 /** Persists the preferred display/input unit while keeping the local data contract in kg. */
 public final class MassUnitPreferences {
     public static final String PREFERENCES_NAME = "fitness_ui_prefs";
-    public static final String KEY_PREFERRED_MASS_UNIT = "preferred_mass_unit";
+    public static final String KEY_PREFERRED_MASS_UNIT = DisplayPreferences.MASS_UNIT_KEY;
     public static final MassUnit DEFAULT_MASS_UNIT = MassUnit.KG;
 
     private final SharedPreferences preferences;
@@ -23,10 +24,10 @@ public final class MassUnitPreferences {
     }
 
     public MassUnit preferredMassUnit() {
-        return MassUnit.orDefault(MassUnit.parse(preferences.getString(
+        return DisplayPreferences.INSTANCE.massUnit(preferences.getString(
                 KEY_PREFERRED_MASS_UNIT,
                 DEFAULT_MASS_UNIT.id()
-        )));
+        ));
     }
 
     public void setPreferredMassUnit(MassUnit unit) {

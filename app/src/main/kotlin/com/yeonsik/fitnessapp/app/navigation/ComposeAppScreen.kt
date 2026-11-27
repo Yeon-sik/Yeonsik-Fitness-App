@@ -61,6 +61,8 @@ import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.core.ui.ProductTab
+import com.yeonsik.fitness.shared.feature.settings.DisplayPreferences
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitnessapp.feature.dailyworkout.WorkoutRecordWatchSection
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -218,11 +220,7 @@ private fun AppRoot(
         ?: viewModels.getSettings().preferredMassUnit()
     val themeMode = settingsState?.themeMode
         ?: viewModels.getSettings().themeMode()
-    val dark = themeMode == "dark" ||
-        (themeMode == "system" &&
-            androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
-                android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES)
+    val dark = DisplayPreferences.theme(themeMode).isDark(androidx.compose.foundation.isSystemInDarkTheme())
     val launcherContext = LocalContext.current.applicationContext
     LaunchedEffect(launcherContext, dark) {
         LauncherIconController.synchronize(launcherContext, dark)
@@ -1341,8 +1339,6 @@ private fun RestTimerBar(
     }
 }
 
-private data class NavigationItem(val label: String, val screen: FitnessScreen)
-
 @Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
@@ -1373,12 +1369,7 @@ internal fun BottomNavigation(
     highContrastEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val items = listOf(
-        NavigationItem("메인", FitnessScreen.HOME),
-        NavigationItem("피트니스", FitnessScreen.WORKOUT),
-        NavigationItem("기록", FitnessScreen.RECORDS),
-        NavigationItem("설정", FitnessScreen.SETTINGS)
-    )
+    val items = ProductTab.ordered
     val active = navigationRoot(screen)
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
     val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)

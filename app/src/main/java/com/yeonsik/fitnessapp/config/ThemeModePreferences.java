@@ -2,12 +2,13 @@ package com.yeonsik.fitnessapp.config;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import com.yeonsik.fitness.shared.feature.settings.DisplayPreferences;
 
 /** Persists the app theme choice used by the Settings feature and window adapter. */
 public final class ThemeModePreferences {
     public static final String PREFERENCES_NAME = "fitness_ui_prefs";
-    public static final String KEY_THEME_MODE = "theme_mode";
-    public static final String DEFAULT_THEME_MODE = "dark";
+    public static final String KEY_THEME_MODE = DisplayPreferences.THEME_KEY;
+    public static final String DEFAULT_THEME_MODE = DisplayPreferences.DEFAULT_THEME_ID;
 
     private final SharedPreferences preferences;
 
@@ -21,7 +22,7 @@ public final class ThemeModePreferences {
     }
 
     public String themeMode() {
-        return preferences.getString(KEY_THEME_MODE, DEFAULT_THEME_MODE);
+        return DisplayPreferences.INSTANCE.theme(preferences.getString(KEY_THEME_MODE, DEFAULT_THEME_MODE)).getId();
     }
 
     public void setThemeMode(String mode) {

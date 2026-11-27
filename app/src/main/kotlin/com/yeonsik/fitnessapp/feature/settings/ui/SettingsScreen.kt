@@ -27,6 +27,7 @@ import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.settings.DisplaySettings
 import com.yeonsik.fitness.shared.feature.cardio.model.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
@@ -79,22 +80,7 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     if (!advancedConnectionsVisible && !state.sharedConfig.isConfigured) {
         AccountControls(state.sharedConfig, SettingsConnection.SHARED, actions, accountControlsEnabled)
     }
-    SettingsSectionTitle("표시")
-    SettingsChoiceGroup(
-        title = "무게 단위",
-        choices = MassUnit.values().map { it.name to it.labelKo() },
-        selectedKey = state.preferredMassUnit.name,
-        onSelect = { actions.setPreferredMassUnit(MassUnit.valueOf(it)) },
-        modifier = Modifier.fillMaxWidth()
-    )
-    SettingsSupportingText("선택한 단위로 표시하고 입력합니다. 기존 기록은 유지됩니다.")
-    SettingsChoiceGroup(
-        title = "테마",
-        choices = listOf("dark", "light", "system").map { it to themeModeLabel(it) },
-        selectedKey = state.themeMode,
-        onSelect = actions::setThemeMode,
-        modifier = Modifier.fillMaxWidth()
-    )
+    DisplaySettings(state.preferredMassUnit, state.themeMode, actions::setPreferredMassUnit, actions::setThemeMode)
     SettingsSectionTitle("데이터 관리")
     AppOutlinedButton(onClick = {
         context.startActivity(android.content.Intent(context,

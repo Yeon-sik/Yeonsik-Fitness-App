@@ -4,9 +4,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import com.yeonsik.fitness.shared.core.ui.ProductTab
 import com.yeonsik.fitnessapp.state.FitnessNavigationHistory
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import java.time.LocalDate
+
+internal val ProductTab.screen: FitnessScreen get() = when (this) {
+    ProductTab.HOME -> FitnessScreen.HOME
+    ProductTab.FITNESS -> FitnessScreen.WORKOUT
+    ProductTab.RECORDS -> FitnessScreen.RECORDS
+    ProductTab.SETTINGS -> FitnessScreen.SETTINGS
+}
 
 /**
  * App-level navigation state that survives Activity recreation.
@@ -180,8 +188,8 @@ class AppNavigationViewModel(
 
     /** A bottom-tab click returns to that tab's root and resets its scroll position. */
     fun selectTopLevelFromTab(screen: FitnessScreen) {
-        if (screen !in TOP_LEVEL_SCREENS) return
-        if (screen != history.current()) {
+        val tab = TOP_LEVEL_SCREENS[screen] ?: return
+        if (tab.needsRootChange(TOP_LEVEL_SCREENS[history.current()])) {
             topLevelEntrance = if (history.current() in TOP_LEVEL_SCREENS &&
                 screen in ANIMATED_TOP_LEVEL_SCREENS
             ) newEntrance(screen) else null
@@ -218,9 +226,7 @@ class AppNavigationViewModel(
 
     /** Returns the page that can be revealed during a top-level drag. */
     fun adjacentTopLevel(forward: Boolean): FitnessScreen? {
-        val currentIndex = TOP_LEVEL_SCREENS.indexOf(history.current())
-        if (currentIndex < 0) return null
-        return TOP_LEVEL_SCREENS.getOrNull(currentIndex + if (forward) 1 else -1)
+        return TOP_LEVEL_SCREENS[history.current()]?.adjacent(forward)?.screen
     }
 
     fun selectRecordsHubTab(tab: RecordsHubTab) {
@@ -355,12 +361,7 @@ class AppNavigationViewModel(
         val ANIMATED_TOP_LEVEL_SCREENS = setOf(
             FitnessScreen.HOME, FitnessScreen.WORKOUT, FitnessScreen.RECORDS
         )
-        val TOP_LEVEL_SCREENS = listOf(
-            FitnessScreen.HOME,
-            FitnessScreen.WORKOUT,
-            FitnessScreen.RECORDS,
-            FitnessScreen.SETTINGS
-        )
+        val TOP_LEVEL_SCREENS = ProductTab.ordered.associateBy { it.screen }
 
         const val KEY_SCREEN = "navigation.screen"
         const val KEY_HISTORY = "navigation.history"

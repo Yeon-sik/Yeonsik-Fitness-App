@@ -1,6 +1,5 @@
 package com.yeonsik.fitness.shared.feature.body.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,9 +26,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitness.shared.core.ui.fitnessColorScheme
-import com.yeonsik.fitness.shared.core.ui.fitnessShapes
-import com.yeonsik.fitness.shared.core.ui.fitnessTypography
+import com.yeonsik.fitness.shared.feature.settings.IosDisplaySettings
+import com.yeonsik.fitness.shared.feature.settings.IosFitnessTheme
 import com.yeonsik.fitness.shared.feature.body.application.BodyMetricsApplicationService
 import com.yeonsik.fitness.shared.feature.body.data.IosBodyMetricsRepository
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
@@ -50,19 +48,14 @@ import platform.UIKit.UIViewController
 import kotlin.time.Clock
 
 @OptIn(ExperimentalForeignApi::class)
-fun makeBodyMetricsViewController(): UIViewController = ComposeUIViewController {
-    val dark = isSystemInDarkTheme()
-    MaterialTheme(
-        colorScheme = remember(dark) { fitnessColorScheme(dark) },
-        typography = remember { fitnessTypography() },
-        shapes = remember { fitnessShapes() }
-    ) {
-        BodyMetricsHistory()
+fun makeBodyMetricsViewController(openToday: Boolean, onClose: () -> Unit): UIViewController = ComposeUIViewController {
+    IosFitnessTheme {
+        BodyMetricsHistory(IosDisplaySettings.unit, openToday, onClose)
     }
 }
 
 @Composable
-private fun BodyMetricsHistory() {
+private fun BodyMetricsHistory(unit: MassUnit, openToday: Boolean, onClose: () -> Unit) {
     val account = remember { AccountScope("ios-local") }
     val service = remember { BodyMetricsApplicationService(IosBodyMetricsRepository(), account.ownerId) }
     val scope = rememberCoroutineScope()
@@ -72,6 +65,13 @@ private fun BodyMetricsHistory() {
     var readError by remember { mutableStateOf<String?>(null) }
     var revision by remember { mutableStateOf(0) }
 
+    fun openTodayEditor() {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        editor.open(account, today.toString(), null)
+    }
+    if (openToday) {
+        LaunchedEffect(Unit) { openTodayEditor() }
+    }
     LaunchedEffect(revision) {
         try {
             records = withContext(Dispatchers.Default) { service.recentEntries(account) }
@@ -94,10 +94,7 @@ private fun BodyMetricsHistory() {
             }
             item {
                 OutlinedButton(
-                    onClick = {
-                        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-                        editor.open(account, today.toString(), null)
-                    },
+                    onClick = ::openTodayEditor,
                     modifier = Modifier.fillMaxWidth().testTag("weight-add")
                 ) { Text("체중 기록 추가") }
             }
@@ -113,7 +110,7 @@ private fun BodyMetricsHistory() {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(entry.date, style = MaterialTheme.typography.labelLarge)
                     BodyWeightRecordCard(
-                        weightLabel = formatWeight(entry.weightKg, 1, true) + MassUnit.KG.symbol(),
+                        weightLabel = formatWeight(unit.fromKg(entry.weightKg), 1, true) + unit.symbol(),
                         onEdit = { editor.open(account, entry.date, entry.id) },
                         modifier = Modifier.fillMaxWidth().testTag("weight-record")
                     )
@@ -125,10 +122,11 @@ private fun BodyMetricsHistory() {
     BodyMetricsEditorDialog(
         controller = editor,
         account = account,
-        unit = MassUnit.KG,
+        unit = unit,
         formatInput = { kilograms, unit -> formatWeight(MassUnit.fromKg(kilograms, unit), 2, false) },
-        onRecordsChanged = { revision++ },
-        notify = { message -> scope.launch { snackbar.showSnackbar(message) } }
+        onRecordsChanged = { revision++; if (openToday) onClose() },
+        notify = { message -> scope.launch { snackbar.showSnackbar(message) } },
+        onCancel = { if (openToday) onClose() }
     )
 }
 
