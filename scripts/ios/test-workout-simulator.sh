@@ -56,7 +56,7 @@ records_path() {
 xcrun simctl bootstatus "$simulator" -b
 records="$(records_path FitnessWorkout/workouts.json)"
 body_records="$(records_path FitnessBody/body-metrics.json)"
-python3 - "$records" "$body_records" <<'PY'
+python3 - "$records" "$body_records" "$output/ios.json" <<'PY'
 import json
 import math
 import sys
@@ -73,6 +73,15 @@ assert workout["routineID"] in {routine["id"] for routine in data["routines"]}
 assert logged_set["unit"] == "lb" and logged_set["inputWeight"] == 100
 assert logged_set["reps"] == 10 and logged_set["rir"] == 2
 assert math.isclose(logged_set["weightKg"], 45.359237)
+completed = [row for item in workout["exercises"] for row in item["sets"] if row["isCompleted"]]
+assert workout["completedAt"] is not None
+Path(sys.argv[3]).write_text(json.dumps({
+    "title": workout["title"], "exercise": exercise["name"], "status": "completed",
+    "completedSets": len(completed), "setIndex": exercise["sets"].index(logged_set) + 1,
+    "inputWeight": logged_set["inputWeight"], "unit": logged_set["unit"], "weightKg": logged_set["weightKg"],
+    "reps": logged_set["reps"], "rir": logged_set["rir"],
+    "volumeKg": sum((row.get("weightKg") or 0) * (row.get("reps") or 0) for row in completed)
+}), encoding="utf-8")
 body = json.loads(Path(sys.argv[2]).read_text())
 assert body["schemaVersion"] == 1
 assert math.isclose(body["owners"]["ios-local"]["entries"][0]["weightKg"], 72.75)

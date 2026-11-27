@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class WorkoutFlowTests: XCTestCase {
     override func setUpWithError() throws {
@@ -28,23 +29,33 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
-        let name = "CI Workout \(UUID().uuidString.prefix(8))"
+        let name = "ParityBench"
+        let exerciseName = "바벨 플랫 벤치 프레스"
         tap(app.tabBars.buttons["설정"])
         tap(bodyControl(app, identifier: "display-lb", label: "파운드"))
         tap(app.tabBars.buttons["피트니스"])
         tap(app.buttons["무산소 운동"])
         tap(app.buttons["create-routine"])
         enter(name, into: app.textFields["routine-name"])
-        enter("Bench Press", into: app.textFields["exercise-name"])
+        let exerciseField = app.textFields["exercise-name"]
+        UIPasteboard.general.setItems([["public.utf8-plain-text": exerciseName]],
+                                      options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(180)])
+        tap(exerciseField)
+        exerciseField.press(forDuration: 1.0)
+        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Paste", "붙여넣기"])).firstMatch
+        tap(paste)
+        XCTAssertEqual(exerciseField.value as? String, exerciseName)
         tap(app.buttons["save-routine"])
-        let routine = app.descendants(matching: .any)["routine-\(name)"]
+        let routines = app.descendants(matching: .any).matching(identifier: "routine-\(name)")
+        XCTAssertTrue(routines.firstMatch.waitForExistence(timeout: 15))
+        let routine = routines.element(boundBy: routines.count - 1)
         tap(routine)
         tap(app.buttons["start-workout"])
 
         let finish = app.buttons["finish-workout"]
         XCTAssertTrue(finish.waitForExistence(timeout: 15))
         XCTAssertFalse(finish.isEnabled)
-        let exercise = app.descendants(matching: .any)["exercise-Bench Press"]
+        let exercise = app.descendants(matching: .any)["exercise-\(exerciseName)"]
         tap(exercise)
         func field(_ label: String, _ index: Int = 0) -> XCUIElement {
             app.textFields.matching(NSPredicate(format: "label == %@", label)).element(boundBy: index)
@@ -121,7 +132,18 @@ final class WorkoutFlowTests: XCTestCase {
         tap(app.tabBars.buttons["피트니스"])
         tap(resume)
         tap(finish)
-        let history = app.descendants(matching: .any)["history-\(name)"]
+        XCTAssertTrue(app.navigationBars["운동 요약"].waitForExistence(timeout: 15))
+        let volume = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "1,000lb")).firstMatch
+        XCTAssertTrue(volume.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "완료 세트 1")).firstMatch.exists)
+        let summary = XCTAttachment(screenshot: app.screenshot())
+        summary.name = "완료 직후 운동 요약"
+        summary.lifetime = .keepAlways
+        add(summary)
+        let recordsButton = bodyControl(app, identifier: "summary-records", label: "기록에서 보기")
+        for _ in 0..<12 where !recordsButton.isHittable { app.swipeUp() }
+        tap(recordsButton)
+        let history = app.descendants(matching: .any).matching(identifier: "history-\(name)").firstMatch
         XCTAssertTrue(history.waitForExistence(timeout: 15))
 
         app.terminate()
@@ -132,7 +154,7 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertFalse(resume.exists)
         tap(app.tabBars.buttons["기록"])
         tap(history)
-        XCTAssertTrue(app.staticTexts["Bench Press"].exists)
+        XCTAssertTrue(app.staticTexts[exerciseName].exists)
         XCTAssertTrue(app.staticTexts["100 lb · 10회"].exists)
         XCTAssertTrue(app.staticTexts["RIR 2"].exists)
         XCTAssertTrue(app.staticTexts["추정 1RM 60.5 kg"].exists)

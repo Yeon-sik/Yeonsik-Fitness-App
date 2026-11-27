@@ -137,6 +137,14 @@ jobs:
             app/build/outputs/androidTest-results/
           if-no-files-found: ignore
 
+      - name: Keep the synthetic Room record
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordinary-workout-android
+          path: build/parity/android.json
+          if-no-files-found: error
+          overwrite: true
+
   ios-host:
     name: iPhone IPA and iOS simulator gates
     runs-on: macos-15
@@ -176,6 +184,14 @@ jobs:
       - name: Run workout and shared body UI, relaunch and reinstall checks
         run: bash scripts/ios/test-workout-simulator.sh
 
+      - name: Keep the synthetic iOS record
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordinary-workout-ios
+          path: build/ios-sideload/ios.json
+          if-no-files-found: error
+          overwrite: true
+
       - name: Build unsigned iPhone IPA
         if: github.event_name != 'pull_request'
         run: bash scripts/ios/package-device-ipa.sh
@@ -201,3 +217,18 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 7
+
+  workout-parity:
+    name: Compare completed Android and iOS records
+    needs: [android-instrumented, ios-host]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ordinary-workout-*
+          path: build/parity
+          merge-multiple: true
+      - run: python3 scripts/cloud/compare-ordinary-workout.py build/parity/android.json build/parity/ios.json

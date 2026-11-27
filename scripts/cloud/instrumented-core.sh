@@ -84,6 +84,12 @@ for class in "${classes[@]}"; do
   fi
   # The emulator log holds synthetic test data only; keep it for crash diagnosis.
   "$adb" -s "$serial" logcat -d > "$core_results/$class/logcat.txt" 2>&1 || true
+  if [[ "$class" == *.OrdinaryWorkoutParityTest && $status -eq 0 ]]; then
+    mkdir -p build/parity
+    "$adb" -s "$serial" logcat -d -v raw -s 'WorkoutParity:I' '*:S' |
+      sed -n 's/^FITNESS_PARITY //p' > build/parity/android.json
+    test -s build/parity/android.json
+  fi
   echo "::endgroup::"
   if (( status != 0 )); then
     failed+=("$class")

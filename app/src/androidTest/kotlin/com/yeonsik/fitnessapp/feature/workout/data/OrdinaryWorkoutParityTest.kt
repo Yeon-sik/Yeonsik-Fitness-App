@@ -1,6 +1,16 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
 import android.content.Context
+import android.util.Log
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yeonsik.fitness.shared.core.account.AccountScope
@@ -9,15 +19,20 @@ import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.workout.ui.CompletedWorkoutSummary
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
+import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter
 import java.util.UUID
+import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
 
 /** Reopen a private synthetic Room file at each stop in the single-exercise workout. */
 class OrdinaryWorkoutParityTest {
+    @get:Rule val compose = createComposeRule()
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val database = "ordinary-parity-${UUID.randomUUID()}.db"
     private val owner = AccountScope("ordinary-set-fixture")
@@ -78,6 +93,32 @@ class OrdinaryWorkoutParityTest {
                 assertEquals(45.359237, saved.weightKg, 1e-10)
                 assertEquals(10, saved.actualReps)
                 assertEquals(2, saved.rir)
+                var recordsOpened = false
+                compose.setContent {
+                    FitnessComposeTheme(false) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            CompletedWorkoutSummary(session, MassUnit.LB, {}, { recordsOpened = true }, { _, _ -> })
+                        }
+                    }
+                }
+                compose.onNodeWithTag("summary-sets").assertContentDescriptionEquals("완료 세트 1")
+                compose.onNodeWithTag("summary-volume").assertContentDescriptionEquals("총 볼륨 1,000lb")
+                compose.onNodeWithTag("summary-records").performScrollTo().performClick()
+                compose.runOnIdle { assertTrue(recordsOpened) }
+                // The CI comparator reads only this synthetic database's completed record.
+                Log.i("WorkoutParity", "FITNESS_PARITY " + JSONObject().apply {
+                    put("title", session.title)
+                    put("exercise", history.activeExercise.name)
+                    put("status", session.status)
+                    put("completedSets", session.completedSetCount)
+                    put("setIndex", saved.setIndex)
+                    put("inputWeight", saved.inputLoadValue)
+                    put("unit", saved.inputLoadUnit?.id)
+                    put("weightKg", saved.weightKg)
+                    put("reps", saved.actualReps)
+                    put("rir", saved.rir)
+                    put("volumeKg", session.totalVolumeKg)
+                })
             }
         } finally {
             context.deleteDatabase(database)
