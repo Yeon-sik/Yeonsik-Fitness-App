@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitView
 import com.yeonsik.fitness.shared.core.ui.FitnessComposeTokens
 import kotlinx.cinterop.ObjCAction
@@ -78,7 +79,11 @@ actual fun WorkoutSetValueField(
                 }
             },
             modifier = Modifier.weight(1f).height(48.dp),
-            properties = UIKitInteropProperties(isNativeAccessibilityEnabled = true),
+            // The row scrolls in Compose, but the editable rectangle itself belongs to UIKit.
+            properties = UIKitInteropProperties(
+                interactionMode = UIKitInteropInteractionMode.NonCooperative,
+                isNativeAccessibilityEnabled = true
+            ),
             update = { field ->
                 field.accessibilityLabel = label
                 field.enabled = enabled
