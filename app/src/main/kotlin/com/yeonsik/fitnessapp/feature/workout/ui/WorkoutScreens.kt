@@ -10,14 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -29,13 +24,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
@@ -50,10 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.editableText
-import androidx.compose.ui.semantics.setText
 import androidx.compose.ui.semantics.imeAction
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -67,6 +54,14 @@ import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetCompletionToggle
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetInputColumns
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetTableHeader
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetTableRow
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetRemoveButton
+import com.yeonsik.fitness.shared.feature.workout.ui.OrdinarySetOptions
+import com.yeonsik.fitness.shared.feature.workout.ui.OrdinarySetFields
+import com.yeonsik.fitness.shared.feature.workout.ui.WorkoutSetValueField
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.routine.ui.routineDominantMuscleLabel
@@ -74,8 +69,6 @@ import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
-import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
 import kotlinx.coroutines.delay
@@ -979,7 +972,9 @@ private fun WorkoutSetEditor(
     val childNumber = group.sets.indexOfFirst { it.id == set.id } + 1
     val setDescription = if (group.isDropGroup) "${workoutSetMarker(detail.sets, group.root)} ${childNumber}번째 하위 세트"
         else "${set.setIndex}세트"
-    val inputUnit = editableMassUnit(set.inputLoadUnit, unit)
+    val storedUnit = editableMassUnit(set.inputLoadUnit, unit)
+    var selectedUnit by rememberSaveable(set.id) { mutableStateOf<String?>(null) }
+    val inputUnit = MassUnit.parse(selectedUnit) ?: storedUnit
     val initialSuggestion = remember(set.id, inputUnit) {
         initialWorkoutSetSuggestion(set, previousSet, recordType, inputUnit, allowedLoadStates)
     }
@@ -990,9 +985,9 @@ private fun WorkoutSetEditor(
         set.addedWeightKg,
         set.inputLoadValue,
         set.inputLoadUnit,
-        inputUnit
+        storedUnit
     )
-    var weight by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
+    var weight by rememberSaveable(set.id, storedUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
     var reps by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.reps ?: set.actualReps.takeIf { it > 0 }?.toString().orEmpty()) }
     var duration by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.duration ?: set.durationSeconds.takeIf { it > 0 }?.toString().orEmpty()) }
     var assisted by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
@@ -1024,12 +1019,23 @@ private fun WorkoutSetEditor(
         else -> "중량(${inputUnit.symbol()})"
     }
     val secondFieldLabel = columns.secondLabel.orEmpty()
+    val isOrdinary = recordType == FitnessRecordContract.WEIGHT_REPS && (loadState == null || loadState == LoadState.EXTERNAL_LOAD)
     val saveCurrentSet: (Boolean) -> Unit = save@ { nextCompleted ->
         if (saving) return@save
+        val ordinary = if (isOrdinary) {
+            OrdinarySetRules.read(weight, reps, rir, inputUnit, initialLoad.takeIf { storedUnit == inputUnit }.orEmpty(),
+                set.inputLoadValue.takeIf { set.inputLoadUnit == inputUnit }, set.weightKg)
+                ?: run {
+                    saveFailed = true
+                    actions.toast("중량은 0 이상의 숫자, 횟수와 RIR은 0 이상의 정수로 입력하세요.")
+                    return@save
+                }
+        } else null
         saving = true
         saveFailed = false
         val revisionToSave = draftRevision
-        val enteredWeight = weight.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
+        val enteredWeight = if (ordinary != null) ordinary.inputLoad else
+            weight.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
         val enteredAssisted = assisted.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
         val enteredAdded = added.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
         val selectedState = loadState
@@ -1044,6 +1050,7 @@ private fun WorkoutSetEditor(
             else -> null
         }
         val canonicalWeight = when {
+            ordinary != null -> ordinary.weightKg
             selectedState == LoadState.EXTERNAL_LOAD || selectedState == LoadState.BAND_RESISTED ||
                 recordType == FitnessRecordContract.WEIGHT_REPS ||
                 recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight?.let { MassUnit.toKg(it, inputUnit) }
@@ -1061,12 +1068,12 @@ private fun WorkoutSetEditor(
         }
         val input = WorkoutSetInput(
             canonicalWeight,
-            if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) set.actualReps.takeIf { it > 0 } else reps.toIntOrNull(),
+            if (ordinary != null) ordinary.reps else if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) set.actualReps.takeIf { it > 0 } else reps.toIntOrNull(),
             if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) duration.toIntOrNull() else set.durationSeconds.takeIf { it > 0 },
             set.distanceMeters.takeIf { it > 0.0 },
             canonicalAssisted,
             canonicalAdded,
-            if (FitnessRecordContract.supportsRir(recordType)) rir.toIntOrNull() else set.rir,
+            if (ordinary != null) ordinary.rir else if (FitnessRecordContract.supportsRir(recordType)) rir.toIntOrNull() else set.rir,
             set.restSeconds, nextCompleted, loadState,
             enteredLoad,
             enteredLoad?.let { inputUnit }
@@ -1135,6 +1142,9 @@ private fun WorkoutSetEditor(
         WorkoutSetTableRow(
             columns = columns,
             modifier = Modifier.testTag("workout-set-${set.id}"),
+            ordinary = if (isOrdinary) OrdinarySetFields(weight, reps, rir, inputUnit,
+                { weight = it; draftRevision++ }, { reps = it; draftRevision++ }, { rir = it; draftRevision++ },
+                nextAction, doneAction) else null,
             setContent = {
                 Box(Modifier.fillMaxWidth()) {
                     TextButton(
@@ -1173,6 +1183,21 @@ private fun WorkoutSetEditor(
                             enabled = !saving,
                             onClick = { showSetMenu = false; saveCurrentSet(completed) }
                         )
+                        if (isOrdinary) {
+                            OrdinarySetOptions(inputUnit, draftRevision != savedRevision, onCancel = {
+                                showSetMenu = false
+                                selectedUnit = null
+                                weight = initialLoad
+                                reps = set.actualReps.takeIf { it > 0 }?.toString().orEmpty()
+                                rir = set.rir?.toString().orEmpty()
+                                draftRevision = savedRevision
+                                saveFailed = false
+                                focus.clearFocus()
+                            }) { newUnit ->
+                                showSetMenu = false
+                                if (newUnit != inputUnit) { selectedUnit = newUnit.id; draftRevision++ }
+                            }
+                        }
                         DropdownMenuItem(
                             text = { Text(if (group.isDropGroup) "하위 세트 삭제" else "세트 삭제", color = MaterialTheme.colorScheme.error) },
                             enabled = canDelete,
@@ -1217,6 +1242,8 @@ private fun WorkoutSetEditor(
                 WorkoutSetCompletionToggle(
                     checked = completed && draftRevision == savedRevision,
                     onCheckedChange = saveCurrentSet,
+                    actionColor = LocalFitnessColors.current.action,
+                    onActionColor = LocalFitnessColors.current.onAction,
                     enabled = !saving,
                     saving = saving,
                     modifier = Modifier
@@ -1232,18 +1259,8 @@ private fun WorkoutSetEditor(
                 )
             },
             removeContent = {
-                IconButton(onClick = removeSet, enabled = canDelete,
-                    modifier = Modifier.size(FitnessSpacing.touch).testTag("workout-set-remove-${set.id}")
-                        .semantics { contentDescription = "$setDescription 삭제" }) {
-                    val color = if (canDelete) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    Canvas(Modifier.size(16.dp)) {
-                        drawLine(color, Offset(2.dp.toPx(), 2.dp.toPx()),
-                            Offset(size.width - 2.dp.toPx(), size.height - 2.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-                        drawLine(color, Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
-                            Offset(2.dp.toPx(), size.height - 2.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-                    }
-                }
+                WorkoutSetRemoveButton("$setDescription 삭제", canDelete, removeSet,
+                    Modifier.testTag("workout-set-remove-${set.id}"))
             },
             loadContent = {
                 Box(Modifier.fillMaxWidth()) {
@@ -1334,52 +1351,6 @@ private fun WorkoutSetEditor(
     }
 }
 
-/** Workout-owned completion control; its appearance always follows the app palette. */
-@Composable
-private fun WorkoutSetCompletionToggle(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean,
-    saving: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalFitnessColors.current
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp)
-    Box(modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-        .toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange),
-        contentAlignment = Alignment.Center) {
-        Box(Modifier.size(26.dp).clip(shape)
-            .background(if (checked) colors.action else MaterialTheme.colorScheme.surfaceVariant)
-            .border(if (checked) 0.dp else 1.5.dp,
-                if (checked) Color.Transparent else MaterialTheme.colorScheme.outline, shape),
-            contentAlignment = Alignment.Center) {
-            if (saving) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = colors.action)
-            else if (checked) Canvas(Modifier.size(16.dp)) {
-                drawLine(colors.onAction, Offset(size.width * 0.15f, size.height * 0.5f),
-                    Offset(size.width * 0.42f, size.height * 0.76f), strokeWidth = 2.dp.toPx(),
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                drawLine(colors.onAction, Offset(size.width * 0.42f, size.height * 0.76f),
-                    Offset(size.width * 0.86f, size.height * 0.23f), strokeWidth = 2.dp.toPx(),
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            }
-        }
-    }
-}
-
-private const val WORKOUT_SET_CONTENT_SCALE = 0.9f
-
-private data class WorkoutSetInputColumns(
-    val mainLabel: String,
-    val secondLabel: String?,
-    val hasRir: Boolean,
-    val hasLoadState: Boolean,
-    val widthScale: Float = 1f
-) {
-    val minimumWidth get() = (206.dp +
-        (if (secondLabel != null) 50.dp else 0.dp) + (if (hasRir) 50.dp else 0.dp) +
-        (if (hasLoadState) 66.dp else 0.dp)) * WORKOUT_SET_CONTENT_SCALE
-}
-
 private fun workoutSetInputColumns(recordType: String, hasLoadState: Boolean) = WorkoutSetInputColumns(
     mainLabel = when (recordType) {
         FitnessRecordContract.REPS_ONLY -> "횟수"
@@ -1398,75 +1369,6 @@ private fun workoutSetInputColumns(recordType: String, hasLoadState: Boolean) = 
 )
 
 @Composable
-private fun WorkoutSetTableHeader(columns: WorkoutSetInputColumns) {
-    Column(Modifier.fillMaxWidth().testTag("workout-set-table-header")) {
-        WorkoutSetTableRow(
-            columns = columns,
-            setContent = { WorkoutSetHeaderLabel("세트") },
-            mainContent = { WorkoutSetHeaderLabel(columns.mainLabel) },
-            secondContent = { WorkoutSetHeaderLabel(columns.secondLabel.orEmpty()) },
-            rirContent = { WorkoutSetHeaderLabel("RIR") },
-            completedContent = { WorkoutSetHeaderLabel("완료") },
-            loadContent = { WorkoutSetHeaderLabel("부하") },
-            removeContent = { WorkoutSetHeaderLabel("제거") }
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
-/** Header and editable rows share the same fitted columns. */
-@Composable
-private fun WorkoutSetTableRow(
-    columns: WorkoutSetInputColumns,
-    modifier: Modifier = Modifier,
-    setContent: @Composable () -> Unit,
-    mainContent: @Composable () -> Unit,
-    secondContent: @Composable () -> Unit,
-    rirContent: @Composable () -> Unit,
-    completedContent: @Composable () -> Unit,
-    loadContent: @Composable () -> Unit,
-    removeContent: @Composable () -> Unit
-) {
-    val columnScale = LocalDensity.current.fontScale.coerceAtLeast(1f) * WORKOUT_SET_CONTENT_SCALE * columns.widthScale
-    Row(
-        modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(2.dp * columnScale),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { setContent() }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { mainContent() }
-        if (columns.secondLabel != null) {
-            Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { secondContent() }
-        }
-        if (columns.hasRir) {
-            Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { rirContent() }
-        }
-        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { completedContent() }
-        if (columns.hasLoadState) {
-            Box(Modifier.width(64.dp * columnScale), contentAlignment = Alignment.Center) { loadContent() }
-        }
-        Box(Modifier.width(48.dp * columnScale), contentAlignment = Alignment.Center) { removeContent() }
-    }
-}
-
-@Composable
-private fun WorkoutSetHeaderLabel(label: String) {
-    val style = MaterialTheme.typography.labelMedium
-    Text(
-        label,
-        modifier = Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.small)
-            .semantics { heading() },
-        style = style.copy(fontSize = style.fontSize * WORKOUT_SET_CONTENT_SCALE,
-            lineHeight = style.lineHeight * WORKOUT_SET_CONTENT_SCALE),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-        softWrap = false,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
-@Composable
 private fun WorkoutSetMenuIndicator() {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     Canvas(Modifier.padding(start = 2.dp).size(8.dp).clearAndSetSemantics {}) {
@@ -1474,93 +1376,6 @@ private fun WorkoutSetMenuIndicator() {
         drawLine(color, Offset(0f, size.height * 0.3f), middle, strokeWidth = 1.5.dp.toPx())
         drawLine(color, middle, Offset(size.width, size.height * 0.3f), strokeWidth = 1.5.dp.toPx())
     }
-}
-
-@Composable
-private fun WorkoutSetValueField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    keyboardOptions: KeyboardOptions,
-    keyboardActions: KeyboardActions,
-    suffix: String? = null,
-    enabled: Boolean = true,
-    modifier: Modifier = Modifier
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val focused by interactionSource.collectIsFocusedAsState()
-    var editorCreated by remember { mutableStateOf(false) }
-    var requestEditorFocus by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val activateEditor = { editorCreated = true; requestEditorFocus = true }
-    val fieldModifier = modifier.fillMaxWidth()
-        .heightIn(min = FitnessSpacing.touch)
-        .border(if (focused) 2.dp else 1.dp,
-            if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-            FitnessShape.input)
-        .semantics { contentDescription = label }
-    val bodyStyle = MaterialTheme.typography.bodyMedium
-    val valueStyle = bodyStyle.copy(fontSize = bodyStyle.fontSize * WORKOUT_SET_CONTENT_SCALE,
-        lineHeight = bodyStyle.lineHeight * WORKOUT_SET_CONTENT_SCALE,
-        color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, fontFeatureSettings = "tnum")
-    val suffixStyle = MaterialTheme.typography.labelSmall
-    val decoration: @Composable (@Composable () -> Unit) -> Unit = { innerTextField ->
-        Row(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-            .padding(horizontal = 4.dp * WORKOUT_SET_CONTENT_SCALE, vertical = AppSpacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp * WORKOUT_SET_CONTENT_SCALE)) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                if (value.isEmpty()) Text("—", Modifier.clearAndSetSemantics {},
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall)
-                innerTextField()
-            }
-            if (suffix != null) Text(suffix, Modifier.clearAndSetSemantics {},
-                style = suffixStyle.copy(fontSize = suffixStyle.fontSize * WORKOUT_SET_CONTENT_SCALE,
-                    lineHeight = suffixStyle.lineHeight * WORKOUT_SET_CONTENT_SCALE),
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-    // Do not create text-input sessions for every untouched cell on first entry.
-    // A tap, keyboard focus or accessibility edit activates exactly that cell;
-    // it remains mounted afterward so selection/IME state is never discarded on blur.
-    if (!editorCreated) {
-        Box(fieldModifier
-            .onFocusChanged { if (it.isFocused && enabled) activateEditor() }
-            .focusable(enabled)
-            .focusProperties { canFocus = false }
-            .clickable(enabled = enabled, onClick = activateEditor)
-            .semantics {
-                editableText = AnnotatedString(value)
-                imeAction = keyboardOptions.imeAction
-                setText { text ->
-                    if (enabled) { onValueChange(text.text); true } else false
-                }
-            }, contentAlignment = Alignment.Center) {
-            decoration { Text(value, style = valueStyle, maxLines = 1, softWrap = false,
-                modifier = Modifier.clearAndSetSemantics {}) }
-        }
-        return
-    }
-    LaunchedEffect(requestEditorFocus) {
-        if (requestEditorFocus) {
-            focusRequester.requestFocus()
-            requestEditorFocus = false
-        }
-    }
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = fieldModifier.focusRequester(focusRequester),
-        singleLine = true,
-        enabled = enabled,
-        textStyle = valueStyle,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        interactionSource = interactionSource,
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        decorationBox = decoration
-    )
 }
 
 @Composable

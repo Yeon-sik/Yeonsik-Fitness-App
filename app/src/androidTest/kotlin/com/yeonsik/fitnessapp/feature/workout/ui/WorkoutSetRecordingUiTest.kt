@@ -193,6 +193,41 @@ class WorkoutSetRecordingUiTest {
         compose.onNode(weight).assertTextEquals("27.5")
     }
 
+    @Test fun ordinarySetUnitAndDraftCancellationPreserveTheSavedInput() {
+        val precise = 95.12345
+        val kg = MassUnit.LB.toKg(precise)
+        val fixture = show(detail(listOf(set("set-1", 1, 45).copy(
+            weightKg = kg, inputLoadValue = precise, inputLoadUnit = MassUnit.LB))))
+        val weightLb = hasContentDescription("중량(lb)") and hasSetTextAction()
+        val reps = hasContentDescription("횟수") and hasSetTextAction()
+        val menu = compose.onNodeWithContentDescription("1세트 설정")
+        compose.onNode(reps).performScrollTo().replaceValue("8")
+        compose.onNodeWithContentDescription("1세트 완료").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(precise, fixture.saved.single().inputLoadValue!!, 0.0)
+            assertEquals(kg, fixture.saved.single().weightKg!!, 0.0)
+        }
+        menu.performScrollTo().performClick()
+        compose.onNodeWithTag("set-unit-kg").performScrollTo().performClick()
+        compose.onNode(hasContentDescription("중량(kg)") and hasSetTextAction()).replaceValue("50")
+        menu.performScrollTo().performClick()
+        compose.onNodeWithTag("set-discard-draft").performScrollTo().performClick()
+        compose.onNode(weightLb).assertTextContains("95.1")
+        compose.onNode(reps).assertTextContains("8")
+        compose.runOnIdle { assertEquals(1, fixture.saved.size) }
+    }
+
+    @Test fun reopenedOrdinarySetsHaveNoActiveEditorOrTouchFeedback() {
+        show(detail(listOf(set("set-1", 1, 45).copy(isCompleted = true),
+            set("set-2", 2, 45).copy(inputLoadUnit = MassUnit.LB, inputLoadValue = 100.0, weightKg = 45.359237))))
+        compose.onNodeWithTag("workout-set-record-box").performScrollTo()
+        compose.onNodeWithContentDescription("1세트 완료").assertIsOn()
+        compose.onNodeWithContentDescription("2세트 완료").assertIsOff()
+        compose.onNode(hasContentDescription("중량(lb)") and hasSetTextAction()).assertIsNotFocused()
+        compose.onNodeWithTag("workout-set-remove-set-1").assertIsNotEnabled()
+        screenshot("ordinary-set-at-rest.png")
+    }
+
     @Test fun inlineRemovalKeepsFirstSetAndExistingMenuUsesTheSameProtection() {
         val fixture = show(detail(listOf(set("set-1", 1, 45), set("set-2", 2, 60))))
         compose.onNodeWithTag("workout-set-record-box").performScrollTo()

@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.workout.ui
 
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.OrdinarySetRules
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
@@ -91,7 +92,7 @@ internal fun initialWorkoutSetSuggestion(
 }
 
 internal fun canRemoveWorkoutSet(sets: List<WorkoutSet>, set: WorkoutSet): Boolean =
-    sets.size > 1 && set.setIndex > 1 && sets.minByOrNull { it.setIndex }?.id != set.id
+    OrdinarySetRules.canRemove(sets.size, set.setIndex.toLong(), sets.minByOrNull { it.setIndex }?.id == set.id)
 
 internal fun workoutSetReferenceLabel(source: WorkoutSet, rawRecordType: String, unit: MassUnit,
                                      compact: Boolean = false): String {

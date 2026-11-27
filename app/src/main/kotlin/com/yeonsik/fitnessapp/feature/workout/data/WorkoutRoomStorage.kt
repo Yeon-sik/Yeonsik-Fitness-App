@@ -34,6 +34,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerformancePoint
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType
+import com.yeonsik.fitness.shared.feature.workout.model.OrdinarySetRules
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutProgressSession
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutProgressSet
@@ -1454,7 +1455,7 @@ class WorkoutRoomStorage(
         if (workoutDao.ownsExercise(row.workoutExerciseId, recordId, scope.ownerId) == null) return@call false
         val visibleSets = workoutDao.visibleSets(row.workoutExerciseId, scope.ownerId)
         // Keep the first set as the stable entry point, including sparse imported records.
-        if (row.setIndex <= 1 || visibleSets.size <= 1 || visibleSets.minByOrNull { it.setIndex }?.id == setId) return@call false
+        if (!OrdinarySetRules.canRemove(visibleSets.size, row.setIndex, visibleSets.minByOrNull { it.setIndex }?.id == setId)) return@call false
         val structure = WorkoutStructureMetadata(record.metadata)
         val children = visibleSets.filter {
             structure.sets.optJSONObject(it.id)?.optString("parent_set_id") == setId
