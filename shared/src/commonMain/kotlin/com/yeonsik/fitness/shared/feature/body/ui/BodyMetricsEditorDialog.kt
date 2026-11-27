@@ -4,13 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -23,7 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitness.shared.core.account.AccountScope
@@ -106,15 +103,12 @@ private fun BodyMetricsEditorContent(
                     onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth().testTag("weight-date")
                 ) { Text("날짜 선택  ·  $date") }
-                OutlinedTextField(
+                BodyWeightInput(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = { Text("체중 ${unit.symbol()}") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    isError = weightErrorMessage != null,
-                    supportingText = { weightErrorMessage?.let { Text(it) } },
-                    modifier = Modifier.fillMaxWidth().testTag("weight-input")
+                    label = "체중 ${unit.symbol()}",
+                    error = weightErrorMessage,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
@@ -176,6 +170,11 @@ private fun BodyMetricsEditorContent(
 
 @Composable
 internal expect fun BodyDialogBackGesture(onBack: () -> Unit)
+
+@Composable
+internal expect fun BodyWeightInput(
+    value: String, onValueChange: (String) -> Unit, label: String, error: String?, modifier: Modifier
+)
 
 internal fun bodyMetricsWeightErrorMessage(value: String, saveAttempted: Boolean): String? {
     val input = value.trim()

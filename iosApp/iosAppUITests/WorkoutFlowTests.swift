@@ -160,7 +160,6 @@ final class WorkoutFlowTests: XCTestCase {
         _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
     ) {
         tap(field)
-        // Compose exposes its editor as a text view. Use the keys on its native decimal keyboard.
         let keys = app.keyboards.firstMatch.keys
         for _ in previous {
             tap(keys["Delete"])
