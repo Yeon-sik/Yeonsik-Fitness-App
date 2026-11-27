@@ -21,7 +21,7 @@ def package(assets, destination):
             shutil.copyfile(pictures / frames[0]["file"], destination / (identifier + ".png"))
         entries.append({
             "name": row["presetNameKo"], "englishName": row["presetNameEn"],
-            "metadata": {"id": identifier, "bodyPart": row["defaultUiPart"],
+            "metadata": {"id": identifier, "canonicalName": row["presetNameKo"], "bodyPart": row["defaultUiPart"],
                          "primaryPart": row.get("primarySubPartNameKo") or "",
                          "equipment": row.get("equipmentNameKo") or ""},
         })

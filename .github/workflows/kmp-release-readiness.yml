@@ -208,11 +208,11 @@ jobs:
           overwrite: true
           retention-days: 14
 
-      - name: Keep simulator test results on failure
-        if: failure()
+      - name: Keep simulator test results and workout summary screenshot
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fitness-ios-simulator-failure
+          name: fitness-ios-simulator-${{ job.status == 'success' && 'results' || 'failure' }}
           path: build/ios-sideload/WorkoutSmoke-*.xcresult
           if-no-files-found: ignore
           overwrite: true

@@ -11,6 +11,7 @@ struct RoutineExercise: Codable, Identifiable, Sendable {
 
 struct OrdinaryExerciseMetadata: Codable, Sendable {
     let id: String
+    let canonicalName: String?
     let bodyPart: String
     let primaryPart: String
     let equipment: String
@@ -259,7 +260,8 @@ final class WorkoutStore: ObservableObject {
             }
             data.inProgress = LoggedWorkout(
                 id: UUID(), routineID: routine.id, title: routine.name, startedAt: Date(), completedAt: nil,
-                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id, name: $0.name, catalog: $0.catalog,
+                exercises: routine.exercises.map { LoggedExercise(id: UUID(), routineExerciseID: $0.id,
+                    name: $0.catalog?.canonicalName ?? $0.name, catalog: $0.catalog,
                     sets: [LoggedSet(unit: IosDisplaySettings.shared.unit == .lb ? .lb : .kg)]) }
             )
         }

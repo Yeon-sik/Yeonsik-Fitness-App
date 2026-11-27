@@ -37,14 +37,8 @@ final class WorkoutFlowTests: XCTestCase {
         tap(app.buttons["무산소 운동"])
         tap(app.buttons["create-routine"])
         enter(name, into: app.textFields["routine-name"])
-        let exerciseField = app.textFields["exercise-name"]
-        UIPasteboard.general.setItems([["public.utf8-plain-text": exerciseName]],
-                                      options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(180)])
-        tap(exerciseField)
-        exerciseField.press(forDuration: 1.0)
-        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Paste", "붙여넣기"])).firstMatch
-        tap(paste)
-        XCTAssertEqual(exerciseField.value as? String, exerciseName)
+        // An exact English or Korean preset name records the same canonical exercise as Android.
+        enter("Barbell Flat Bench Press", into: app.textFields["exercise-name"])
         tap(app.buttons["save-routine"])
         let routines = app.descendants(matching: .any).matching(identifier: "routine-\(name)")
         XCTAssertTrue(routines.firstMatch.waitForExistence(timeout: 15))
