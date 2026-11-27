@@ -82,7 +82,7 @@ final class WorkoutFlowTests: XCTestCase {
             NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "weight-date", "날짜 선택")
         ).firstMatch
         let select = bodyControl(app, identifier: "weight-date-confirm", label: "선택")
-        let input = app.descendants(matching: .any)["weight-input"].firstMatch
+        let input = app.textFields.matching(NSPredicate(format: "label BEGINSWITH %@", "체중 ")).firstMatch
         let save = bodyControl(app, identifier: "weight-save", label: "저장")
         let record = app.descendants(matching: .any).matching(NSPredicate(
             format: "identifier == %@ OR (label CONTAINS %@ AND label CONTAINS %@)",
@@ -152,7 +152,8 @@ final class WorkoutFlowTests: XCTestCase {
     @MainActor
     private func assertBodyWeight(_ text: String, in field: XCUIElement) {
         XCTAssertTrue(field.waitForExistence(timeout: 10), field.debugDescription)
-        XCTAssertTrue(field.label == text || (field.value as? String) == text, field.debugDescription)
+        let committed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [committed], timeout: 5), .completed, field.debugDescription)
     }
 
     @MainActor
@@ -160,7 +161,6 @@ final class WorkoutFlowTests: XCTestCase {
         _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
     ) {
         tap(field)
-        // Compose exposes its editor as a text view. Use the keys on its native decimal keyboard.
         let keys = app.keyboards.firstMatch.keys
         for _ in previous {
             tap(keys["Delete"])

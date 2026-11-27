@@ -4,6 +4,8 @@
 
 ## 출발점
 
+후속 통합 브랜치의 APK 지문, Android 메뉴·외부 진입점 및 합성 회귀 시나리오는 [Android·iOS 회귀 비교 기준](KMP_PARITY_BASELINE.md)에 기록한다.
+
 | 확인 대상 | 이번 계획의 기준 |
 | --- | --- |
 | 설치된 Android | `com.yeonsik.fitnessapp` 1.1.0 (2)의 설치 APK가 로컬 `feat/health-connect-workout-import-20261109` 작업 트리의 `app-qa.apk`와 SHA-256까지 일치했다. 지문은 `92699d4206fee4ebc40abe3ba22f1672834f28807f3689d82c02e0b98a3b2057`이다. 작업 트리 HEAD `e7b992ac`는 Room 62와 Health Connect 운동 조회·검토·연결을 포함한다. 이 확인에서 사용자의 DB는 열지 않았다. |
