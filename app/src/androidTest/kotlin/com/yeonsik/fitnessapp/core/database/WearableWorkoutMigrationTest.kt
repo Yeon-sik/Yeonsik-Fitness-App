@@ -10,6 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.dailyworkout.WorkoutDay
 import com.yeonsik.fitness.shared.feature.dailyworkout.projectDailyWorkouts
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository
 import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutDailyReadRepository
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
@@ -47,7 +48,7 @@ class WearableWorkoutMigrationTest {
                     }
                     override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                 }).build())
-        val tables = listOf("workout_records", "workout_exercises", "workout_sets")
+        val tables = listOf("workout_records", "workout_exercises", "workout_sets", "weight_records")
         try {
             val before = helper.use {
                 val db = it.writableDatabase
@@ -60,6 +61,11 @@ class WearableWorkoutMigrationTest {
                 db.execSQL("INSERT INTO workout_sets (id,user_id,workout_exercise_id,set_index,weight_kg,actual_reps,rir," +
                     "is_completed,volume_kg,created_at,updated_at,device_id) VALUES ('set','owner','exercise',1,12.5,10,2,1," +
                     "125,'created','updated','device')")
+                val insertWeight = "INSERT INTO weight_records " +
+                    "(id,user_id,date,weight_kg,created_at,is_backfilled,updated_at,device_id,source_app,scope,metadata) " +
+                    "VALUES (?,?,'2000-01-02',?,'created',0,'updated','device','fitness','fitness','{}')"
+                db.execSQL(insertWeight, arrayOf<Any>("weight-a", "owner", 70.25))
+                db.execSQL(insertWeight, arrayOf<Any>("weight-b", "other-owner", 81.5))
                 tables.associateWith { table -> rows(db, table) }
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
@@ -87,6 +93,16 @@ class WearableWorkoutMigrationTest {
             val reopened = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name).build()
             try {
                 for (table in tables) assertEquals(table, before[table], rows(reopened.openHelper.readableDatabase, table))
+                val owner = AccountScope("owner")
+                val other = AccountScope("other-owner")
+                val weights = BodyMetricsRepository(reopened, owner.ownerId)
+                val otherWeights = BodyMetricsRepository(reopened, other.ownerId)
+                val added = weights.addBodyMetric(owner, "2000-01-03", 72.5, "")
+                assertEquals(72.5, checkNotNull(weights.bodyMetricEntryById(owner, added)).weightKg, 0.0)
+                assertEquals(70.25, checkNotNull(weights.bodyMetricEntryById(owner, "weight-a")).weightKg, 0.0)
+                assertEquals(81.5, checkNotNull(otherWeights.bodyMetricEntryById(other, "weight-b")).weightKg, 0.0)
+                assertNull(weights.bodyMetricEntryById(owner, "weight-b"))
+                assertNull(otherWeights.bodyMetricEntryById(other, added))
                 val day = WorkoutDay(LocalDate.parse("2000-01-02"), TimeZone.UTC)
                 fun reader(owner: String) = WorkoutDailyReadRepository(reopened, WorkoutRepositoryImplementation(reopened, context),
                     CardioRepository(reopened, owner), AccountScope(owner))
