@@ -107,8 +107,10 @@ class OrdinaryWorkoutParityTest {
                 assertEquals(10, saved.actualReps)
                 assertEquals(2, saved.rir)
                 var recordsOpened = false
+                val arguments = InstrumentationRegistry.getArguments()
+                val capture = arguments.getString("captureSummary") == "true"
                 compose.setContent {
-                    FitnessComposeTheme(false) {
+                    FitnessComposeTheme(dark = capture && arguments.getString("captureSummaryTheme") == "dark") {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
                             WorkoutSummaryScreen(WorkoutSessionUiState.Ready(owner.ownerId, session), owner.ownerId,
                                 MassUnit.LB, onBack = {}, onExercise = {}, onRecords = { recordsOpened = true },
@@ -118,7 +120,7 @@ class OrdinaryWorkoutParityTest {
                 }
                 compose.onNodeWithText("운동 요약").assertExists()
                 compose.onAllNodesWithText("1,000lb", useUnmergedTree = true).onFirst().assertExists()
-                if (InstrumentationRegistry.getArguments().getString("captureSummary") == "true") {
+                if (capture) {
                     compose.waitForIdle()
                     context.cacheDir.resolve("ordinary-summary.png").outputStream().use {
                         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)

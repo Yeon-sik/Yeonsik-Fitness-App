@@ -7,6 +7,10 @@ import uuid
 from pathlib import Path
 
 
+def comparable_set(row):
+    return dict(row, id=uuid.UUID(row["id"]))
+
+
 def check(simulator, bundle, records):
     def launch():
         subprocess.run(["xcrun", "simctl", "launch", simulator, bundle], check=True)
@@ -60,8 +64,12 @@ def check(simulator, bundle, records):
             assert uuid.UUID(exercise["id"]) == expected and expected not in seen
             seen.add(expected)
             assert exercise["routineExerciseID"].lower() == routine_exercise.lower()
-            assert [s["id"].lower() for s in exercise["sets"]] == [s["id"].lower() for s in before["exercises"][0]["sets"]]
-            assert exercise["sets"][0] == dict(before["exercises"][0]["sets"][0], isCompleted=True)
+            expected_sets = [
+                comparable_set(dict(row, isCompleted=True))
+                for row in before["exercises"][0]["sets"]
+            ]
+            actual_sets = [comparable_set(row) for row in exercise["sets"]]
+            assert actual_sets == expected_sets, (actual_sets, expected_sets)
             assert uuid.UUID(after["id"]) == uuid.UUID(before["id"])
         # Version 2 already has occurrence IDs and may contain two workouts using the same routine.
         version_two = json.loads(json.dumps(migrated))

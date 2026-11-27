@@ -185,6 +185,7 @@ jobs:
         run: bash scripts/ios/test-workout-simulator.sh
 
       - name: Keep the synthetic iOS record
+        if: ${{ !cancelled() && hashFiles('build/ios-sideload/ios.json') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ordinary-workout-ios
