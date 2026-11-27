@@ -159,8 +159,15 @@ final class WorkoutFlowTests: XCTestCase {
         tap(bodyControl(app, identifier: "display-dark", label: "어둡게"))
         assertSelected(bodyControl(app, identifier: "display-dark", label: "어둡게"))
         tap(recordsTab)
-        tap(app.buttons["기록 추가"])
-        tap(app.buttons["체중"])
+        let addRecord = app.buttons["records-add"]
+        let weightKind = app.buttons["records-add-weight"]
+        tap(addRecord)
+        XCTAssertTrue(weightKind.waitForExistence(timeout: 10))
+        XCTAssertEqual(weightKind.label, "체중")
+        tap(addRecord)
+        waitUntilGone(weightKind)
+        tap(addRecord)
+        tap(weightKind)
         assertBodyWeight("102.06", in: input)
         tap(save)
         waitUntilGone(date)

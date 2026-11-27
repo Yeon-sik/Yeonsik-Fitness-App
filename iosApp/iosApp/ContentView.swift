@@ -450,11 +450,30 @@ private struct WorkoutHistoryView: View {
     @EnvironmentObject private var store: WorkoutStore
     @State private var showDailyWorkout = false
     @State private var showSyncAccount = false
+    @State private var choosingRecordKind = false
     @State private var bodyEntry: BodyEntry?
 
     var body: some View {
         List {
-            Menu("기록 추가") { Button("체중") { bodyEntry = .today } }
+            Button { choosingRecordKind.toggle() } label: {
+                HStack {
+                    Text("기록 추가")
+                    Spacer()
+                    Image(systemName: choosingRecordKind ? "chevron.up" : "chevron.down")
+                        .imageScale(.small).accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("records-add")
+            .accessibilityValue(choosingRecordKind ? "펼쳐짐" : "접힘")
+            if choosingRecordKind {
+                Button("체중") {
+                    choosingRecordKind = false
+                    bodyEntry = .today
+                }
+                .accessibilityIdentifier("records-add-weight")
+            }
             Button("체중 기록") { bodyEntry = .history }
             let history = store.data?.history ?? []
             if history.isEmpty {
