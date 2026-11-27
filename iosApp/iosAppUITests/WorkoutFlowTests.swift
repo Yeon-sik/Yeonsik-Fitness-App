@@ -304,24 +304,30 @@ final class WorkoutFlowTests: XCTestCase {
         _ text: String, into field: XCUIElement, in app: XCUIApplication, replacing previous: String = ""
     ) {
         XCTAssertTrue(field.waitForExistence(timeout: 15))
+        func tapField(atX x: CGFloat) {
+            let point = CGPoint(x: x, y: field.frame.midY)
+            XCTAssertFalse(field.frame.isEmpty, field.debugDescription)
+            XCTAssertTrue(app.frame.contains(point), field.debugDescription)
+            app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: point.x - app.frame.minX, dy: point.y - app.frame.minY)
+            ).tap()
+        }
         if field.isHittable {
             field.tap()
         } else {
-            // XCTest can report no hit point for a UIKit text field nested in a Compose scroll view.
-            // Tap its visible center and require the native keyboard and the edited value below.
-            let center = CGPoint(x: field.frame.midX, y: field.frame.midY)
-            XCTAssertFalse(field.frame.isEmpty, field.debugDescription)
-            XCTAssertTrue(app.frame.contains(center), field.debugDescription)
-            XCTContext.runActivity(named: "Tap visible center of \(field.label)") { _ in
-                app.coordinate(withNormalizedOffset: .zero).withOffset(
-                    CGVector(dx: center.x - app.frame.minX, dy: center.y - app.frame.minY)
-                ).tap()
-            }
+            tapField(atX: field.frame.midX)
         }
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), field.debugDescription)
         let keys = app.keyboards.firstMatch.keys
-        for _ in previous {
-            tap(keys["Delete"])
+        if !previous.isEmpty {
+            assertBodyWeight(previous, in: field)
+            // UIKit places the caret at the tapped glyph. A tap beyond the final digit puts it at the end.
+            tapField(atX: field.frame.maxX - 2)
+            for _ in previous { tap(keys["Delete"]) }
+            let cleared = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == nil OR value == %@ OR value == %@", "", field.placeholderValue ?? ""),
+                object: field)
+            XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 5), .completed, field.debugDescription)
         }
         for character in text {
             tap(keys[String(character)])
